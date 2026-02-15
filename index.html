@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Die A Log - Comic Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Annie+Use+Your+Telescope&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              header: ['"Amatic SC"', 'cursive'],
+              comic: ['"Amatic SC"', 'cursive'],
+              handwritten: ['"Annie Use Your Telescope"', 'cursive'],
+            },
+            borderRadius: {
+              '3xl': '1rem',
+              '2xl': '0.75rem',
+              'xl': '0.5rem',
+            },
+            colors: {
+              brand: {
+                50: '#f1f5f9',
+                100: '#e2e8f0',
+                200: '#cbd5e1',
+                300: '#94a3b8',
+                400: '#64748b',
+                500: '#475569', 
+                600: '#334155', 
+                700: '#1e293b',
+                800: '#0f172a',
+                900: '#020617',
+              },
+              appbg: '#dbdac8',
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      body, .custom-bg {
+        background: linear-gradient(to right, #dbdac8 0%, #dbdac8 100%);
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #dbdac8; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #1e293b; 
+      }
+      .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.9);
+        backdrop-filter: blur(8px);
+      }
+      .read-mode-scroll {
+        scroll-snap-type: y mandatory;
+      }
+      .read-mode-page {
+        scroll-snap-align: start;
+      }
+      .font-header { font-family: 'Amatic SC', cursive; font-weight: 700; }
+      .font-comic { font-family: 'Amatic SC', cursive; font-weight: 700; }
+      .font-handwritten { font-family: 'Annie Use Your Telescope', cursive; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "jszip": "https://esm.sh/jszip@^3.10.1",
+    "jspdf": "https://esm.sh/jspdf@^2.5.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="text-slate-900 h-screen overflow-hidden">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

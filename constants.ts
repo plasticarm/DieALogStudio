@@ -1,0 +1,26 @@
+import { ComicProfile } from './types';
+
+export const INITIAL_COMICS: ComicProfile[] = [
+  { id: 'c1', name: 'Noir Whiskers', artStyle: 'High-contrast black and white ink noir, detective silhouettes', environment: 'Rainy city streets', environments: [{id:'e1', name:'Rainy Alley', description:'Gritty alley with puddles'}, {id:'e2', name:'Private Eye Office', description:'Office with blinds casting shadows'}], panelCount: 3, characters: [{ id: 'nw1', name: 'Detective Paws', description: 'Tabby cat in a trench coat' }, {id:'nw2', name:'Fat Cat', description:'Persian with gold collar'}] },
+  { id: 'c2', name: 'Cubicle Quest', artStyle: 'Isometric office art, vibrant corporate colors', environment: 'Grey cubicles', environments: [{id:'e3', name:'The Maze', description:'Infinite grey cubicles'}], panelCount: 3, characters: [{ id: 'cq1', name: 'Greg', description: 'Weary IT guy' }] },
+  { id: 'c3', name: 'Galaxy Banal', artStyle: 'Retro-futurism, 70s sci-fi aesthetic', environment: 'Space station breakroom', environments: [], panelCount: 3, characters: [{id:'gb1', name:'Pete', description:'Burrito eating pilot'}] },
+  { id: 'c4', name: 'Toddler Doom', artStyle: 'Crayon-like colors, chaotic scribbles', environment: 'Messy playroom', environments: [], panelCount: 3, characters: [{id:'td1', name:'Timmy', description:'Toddler with colander helmet'}] },
+  { id: 'c5', name: 'Unholy Roommates', artStyle: 'Modern webcomic, thick outlines', environment: 'Shared apartment', environments: [], panelCount: 3, characters: [{id:'ur1', name:'Balthazar', description:'Demon in pajamas'}] },
+  { id: 'c6', name: 'Squeak & Destroy', artStyle: 'Epic fantasy, miniature scale', environment: 'Household battlefield', environments: [], panelCount: 3, characters: [{id:'sd1', name:'Squeaksalot', description:'Mouse knight'}] },
+  { id: 'c7', name: 'Hell’s Helpdesk', artStyle: 'Fiery palette, demonic tech', environment: 'Lava office', environments: [], panelCount: 3, characters: [{id:'hh1', name:'Lucifer', description:'CEO of Hell'}] },
+  { id: 'c8', name: 'The Bozo Nostra', artStyle: 'Vintage circus mobsters', environment: 'Circus tent backroom', environments: [], panelCount: 3, characters: [{id:'bn1', name:'Don Chuckles', description:'Clown Mobster'}] },
+  { id: 'c9', name: 'Impact Zone', artStyle: 'Action manga, speed lines', environment: 'Futuristic skate park', environments: [], panelCount: 3, characters: [{id:'iz1', name:'Jax', description:'Cyborg skater'}] },
+  { id: 'c10', name: 'Hoard Less', artStyle: 'Storybook watercolor', environment: 'Dragon cave', environments: [], panelCount: 3, characters: [{id:'hl1', name:'Cinder', description:'Minimalist dragon'}] },
+  { id: 'c11', name: 'Grim Life', artStyle: 'Minimalist line art', environment: 'DMV afterlife', environments: [], panelCount: 3, characters: [{id:'gl1', name:'Grim', description:'Skeleton in hoodie'}] },
+  { id: 'c12', name: 'Capes on the Couch', artStyle: 'Silver age comic, Ben-Day dots', environment: 'Therapist office', environments: [], panelCount: 3, characters: [{id:'cc1', name:'UltraMan', description:'Sensitive hero'}] },
+  { id: 'c13', name: 'Stone Cold Idiots', artStyle: 'Prehistoric stone-carving texture', environment: 'Cave', environments: [], panelCount: 3, characters: [{id:'si1', name:'Oog', description:'Caveman inventor'}] },
+  { id: 'c14', name: 'The Totally Normal Johnsons', artStyle: '50s sitcom technicolor', environment: 'Suburban kitchen', environments: [], panelCount: 3, characters: [{id:'tj1', name:'Bob', description:'Alien dad'}] },
+  { id: 'c15', name: 'Pulse & Impulse', artStyle: 'Cyberpunk neon, glitch effects', environment: 'Neon alleyway', environments: [], panelCount: 3, characters: [{id:'pi1', name:'Pulse', description:'Hacker'}] },
+  { id: 'c16', name: 'Upload Complete', artStyle: 'Digital grid, holographic', environment: 'Data void', environments: [], panelCount: 3, characters: [{id:'uc1', name:'User01', description:'Pixel avatar'}] },
+  { id: 'c17', name: 'Trash Talk', artStyle: 'Gritty textures, muted colors', environment: 'Dumpster', environments: [], panelCount: 3, characters: [{id:'tt1', name:'Canny', description:'Grumpy soda can'}] },
+  { id: 'c18', name: 'Web of Lies', artStyle: 'Macro photography style', environment: 'Attic corner', environments: [], panelCount: 3, characters: [{id:'wl1', name:'Spin', description:'Spider in fedora'}] },
+  { id: 'c19', name: 'Sofa, So Good', artStyle: 'Living furniture aesthetic', environment: 'Cozy living room', environments: [], panelCount: 3, characters: [{id:'sg1', name:'Cushion', description:'Plump cushion'}] },
+  { id: 'c20', name: 'Meat Cute', artStyle: 'Horror-comedy, butcher reds', environment: 'Steakhouse kitchen', environments: [], panelCount: 3, characters: [{id:'mc1', name:'T-Bone', description:'Sentient steak'}] },
+  { id: 'c21', name: 'The Nuts Gang', artStyle: 'Heist film nature photography', environment: 'Park bench', environments: [], panelCount: 3, characters: [{id:'ng1', name:'Acorn', description:'Squirrel thief'}] },
+  { id: 'c22', name: 'Pond Buddies', artStyle: 'Soft charcoal and gouache', environment: 'Lily pond', environments: [], panelCount: 3, characters: [{id:'pb1', name:'Froppy', description:'Calm frog'}] }
+];

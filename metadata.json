@@ -1,0 +1,5 @@
+{
+  "name": "Die A Log - Comic Editor",
+  "description": "A comprehensive comic strip editing and generation tool for game developers. Features AI-powered script writing, art generation, consistency training, and dialogue export.",
+  "requestFramePermissions": []
+}
