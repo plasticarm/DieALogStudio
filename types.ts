@@ -1,3 +1,24 @@
+export interface ApiKeys {
+  gemini?: string;
+  elevenLabs?: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email?: string;
+  picture?: string;
+  apiKeys: ApiKeys;
+}
+
+export interface AppSession {
+  id: string;
+  userId: string;
+  name: string;
+  lastModified: number;
+  data: ProjectState;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -21,7 +42,7 @@ export interface ComicProfile {
   environment: string;
   panelCount: number;
   styleReferenceImageUrl?: string;
-  backgroundColor?: string; // Series-specific theme color
+  backgroundColor?: string;
 }
 
 export interface GeneratedPanelScript {
@@ -35,7 +56,7 @@ export interface GeneratedPanelScript {
 
 export interface SavedComicStrip {
   id: string;
-  arTargetId: string; // Unique ID for AR usage
+  arTargetId: string;
   name: string;
   comicProfileId: string;
   prompt: string;
@@ -51,9 +72,8 @@ export interface ComicBook {
   title: string;
   description: string;
   coverImageUrl?: string;
-  pages: string[]; // IDs of SavedComicStrip
+  pages: string[];
   timestamp: number;
-  // Settings
   width: number;
   height: number;
   logoUrl?: string;
@@ -70,6 +90,7 @@ export interface ProjectState {
   books: ComicBook[];
   timestamp: number;
   globalBackgroundColor: string;
+  activeSeriesId: string | null;
 }
 
 export type ArtModelType = 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview';

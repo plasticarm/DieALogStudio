@@ -1,18 +1,35 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ComicProfile, GeneratedPanelScript, ArtModelType } from "../types";
 
 /**
- * Creates a new instance of GoogleGenAI immediately before making an API call.
- * This ensures the most up-to-date API key from the user selection dialog is utilized.
+ * Resolves the API key based on the defined priority:
+ * 1. User's custom key from profile
+ * 2. AI Studio environment check
+ * 3. Fallback to process.env.API_KEY
  */
-const getAiClient = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getApiKey = async (): Promise<string | undefined> => {
+  // Check local storage for user custom key
+  const savedUser = localStorage.getItem('app_user');
+  if (savedUser) {
+    const user = JSON.parse(savedUser);
+    if (user.apiKeys?.gemini) return user.apiKeys.gemini;
+  }
+
+  // Check AI Studio vault
+  try {
+    const hasStudioKey = await (window as any).aistudio?.hasSelectedApiKey();
+    if (hasStudioKey) return process.env.API_KEY; // The platform injects it here
+  } catch (e) {}
+
+  // Final fallback
+  return process.env.API_KEY;
 };
 
-/**
- * Broadcasts errors to the UI, particularly those related to invalid or missing keys.
- */
+const getAiClient = async () => {
+  const apiKey = await getApiKey();
+  return new GoogleGenAI({ apiKey: apiKey || '' });
+};
+
 const handleApiError = (error: any) => {
   console.error("Gemini API Error:", error);
   window.dispatchEvent(new CustomEvent('gemini-api-error', { 
@@ -28,7 +45,7 @@ export const generateComicScript = async (
   panelCount: number
 ): Promise<GeneratedPanelScript[]> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const characterContext = profile.characters.map(c => `${c.name}: ${c.description}`).join('\n');
     const environmentContext = (profile.environments || []).map(e => `${e.name}: ${e.description}`).join('\n');
 
@@ -70,7 +87,7 @@ export const generateComicArt = async (
   model: ArtModelType
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const panelsDesc = script.map(p => `Panel ${p.panelNumber}: ${p.visualDescription}`).join('\n');
     const dialogDesc = script.map(p => `Panel ${p.panelNumber} Dialogue: ${p.dialogue.map(d => `${d.character} says "${d.text}"`).join(', ')}`).join('\n');
     
@@ -100,7 +117,7 @@ export const generateComicArt = async (
 
 export const removeTextFromComic = async (imageBase64: string, model: ArtModelType): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const prompt = `This is a comic strip. Please edit this image to REMOVE ALL DIALOGUE TEXT from the speech bubbles. The bubbles must remain but they should be completely white and empty inside. Do not change anything else in the image.`;
     
     const response = await ai.models.generateContent({
@@ -120,7 +137,7 @@ export const removeTextFromComic = async (imageBase64: string, model: ArtModelTy
 
 export const generateEnvironmentDescription = async (theme: string): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `Visual description for: "${theme}".`,
