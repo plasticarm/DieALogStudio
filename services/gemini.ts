@@ -1,6 +1,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ComicProfile, GeneratedPanelScript, ArtModelType } from "../types";
 
+/**
+ * Creates a new instance of GoogleGenAI immediately before making an API call.
+ * This ensures the most up-to-date API key from the user selection dialog is utilized.
+ */
 const getAiClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };

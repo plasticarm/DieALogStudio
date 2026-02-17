@@ -18,10 +18,10 @@ declare global {
 }
 
 export default function App() {
+  const DEFAULT_BG_COLOR = '#dbdac8';
   const [currentTab, setCurrentTab] = useState<'generate' | 'train' | 'book' | 'books'>('books');
   const [comics, setComics] = useState<ComicProfile[]>(INITIAL_COMICS);
   const [books, setBooks] = useState<ComicBook[]>([]);
-  const [globalColor, setGlobalColor] = useState('#dbdac8');
   const [activeSeriesId, setActiveSeriesId] = useState<string | null>(null);
   
   const [isManagingCover, setIsManagingCover] = useState(false);
@@ -32,7 +32,7 @@ export default function App() {
   const [readModePages, setReadModePages] = useState<SavedComicStrip[] | null>(null);
   const [history, setHistory] = useState<SavedComicStrip[]>([]);
 
-  // Initialize books and state
+  // Initialize data
   useEffect(() => {
     const savedComics = localStorage.getItem('diealog_comics');
     const parsedComics: ComicProfile[] = savedComics ? JSON.parse(savedComics) : INITIAL_COMICS;
@@ -66,9 +66,6 @@ export default function App() {
       localStorage.setItem('diealog_books', JSON.stringify(parsedBooks));
     }
     setBooks(parsedBooks);
-
-    const savedColor = localStorage.getItem('diealog_global_color');
-    if (savedColor) setGlobalColor(savedColor);
 
     const savedActiveId = localStorage.getItem('diealog_active_series');
     if (savedActiveId) setActiveSeriesId(savedActiveId);
@@ -113,15 +110,22 @@ export default function App() {
     localStorage.setItem('diealog_books', JSON.stringify(updatedBooks));
   };
 
-  const handleUpdateGlobalColor = (color: string) => {
-    setGlobalColor(color);
-    localStorage.setItem('diealog_global_color', color);
+  const handleSaveToHistory = (strip: SavedComicStrip) => {
+    const updatedHistory = [strip, ...history];
+    setHistory(updatedHistory);
+    localStorage.setItem('diealog_history', JSON.stringify(updatedHistory));
+  };
+
+  const handleUpdateSeriesColor = (color: string) => {
+    if (!activeSeriesId) return;
+    const updatedComics = comics.map(c => c.id === activeSeriesId ? { ...c, backgroundColor: color } : c);
+    handleUpdateComics(updatedComics);
   };
 
   const handleOpenBook = (bookId: string) => {
     setActiveSeriesId(bookId);
     localStorage.setItem('diealog_active_series', bookId);
-    setCurrentTab('generate'); // Switch to Studio directly upon selection
+    setCurrentTab('generate');
   };
 
   const startEditPage = (strip: SavedComicStrip) => {
@@ -130,15 +134,14 @@ export default function App() {
   };
 
   const handleExportProject = () => {
-    const currentHistory = JSON.parse(localStorage.getItem('diealog_history') || '[]');
     const project: ProjectState = {
-      version: '3.0.0', 
+      version: '3.1.1', 
       comics, 
-      history: currentHistory, 
+      history, 
       bookPages: [],
       books, 
       timestamp: Date.now(),
-      globalBackgroundColor: globalColor
+      globalBackgroundColor: DEFAULT_BG_COLOR
     };
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -156,9 +159,6 @@ export default function App() {
         localStorage.setItem('diealog_comics', JSON.stringify(project.comics || INITIAL_COMICS));
         localStorage.setItem('diealog_history', JSON.stringify(project.history || []));
         localStorage.setItem('diealog_books', JSON.stringify(project.books || []));
-        if (project.globalBackgroundColor) {
-          localStorage.setItem('diealog_global_color', project.globalBackgroundColor);
-        }
         window.location.reload(); 
       } catch (err) { alert('Import process encountered an error.'); }
     };
@@ -168,20 +168,26 @@ export default function App() {
   const activeComic = useMemo(() => comics.find(c => c.id === activeSeriesId), [comics, activeSeriesId]);
   const activeBook = useMemo(() => books.find(b => b.id === activeSeriesId), [books, activeSeriesId]);
 
+  const currentBackgroundColor = useMemo(() => {
+    if (currentTab === 'books' || !activeComic) return DEFAULT_BG_COLOR;
+    return activeComic.backgroundColor || DEFAULT_BG_COLOR;
+  }, [currentTab, activeComic]);
+
   return (
     <div 
       className="flex flex-col h-screen font-sans selection:bg-brand-200 overflow-hidden transition-all duration-700"
-      style={{ backgroundColor: globalColor }}
+      style={{ backgroundColor: currentBackgroundColor }}
     >
       <Sidebar 
         currentTab={currentTab} 
         setCurrentTab={setCurrentTab} 
         onExport={handleExportProject}
         onImport={handleImportProject}
+        hasKey={hasKey}
+        onOpenKeyVault={handleOpenKeyDialog}
       />
       
       <main className="flex-1 overflow-hidden relative flex flex-col">
-        {/* Workspace Texture */}
         <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" 
              style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
         </div>
@@ -189,9 +195,17 @@ export default function App() {
         <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
           {hasKey === false && (
             <div className="bg-slate-900 text-slate-100 px-8 py-2.5 flex items-center justify-between shadow-2xl shrink-0 z-20">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <span className="w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
                 <p className="text-[10px] font-black uppercase tracking-[0.4em]">Gemini AI Studio: Pro Tier Authorization Required</p>
+                <a 
+                  href="https://ai.google.dev/gemini-api/docs/billing" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="text-[9px] text-slate-400 hover:text-white underline uppercase tracking-widest ml-4"
+                >
+                  Billing Info
+                </a>
               </div>
               <button onClick={handleOpenKeyDialog} className="bg-white text-slate-900 px-6 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-brand-100 transition-all shadow-xl active:scale-95">Open Key Vault</button>
             </div>
@@ -221,8 +235,8 @@ export default function App() {
                   book={activeBook} 
                   onUpdateBook={handleUpdateBook} 
                   onBack={() => setIsEditingSettings(false)}
-                  globalColor={globalColor}
-                  onUpdateGlobalColor={handleUpdateGlobalColor}
+                  globalColor={currentBackgroundColor}
+                  onUpdateGlobalColor={handleUpdateSeriesColor}
                 />
               ) : (
                 <ComicBookEditor 
@@ -234,6 +248,7 @@ export default function App() {
                   onManageCover={() => setIsManagingCover(true)}
                   onOpenSettings={() => setIsEditingSettings(true)}
                   activeSeriesId={activeSeriesId}
+                  history={history}
                 />
               )
             )}
@@ -244,6 +259,8 @@ export default function App() {
                 activeComic={activeComic} 
                 initialStrip={activeEditingStrip}
                 onPreviewImage={setPreviewImage}
+                onSaveHistory={handleSaveToHistory}
+                history={history}
               />
             )}
 
@@ -252,12 +269,11 @@ export default function App() {
                 editingComic={activeComic}
                 onUpdateComic={(updated) => handleUpdateComics(comics.map(c => c.id === updated.id ? updated : c))}
                 onPreviewImage={setPreviewImage} 
-                globalColor={globalColor}
-                onUpdateGlobalColor={handleUpdateGlobalColor}
+                globalColor={currentBackgroundColor}
+                onUpdateGlobalColor={handleUpdateSeriesColor}
               />
             )}
 
-            {/* Empty State for context-driven tabs when no series is active */}
             {currentTab !== 'books' && !activeSeriesId && (
               <div className="flex items-center justify-center h-full text-slate-400 p-10">
                 <div className="text-center bg-white/40 backdrop-blur-3xl p-20 rounded-[3rem] border-2 border-white/50 shadow-[0_50px_100px_rgba(0,0,0,0.1)] max-w-2xl">
@@ -280,9 +296,9 @@ export default function App() {
         </div>
       </main>
 
-      {/* Reader Mode (Portal-like) */}
+      {/* Reader and Modal overlays... */}
       {readModePages && activeBook && (
-        <div className="fixed inset-0 z-[200] flex flex-col items-center overflow-hidden animate-in fade-in duration-500" style={{ backgroundColor: globalColor }}>
+        <div className="fixed inset-0 z-[200] flex flex-col items-center overflow-hidden animate-in fade-in duration-500" style={{ backgroundColor: currentBackgroundColor }}>
           <div className="w-full bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-10 py-6 flex justify-between items-center shrink-0 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
             <div className="flex items-center gap-6">
                <h2 className="text-white font-comic text-4xl tracking-[0.3em] uppercase">{activeBook.title}</h2>
@@ -297,7 +313,7 @@ export default function App() {
             {activeBook.coverImageUrl && (
               <div className="max-w-6xl mx-auto read-mode-page flex flex-col items-center">
                 <div style={{ aspectRatio: `${activeBook.width}/${activeBook.height}` }} className="w-full relative group">
-                  <img src={activeBook.coverImageUrl} className="w-full h-full object-cover rounded-3xl shadow-[0_0_120px_rgba(0,0,0,0.9)] border-[12px] border-slate-900 transition-transform duration-1000 group-hover:scale-[1.02]" />
+                  <img src={activeBook.coverImageUrl} className="w-full h-full object-cover rounded-3xl shadow-[0_0_120px_rgba(0,0,0,0.9)] border-[12px] border-slate-900" />
                   <h1 className="absolute bottom-20 left-0 right-0 text-white font-comic text-9xl text-center uppercase drop-shadow-[0_10px_20px_rgba(0,0,0,1)] select-none">{activeBook.title}</h1>
                 </div>
               </div>
@@ -306,42 +322,33 @@ export default function App() {
               <div key={page.id} className="read-mode-page flex flex-col items-center space-y-12 max-w-7xl mx-auto">
                 <div className="w-full flex justify-between items-end border-b-2 border-slate-800/50 pb-6">
                   <div className="flex flex-col gap-2">
-                    <span className="text-slate-500 font-black uppercase text-xs tracking-[0.4em] font-handwritten">
-                      {activeBook.showPageNumbers && activeBook.pageNumberPosition === 'top' && `Folio: ${idx + 1}`}
-                    </span>
+                    <span className="text-slate-500 font-black uppercase text-xs tracking-[0.4em] font-handwritten">Folio: {idx + 1}</span>
                     <span className="text-slate-600 font-mono text-[10px] uppercase tracking-tighter opacity-50">SYNC_ID: {page.arTargetId}</span>
                   </div>
                   <div className="flex items-center gap-6">
-                    {activeBook.logoUrl && <img src={activeBook.logoUrl} className="h-14 opacity-30 grayscale hover:grayscale-0 transition-all hover:opacity-100" />}
+                    {activeBook.logoUrl && <img src={activeBook.logoUrl} className="h-14 opacity-30 grayscale hover:grayscale-0 transition-all" />}
                     <span className="text-slate-100 font-black uppercase tracking-[0.3em] text-2xl font-comic">{page.name}</span>
                   </div>
                 </div>
-                <div style={{ aspectRatio: `${activeBook.width}/${activeBook.height}` }} className="w-full shadow-[0_0_150px_rgba(0,0,0,0.4)]">
+                <div style={{ aspectRatio: `${activeBook.width}/${activeBook.height}` }} className="w-full shadow-2xl">
                   <img src={page.finishedImageUrl} className="w-full h-full object-cover rounded-3xl border-[16px] border-slate-900 shadow-2xl" />
                 </div>
-                {activeBook.showPageNumbers && activeBook.pageNumberPosition === 'bottom' && (
-                  <div className="text-slate-600 font-black uppercase text-xl tracking-[0.8em] font-handwritten opacity-40">Folio {idx + 1}</div>
-                )}
               </div>
             ))}
-            <div className="text-center py-60">
-              <div className="text-slate-900 font-comic text-[180px] opacity-5 uppercase tracking-[0.8em] select-none leading-none">FIN</div>
-            </div>
           </div>
         </div>
       )}
 
-      {/* Preview Modal */}
       {previewImage && (
-        <div className="fixed inset-0 z-[100] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out animate-in fade-in duration-300" onClick={() => setPreviewImage(null)}>
+        <div className="fixed inset-0 z-[100] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-8xl max-h-full">
             <img 
               src={previewImage} 
-              className="max-w-full max-h-[90vh] rounded-[2rem] shadow-[0_0_150px_rgba(0,0,0,0.8)] border-[20px] border-white animate-in zoom-in-95 duration-300" 
+              className="max-w-full max-h-[90vh] rounded-[2rem] shadow-[0_0_150px_rgba(0,0,0,0.8)] border-[20px] border-white animate-in zoom-in-95" 
               onClick={(e) => e.stopPropagation()} 
             />
             <button 
-              className="absolute -top-10 -right-10 bg-slate-900 text-white w-20 h-20 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-center font-black text-5xl hover:scale-110 hover:rotate-90 transition-all active:scale-95" 
+              className="absolute -top-10 -right-10 bg-slate-900 text-white w-20 h-20 rounded-full flex items-center justify-center font-black text-5xl hover:scale-110 transition-all" 
               onClick={() => setPreviewImage(null)}
             >
               ×

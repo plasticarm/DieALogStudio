@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import JSZip from 'jszip';
 import { ComicProfile, GeneratedPanelScript, SavedComicStrip, ArtModelType } from '../types';
 import { generateComicScript, generateComicArt, removeTextFromComic } from '../services/gemini';
@@ -8,9 +8,13 @@ interface ComicGeneratorProps {
   activeComic: ComicProfile;
   initialStrip?: SavedComicStrip | null;
   onPreviewImage: (url: string) => void;
+  onSaveHistory: (strip: SavedComicStrip) => void;
+  history: SavedComicStrip[];
 }
 
-export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, initialStrip, onPreviewImage }) => {
+export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ 
+  activeComic, initialStrip, onPreviewImage, onSaveHistory, history 
+}) => {
   const [prompt, setPrompt] = useState(initialStrip?.prompt || '');
   const [panelCount, setPanelCount] = useState(initialStrip?.panelCount || 3);
   const [model, setModel] = useState<ArtModelType>('gemini-3-pro-image-preview');
@@ -24,14 +28,8 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
   
   const [stripName, setStripName] = useState(initialStrip?.name || 'New Episode');
   const [sessionAssets, setSessionAssets] = useState<{name: string, data: string, type: 'png'}[]>([]);
-  const [panelHistory, setPanelHistory] = useState<SavedComicStrip[]>([]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('diealog_history');
-    if (saved) setPanelHistory(JSON.parse(saved));
-  }, []);
-
-  const filteredHistory = panelHistory.filter(s => s.comicProfileId === activeComic.id);
+  const filteredHistory = useMemo(() => history.filter(s => s.comicProfileId === activeComic.id), [history, activeComic.id]);
 
   const handleGenerateFullComic = async (isRandom: boolean) => {
     setIsProcessing(true); setScript(null); setFinishedImage(null); setExportImage(null);
@@ -79,13 +77,6 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
     setActiveTab('finished');
   };
 
-  const copyPanelToClipboard = (panel: GeneratedPanelScript) => {
-    const dialogue = panel.dialogue.map(d => `${d.character}: ${d.text}`).join('\n');
-    const text = `Panel ${panel.panelNumber}\nVisual: ${panel.visualDescription}\nDialogue:\n${dialogue}`;
-    navigator.clipboard.writeText(text);
-    alert(`Panel ${panel.panelNumber} copied!`);
-  };
-
   const generateARId = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const segment = () => Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
@@ -106,9 +97,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
       timestamp: Date.now(), 
       panelCount
     };
-    const updated = [newStrip, ...panelHistory];
-    setPanelHistory(updated);
-    localStorage.setItem('diealog_history', JSON.stringify(updated));
+    onSaveHistory(newStrip);
     setSessionAssets(prev => [...prev, { name: `${stripName}_master`, data: finishedImage, type: 'png' }]);
     alert('Asset saved to Library.');
   };
@@ -130,7 +119,6 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
         <div className="flex-1 min-w-[200px]">
           <div className="flex justify-between items-center mb-1">
             <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Active Series Context</label>
-            <span className="text-[9px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full uppercase">{activeComic.name}</span>
           </div>
           <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 select-none opacity-80 flex items-center gap-2">
             <span className="text-lg">🏷️</span> {activeComic.name}
@@ -172,7 +160,6 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
                     </div>
                     <div className="text-[8px] font-mono text-slate-400 mt-2 uppercase tracking-tighter flex justify-between items-center">
                       <span>ID: {s.arTargetId}</span>
-                      <span className="bg-slate-200 px-1 rounded">{new Date(s.timestamp).toLocaleDateString()}</span>
                     </div>
                   </div>
                 ))
@@ -183,11 +170,8 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
                 </div>
               )
             ) : script?.map(p => (
-              <div key={p.panelNumber} className="p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group relative">
-                <div className="flex justify-between items-center mb-2 border-b border-slate-100 pb-2">
-                  <div className="text-[10px] font-black text-brand-700 uppercase tracking-widest">PANEL {p.panelNumber}</div>
-                  <button onClick={() => copyPanelToClipboard(p)} className="text-[9px] font-black uppercase text-slate-400 hover:text-brand-700 transition">Copy</button>
-                </div>
+              <div key={p.panelNumber} className="p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm group relative">
+                <div className="text-[10px] font-black text-brand-700 uppercase tracking-widest mb-2 border-b border-slate-100 pb-2">PANEL {p.panelNumber}</div>
                 <div className="text-[11px] text-slate-600 italic mb-3 leading-relaxed border-l-2 border-brand-200 pl-3">{p.visualDescription}</div>
                 {p.dialogue.map((d, i) => (
                   <div key={i} className="text-[12px] mb-2 leading-snug last:mb-0">
@@ -227,15 +211,8 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
               </div>
             )}
 
-            {(finishedImage || exportImage) && (
-              <div className="w-full text-center mb-10 animate-in fade-in slide-in-from-top-4 duration-700">
-                <h2 className="text-4xl font-comic text-slate-800 tracking-widest uppercase mb-1">{stripName}</h2>
-                <div className="h-1 w-24 bg-brand-600 mx-auto rounded-full opacity-40"></div>
-              </div>
-            )}
-
             {activeTab === 'finished' && finishedImage && (
-              <div className="w-full space-y-12 flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
+              <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
                 <div className="group relative w-full max-w-6xl">
                   <div className="bg-slate-900 p-3 rounded-2xl shadow-2xl relative">
                     <img 
@@ -254,13 +231,13 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
                   </div>
                 </div>
                 {!exportImage && !isProcessing && (
-                  <button onClick={handleGenerateExport} className="bg-brand-700 text-white px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-brand-800 transform hover:scale-105 active:scale-95 transition-all">Bake Export Assets (Dialogue Removal)</button>
+                  <button onClick={handleGenerateExport} className="mt-8 bg-brand-700 text-white px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-brand-800 transform hover:scale-105 transition-all">Bake Export Assets</button>
                 )}
               </div>
             )}
             
             {activeTab === 'export' && exportImage && (
-              <div className="w-full space-y-12 flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
+              <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
                 <div className="group relative w-full max-w-6xl">
                    <div className="bg-slate-900 p-3 rounded-2xl shadow-2xl">
                     <img 
@@ -269,12 +246,10 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
                       onClick={() => onPreviewImage(exportImage)}
                     />
                   </div>
-                  <div className="absolute top-8 right-8 bg-brand-600 text-white text-[10px] font-black px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none uppercase tracking-widest shadow-2xl">Clean Matte Asset</div>
                 </div>
-                <div className="flex gap-6 w-full justify-center">
-                  <button onClick={() => downloadImage(exportImage, `${stripName.replace(/\s+/g, '_')}_export.png`)} className="bg-white text-slate-800 px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest border border-slate-300 hover:bg-slate-50 transition shadow-xl">Download Matte</button>
-                  <button onClick={downloadSessionZip} className="bg-brand-700 text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-brand-800 transition transform hover:scale-105">📦 Export Bundle (ZIP)</button>
-                  <button onClick={handleGenerateExport} className="bg-slate-600 text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-slate-700 transition">🔄 Retry Bake</button>
+                <div className="flex gap-6 mt-8">
+                  <button onClick={() => downloadImage(exportImage, `${stripName.replace(/\s+/g, '_')}_export.png`)} className="bg-white text-slate-800 px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest border border-slate-300 hover:bg-slate-50 shadow-xl transition-all">Download Matte</button>
+                  <button onClick={downloadSessionZip} className="bg-brand-700 text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-brand-800 transition-all">📦 Export Bundle (ZIP)</button>
                 </div>
               </div>
             )}
@@ -284,10 +259,6 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ activeComic, ini
                 <div className="text-[200px] mb-8 opacity-5 transform -rotate-12">🎬</div>
                 <div className="font-black text-7xl opacity-10 tracking-tighter uppercase text-slate-900">STUDIO STAGE</div>
                 <p className="text-slate-400 text-sm font-bold uppercase tracking-[0.4em] mt-10 animate-pulse border-y border-slate-100 py-4">Awaiting Production Input</p>
-                <div className="mt-12 text-[10px] font-black uppercase text-slate-300 tracking-widest flex items-center gap-4">
-                   <span>{activeComic.name}</span>
-                   <span className="w-2 h-2 rounded-full bg-brand-500 animate-ping"></span>
-                </div>
               </div>
             )}
           </div>

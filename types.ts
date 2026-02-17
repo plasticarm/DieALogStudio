@@ -21,6 +21,7 @@ export interface ComicProfile {
   environment: string;
   panelCount: number;
   styleReferenceImageUrl?: string;
+  backgroundColor?: string; // Series-specific theme color
 }
 
 export interface GeneratedPanelScript {
