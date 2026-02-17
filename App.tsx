@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ComicGenerator } from './components/ComicGenerator';
@@ -72,7 +73,7 @@ export default function App() {
     if (savedActiveId) setActiveSeriesId(savedActiveId);
   }, []);
 
-  // API Key Status Sync
+  // API Key Status Sync and Error Recovery
   useEffect(() => {
     const checkKey = async () => {
       try {
@@ -84,13 +85,15 @@ export default function App() {
     };
     checkKey();
 
-    // Listen for API errors that indicate key issues
+    // Reset logic for failed entity/keys
     const handleApiError = (e: any) => {
-      if (e.detail?.message?.includes("Requested entity was not found")) {
+      const errorMsg = e.detail?.message || "";
+      if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("API key not valid")) {
         setHasKey(false);
-        console.warn("API Key invalidated by platform. Resetting state.");
+        console.warn("API state reset: Invalid or missing key detected during request.");
       }
     };
+
     window.addEventListener('gemini-api-error', handleApiError);
     return () => window.removeEventListener('gemini-api-error', handleApiError);
   }, []);
@@ -110,7 +113,7 @@ export default function App() {
 
   const handleOpenKeyDialog = useCallback(async () => {
     await window.aistudio?.openSelectKey();
-    // Guideline: Assume success after triggering to avoid race condition blocks
+    // Guideline: Mitigate race condition by assuming success immediately
     setHasKey(true);
   }, []);
 
@@ -150,7 +153,7 @@ export default function App() {
 
   const handleExportProject = () => {
     const project: ProjectState = {
-      version: '3.1.2', 
+      version: '3.1.3', 
       comics, 
       history, 
       bookPages: [],
@@ -209,14 +212,16 @@ export default function App() {
 
         <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
           {hasKey === false && (
-            <div className="bg-rose-900/95 backdrop-blur-md text-white px-8 py-3 flex items-center justify-between shadow-2xl shrink-0 z-20 animate-in slide-in-from-top duration-500">
+            <div className="bg-rose-900/95 backdrop-blur-md text-white px-8 py-3 flex items-center justify-between shadow-2xl shrink-0 z-20 animate-in slide-in-from-top duration-500 border-b border-rose-800">
               <div className="flex items-center gap-5">
                 <div className="bg-white/20 p-2 rounded-lg">
                   <span className="text-xl block animate-pulse">🔑</span>
                 </div>
                 <div className="flex flex-col">
                   <p className="text-[11px] font-black uppercase tracking-[0.3em]">AI Studio Key Required</p>
-                  <p className="text-[9px] font-bold text-rose-200 uppercase tracking-widest mt-1">High-Resolution Production requires a selected Paid Project Key</p>
+                  <p className="text-[9px] font-bold text-rose-100 uppercase tracking-widest mt-1">
+                    Select a Paid Google Cloud Project key via the system vault to continue.
+                  </p>
                 </div>
                 <a 
                   href="https://ai.google.dev/gemini-api/docs/billing" 
@@ -224,14 +229,14 @@ export default function App() {
                   rel="noreferrer" 
                   className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest ml-4 transition-colors"
                 >
-                  Billing Docs ↗
+                  Check Billing Status ↗
                 </a>
               </div>
               <button 
                 onClick={handleOpenKeyDialog} 
                 className="bg-white text-rose-900 px-8 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-rose-50 transition-all shadow-xl active:scale-95 border-2 border-white"
               >
-                Select Key from Vault
+                Open System Key Vault
               </button>
             </div>
           )}
@@ -321,49 +326,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* Reader and Modal overlays... */}
-      {readModePages && activeBook && (
-        <div className="fixed inset-0 z-[200] flex flex-col items-center overflow-hidden animate-in fade-in duration-500" style={{ backgroundColor: currentBackgroundColor }}>
-          <div className="w-full bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-10 py-6 flex justify-between items-center shrink-0 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-            <div className="flex items-center gap-6">
-               <h2 className="text-white font-comic text-4xl tracking-[0.3em] uppercase">{activeBook.title}</h2>
-               <span className="bg-brand-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full">{activeBook.pages.length} Pages</span>
-            </div>
-            <div className="flex items-center gap-10">
-              <span className="text-[10px] text-slate-500 font-black uppercase tracking-[0.5em] bg-slate-800 px-6 py-2.5 rounded-full border border-slate-700 shadow-inner">ESC TO EXIT DEPTH VIEW</span>
-              <button onClick={() => setReadModePages(null)} className="text-slate-500 text-6xl hover:text-white transition-all transform hover:rotate-90 leading-none">×</button>
-            </div>
-          </div>
-          <div className="flex-1 w-full overflow-y-auto read-mode-scroll pb-96 space-y-60 py-32 px-10">
-            {activeBook.coverImageUrl && (
-              <div className="max-w-6xl mx-auto read-mode-page flex flex-col items-center">
-                <div style={{ aspectRatio: `${activeBook.width}/${activeBook.height}` }} className="w-full relative group">
-                  <img src={activeBook.coverImageUrl} className="w-full h-full object-cover rounded-3xl shadow-[0_0_120px_rgba(0,0,0,0.9)] border-[12px] border-slate-900" />
-                  <h1 className="absolute bottom-20 left-0 right-0 text-white font-comic text-9xl text-center uppercase drop-shadow-[0_10px_20px_rgba(0,0,0,1)] select-none">{activeBook.title}</h1>
-                </div>
-              </div>
-            )}
-            {readModePages.map((page, idx) => (
-              <div key={page.id} className="read-mode-page flex flex-col items-center space-y-12 max-w-7xl mx-auto">
-                <div className="w-full flex justify-between items-end border-b-2 border-slate-800/50 pb-6">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-slate-500 font-black uppercase text-xs tracking-[0.4em] font-handwritten">Folio: {idx + 1}</span>
-                    <span className="text-slate-600 font-mono text-[10px] uppercase tracking-tighter opacity-50">SYNC_ID: {page.arTargetId}</span>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    {activeBook.logoUrl && <img src={activeBook.logoUrl} className="h-14 opacity-30 grayscale hover:grayscale-0 transition-all" />}
-                    <span className="text-slate-100 font-black uppercase tracking-[0.3em] text-2xl font-comic">{page.name}</span>
-                  </div>
-                </div>
-                <div style={{ aspectRatio: `${activeBook.width}/${activeBook.height}` }} className="w-full shadow-2xl">
-                  <img src={page.finishedImageUrl} className="w-full h-full object-cover rounded-3xl border-[16px] border-slate-900 shadow-2xl" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* Overlays... */}
       {previewImage && (
         <div className="fixed inset-0 z-[100] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-8xl max-h-full">
