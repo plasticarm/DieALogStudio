@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ComicGenerator } from './components/ComicGenerator';
 import { TrainingCenter } from './components/TrainingCenter';
@@ -14,7 +14,9 @@ declare global {
     hasSelectedApiKey: () => Promise<boolean>;
     openSelectKey: () => Promise<void>;
   }
-  interface Window { aistudio?: AIStudio; }
+  interface Window { 
+    aistudio?: AIStudio;
+  }
 }
 
 export default function App() {
@@ -44,7 +46,6 @@ export default function App() {
     const savedBooks = localStorage.getItem('diealog_books');
     let parsedBooks: ComicBook[] = savedBooks ? JSON.parse(savedBooks) : [];
 
-    // Ensure every comic has a book entry
     const existingBookIds = new Set(parsedBooks.map(b => b.id));
     const newBooks = parsedComics
       .filter(c => !existingBookIds.has(c.id))
@@ -71,14 +72,27 @@ export default function App() {
     if (savedActiveId) setActiveSeriesId(savedActiveId);
   }, []);
 
+  // API Key Status Sync
   useEffect(() => {
     const checkKey = async () => {
       try {
         const selected = await window.aistudio?.hasSelectedApiKey();
         setHasKey(selected ?? false);
-      } catch (e) { setHasKey(false); }
+      } catch (e) { 
+        setHasKey(false); 
+      }
     };
     checkKey();
+
+    // Listen for API errors that indicate key issues
+    const handleApiError = (e: any) => {
+      if (e.detail?.message?.includes("Requested entity was not found")) {
+        setHasKey(false);
+        console.warn("API Key invalidated by platform. Resetting state.");
+      }
+    };
+    window.addEventListener('gemini-api-error', handleApiError);
+    return () => window.removeEventListener('gemini-api-error', handleApiError);
   }, []);
 
   useEffect(() => {
@@ -94,10 +108,11 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isManagingCover, isEditingSettings]);
 
-  const handleOpenKeyDialog = async () => {
+  const handleOpenKeyDialog = useCallback(async () => {
     await window.aistudio?.openSelectKey();
+    // Guideline: Assume success after triggering to avoid race condition blocks
     setHasKey(true);
-  };
+  }, []);
 
   const handleUpdateComics = (newComics: ComicProfile[]) => {
     setComics(newComics);
@@ -135,7 +150,7 @@ export default function App() {
 
   const handleExportProject = () => {
     const project: ProjectState = {
-      version: '3.1.1', 
+      version: '3.1.2', 
       comics, 
       history, 
       bookPages: [],
@@ -194,20 +209,30 @@ export default function App() {
 
         <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
           {hasKey === false && (
-            <div className="bg-slate-900 text-slate-100 px-8 py-2.5 flex items-center justify-between shadow-2xl shrink-0 z-20">
-              <div className="flex items-center gap-4">
-                <span className="w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
-                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Gemini AI Studio: Pro Tier Authorization Required</p>
+            <div className="bg-rose-900/95 backdrop-blur-md text-white px-8 py-3 flex items-center justify-between shadow-2xl shrink-0 z-20 animate-in slide-in-from-top duration-500">
+              <div className="flex items-center gap-5">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <span className="text-xl block animate-pulse">🔑</span>
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-[11px] font-black uppercase tracking-[0.3em]">AI Studio Key Required</p>
+                  <p className="text-[9px] font-bold text-rose-200 uppercase tracking-widest mt-1">High-Resolution Production requires a selected Paid Project Key</p>
+                </div>
                 <a 
                   href="https://ai.google.dev/gemini-api/docs/billing" 
                   target="_blank" 
                   rel="noreferrer" 
-                  className="text-[9px] text-slate-400 hover:text-white underline uppercase tracking-widest ml-4"
+                  className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest ml-4 transition-colors"
                 >
-                  Billing Info
+                  Billing Docs ↗
                 </a>
               </div>
-              <button onClick={handleOpenKeyDialog} className="bg-white text-slate-900 px-6 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-brand-100 transition-all shadow-xl active:scale-95">Open Key Vault</button>
+              <button 
+                onClick={handleOpenKeyDialog} 
+                className="bg-white text-rose-900 px-8 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-rose-50 transition-all shadow-xl active:scale-95 border-2 border-white"
+              >
+                Select Key from Vault
+              </button>
             </div>
           )}
 
