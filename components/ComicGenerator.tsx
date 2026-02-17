@@ -6,6 +6,8 @@ import { downloadImage } from '../services/utils';
 
 interface ComicGeneratorProps {
   activeComic: ComicProfile;
+  allComics: ComicProfile[];
+  onSwitchComic: (id: string) => void;
   initialStrip?: SavedComicStrip | null;
   onPreviewImage: (url: string) => void;
   onSaveHistory: (strip: SavedComicStrip) => void;
@@ -13,7 +15,7 @@ interface ComicGeneratorProps {
 }
 
 export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ 
-  activeComic, initialStrip, onPreviewImage, onSaveHistory, history 
+  activeComic, allComics, onSwitchComic, initialStrip, onPreviewImage, onSaveHistory, history 
 }) => {
   const [prompt, setPrompt] = useState(initialStrip?.prompt || '');
   const [panelCount, setPanelCount] = useState(initialStrip?.panelCount || 3);
@@ -40,7 +42,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       setStatusMessage('Rendering...');
       const img = await generateComicArt(activeComic, s, model);
       setFinishedImage(img);
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { alert(`Generation Failed: ${e.message}`); }
     finally { setIsProcessing(false); setStatusMessage(''); }
   };
 
@@ -117,23 +119,27 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     <div className="h-full flex flex-col p-6 overflow-hidden">
       <div className="bg-white p-5 rounded-2xl border border-slate-300 shadow-xl mb-6 flex gap-6 items-end flex-wrap z-10">
         <div className="flex-1 min-w-[200px]">
-          <div className="flex justify-between items-center mb-1">
-            <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Active Series Context</label>
-          </div>
-          <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 select-none opacity-80 flex items-center gap-2">
-            <span className="text-lg">🏷️</span> {activeComic.name}
-          </div>
+          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">Comic Series Selection</label>
+          <select 
+            value={activeComic.id} 
+            onChange={(e) => onSwitchComic(e.target.value)}
+            className="w-full bg-slate-100 border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand-400 cursor-pointer"
+          >
+            {allComics.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="w-24">
           <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">Panels</label>
           <input type="number" min="1" max="12" value={panelCount} onChange={e => setPanelCount(Number(e.target.value))} className="w-full bg-slate-100 border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-400" />
         </div>
-        <div className="w-32">
-          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">AI Model</label>
+        <div className="w-40">
+          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">AI Logic Model</label>
           <select value={model} onChange={e => setModel(e.target.value as ArtModelType)} className="w-full bg-slate-100 border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-400">
-            <option value="gemini-2.5-flash-image">Fast (Flash)</option>
-            <option value="gemini-3-pro-image-preview">High-Res (Pro)</option>
+            <option value="gemini-2.5-flash-image">⚡ Fast Drafting</option>
+            <option value="gemini-3-pro-image-preview">💎 High-Res Production</option>
           </select>
         </div>
         <div className="flex-[3] min-w-[300px]">
@@ -157,9 +163,6 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
                     <div className="text-[10px] font-bold truncate group-hover:text-brand-700 text-slate-700 mb-2">{s.name}</div>
                     <div className="aspect-[16/9] w-full overflow-hidden rounded-lg shadow-inner">
                       <img src={s.finishedImageUrl} className="h-full w-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <div className="text-[8px] font-mono text-slate-400 mt-2 uppercase tracking-tighter flex justify-between items-center">
-                      <span>ID: {s.arTargetId}</span>
                     </div>
                   </div>
                 ))

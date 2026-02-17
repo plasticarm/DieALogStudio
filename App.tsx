@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ComicGenerator } from './components/ComicGenerator';
@@ -85,7 +84,6 @@ export default function App() {
     };
     checkKey();
 
-    // Reset logic for failed entity/keys
     const handleApiError = (e: any) => {
       const errorMsg = e.detail?.message || "";
       if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("API key not valid")) {
@@ -113,7 +111,7 @@ export default function App() {
 
   const handleOpenKeyDialog = useCallback(async () => {
     await window.aistudio?.openSelectKey();
-    // Guideline: Mitigate race condition by assuming success immediately
+    // Guideline: Assume success to mitigate race condition
     setHasKey(true);
   }, []);
 
@@ -146,6 +144,12 @@ export default function App() {
     setCurrentTab('generate');
   };
 
+  const handleSwitchSeries = (bookId: string) => {
+    setActiveSeriesId(bookId);
+    localStorage.setItem('diealog_active_series', bookId);
+    setActiveEditingStrip(null);
+  };
+
   const startEditPage = (strip: SavedComicStrip) => {
     setActiveEditingStrip(strip);
     setCurrentTab('generate');
@@ -153,7 +157,7 @@ export default function App() {
 
   const handleExportProject = () => {
     const project: ProjectState = {
-      version: '3.1.3', 
+      version: '3.1.5', 
       comics, 
       history, 
       bookPages: [],
@@ -187,9 +191,64 @@ export default function App() {
   const activeBook = useMemo(() => books.find(b => b.id === activeSeriesId), [books, activeSeriesId]);
 
   const currentBackgroundColor = useMemo(() => {
-    if (currentTab === 'books' || !activeComic) return DEFAULT_BG_COLOR;
+    if (currentTab === 'books' || !activeComic || !hasKey) return DEFAULT_BG_COLOR;
     return activeComic.backgroundColor || DEFAULT_BG_COLOR;
-  }, [currentTab, activeComic]);
+  }, [currentTab, activeComic, hasKey]);
+
+  // Auth Overlay / Welcome Screen
+  if (hasKey === false) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center relative overflow-hidden bg-slate-900">
+        <div className="absolute inset-0 opacity-20 pointer-events-none" 
+             style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }}>
+        </div>
+        
+        <div className="relative z-10 w-full max-w-xl text-center px-10">
+          <div className="mb-12 animate-in zoom-in duration-700">
+            <img 
+              src="https://raw.githubusercontent.com/plasticarm/DieALogStudio/main/images/DieALog_Logo1.png" 
+              alt="Die A Log" 
+              className="h-32 mx-auto drop-shadow-[0_0_30px_rgba(255,255,255,0.2)] invert brightness-0"
+            />
+          </div>
+          
+          <div className="bg-white/5 backdrop-blur-2xl p-12 rounded-[3rem] border border-white/10 shadow-[0_50px_100px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom-10 duration-1000">
+            <h1 className="text-white font-header text-6xl uppercase tracking-widest mb-4">Studio Sign-In</h1>
+            <p className="text-slate-400 font-medium text-sm mb-10 leading-relaxed uppercase tracking-widest">
+              Connect your Google Studio account to access <br/> High-Resolution AI Production tools.
+            </p>
+            
+            <button 
+              onClick={handleOpenKeyDialog}
+              className="w-full bg-white text-slate-900 py-6 rounded-3xl font-black uppercase text-sm tracking-[0.3em] hover:bg-slate-100 transition-all shadow-2xl transform active:scale-95 flex items-center justify-center gap-4 mb-6"
+            >
+              <img src="https://www.google.com/favicon.ico" className="w-6 h-6" alt="G" />
+              Sign in with Google Project
+            </button>
+            
+            <p className="text-slate-500 text-[9px] uppercase tracking-widest leading-loose">
+              By signing in, you are connecting a Paid Google Cloud project <br/> 
+              as required for gemini-3-pro generation. <br/>
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-brand-400 underline mt-2 inline-block">Review Billing Docs ↗</a>
+            </p>
+          </div>
+          
+          <div className="mt-12 text-slate-600 font-black text-[10px] uppercase tracking-[0.5em]">
+            Production Version 3.1.5 • Powered by Gemini AI
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state while checking key
+  if (hasKey === null) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-900">
+        <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -211,36 +270,6 @@ export default function App() {
         </div>
 
         <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
-          {hasKey === false && (
-            <div className="bg-rose-900/95 backdrop-blur-md text-white px-8 py-3 flex items-center justify-between shadow-2xl shrink-0 z-20 animate-in slide-in-from-top duration-500 border-b border-rose-800">
-              <div className="flex items-center gap-5">
-                <div className="bg-white/20 p-2 rounded-lg">
-                  <span className="text-xl block animate-pulse">🔑</span>
-                </div>
-                <div className="flex flex-col">
-                  <p className="text-[11px] font-black uppercase tracking-[0.3em]">AI Studio Key Required</p>
-                  <p className="text-[9px] font-bold text-rose-100 uppercase tracking-widest mt-1">
-                    Select a Paid Google Cloud Project key via the system vault to continue.
-                  </p>
-                </div>
-                <a 
-                  href="https://ai.google.dev/gemini-api/docs/billing" 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest ml-4 transition-colors"
-                >
-                  Check Billing Status ↗
-                </a>
-              </div>
-              <button 
-                onClick={handleOpenKeyDialog} 
-                className="bg-white text-rose-900 px-8 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-rose-50 transition-all shadow-xl active:scale-95 border-2 border-white"
-              >
-                Open System Key Vault
-              </button>
-            </div>
-          )}
-
           <div className="flex-1 overflow-hidden">
             {currentTab === 'books' && (
               <BooksLibrary 
@@ -285,8 +314,10 @@ export default function App() {
 
             {currentTab === 'generate' && activeComic && (
               <ComicGenerator 
-                key={activeEditingStrip?.id || activeComic.id} 
+                key={activeComic.id} 
                 activeComic={activeComic} 
+                allComics={comics}
+                onSwitchComic={handleSwitchSeries}
                 initialStrip={activeEditingStrip}
                 onPreviewImage={setPreviewImage}
                 onSaveHistory={handleSaveToHistory}
@@ -309,9 +340,6 @@ export default function App() {
                 <div className="text-center bg-white/40 backdrop-blur-3xl p-20 rounded-[3rem] border-2 border-white/50 shadow-[0_50px_100px_rgba(0,0,0,0.1)] max-w-2xl">
                   <span className="text-9xl mb-10 block grayscale opacity-20">📚</span>
                   <h3 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-4">No Series Active</h3>
-                  <p className="text-sm font-bold uppercase text-slate-500 tracking-[0.2em] leading-relaxed">
-                    A Series context is required for Studio and Volume production. Please choose a series from your library to initialize the workspace.
-                  </p>
                   <button 
                     onClick={() => setCurrentTab('books')} 
                     className="mt-12 bg-slate-800 text-white px-12 py-5 rounded-2xl font-black uppercase text-xs tracking-[0.3em] hover:bg-slate-900 transition-all shadow-2xl active:scale-95 flex items-center gap-4 mx-auto"
@@ -326,7 +354,49 @@ export default function App() {
         </div>
       </main>
 
-      {/* Overlays... */}
+      {/* Reader and Modal Overlays... */}
+      {readModePages && activeBook && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center overflow-hidden animate-in fade-in duration-500" style={{ backgroundColor: currentBackgroundColor }}>
+          <div className="w-full bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-10 py-6 flex justify-between items-center shrink-0 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <div className="flex items-center gap-6">
+               <h2 className="text-white font-comic text-4xl tracking-[0.3em] uppercase">{activeBook.title}</h2>
+               <span className="bg-brand-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full">{activeBook.pages.length} Pages</span>
+            </div>
+            <div className="flex items-center gap-10">
+              <span className="text-[10px] text-slate-500 font-black uppercase tracking-[0.5em] bg-slate-800 px-6 py-2.5 rounded-full border border-slate-700 shadow-inner">ESC TO EXIT DEPTH VIEW</span>
+              <button onClick={() => setReadModePages(null)} className="text-slate-500 text-6xl hover:text-white transition-all transform hover:rotate-90 leading-none">×</button>
+            </div>
+          </div>
+          <div className="flex-1 w-full overflow-y-auto read-mode-scroll pb-96 space-y-60 py-32 px-10">
+            {activeBook.coverImageUrl && (
+              <div className="max-w-6xl mx-auto read-mode-page flex flex-col items-center">
+                <div style={{ aspectRatio: `${activeBook.width}/${activeBook.height}` }} className="w-full relative group">
+                  <img src={activeBook.coverImageUrl} className="w-full h-full object-cover rounded-3xl shadow-[0_0_120px_rgba(0,0,0,0.9)] border-[12px] border-slate-900" />
+                  <h1 className="absolute bottom-20 left-0 right-0 text-white font-comic text-9xl text-center uppercase drop-shadow-[0_10px_20px_rgba(0,0,0,1)] select-none">{activeBook.title}</h1>
+                </div>
+              </div>
+            )}
+            {readModePages.map((page, idx) => (
+              <div key={page.id} className="read-mode-page flex flex-col items-center space-y-12 max-w-7xl mx-auto">
+                <div className="w-full flex justify-between items-end border-b-2 border-slate-800/50 pb-6">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-slate-500 font-black uppercase text-xs tracking-[0.4em] font-handwritten">Folio: {idx + 1}</span>
+                    <span className="text-slate-600 font-mono text-[10px] uppercase tracking-tighter opacity-50">SYNC_ID: {page.arTargetId}</span>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    {activeBook.logoUrl && <img src={activeBook.logoUrl} className="h-14 opacity-30 grayscale hover:grayscale-0 transition-all" />}
+                    <span className="text-slate-100 font-black uppercase tracking-[0.3em] text-2xl font-comic">{page.name}</span>
+                  </div>
+                </div>
+                <div style={{ aspectRatio: `${activeBook.width}/${activeBook.height}` }} className="w-full shadow-2xl">
+                  <img src={page.finishedImageUrl} className="w-full h-full object-cover rounded-3xl border-[16px] border-slate-900 shadow-2xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {previewImage && (
         <div className="fixed inset-0 z-[100] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-8xl max-h-full">

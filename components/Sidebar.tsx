@@ -57,19 +57,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       <div className="flex items-center gap-3">
-        {/* Key Vault Trigger */}
-        <button 
+        {/* User Account / Key Vault Status */}
+        <div 
           onClick={onOpenKeyVault}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${
+          className={`flex items-center gap-3 px-3 py-1.5 rounded-2xl border transition-all cursor-pointer hover:bg-slate-50 group ${
             hasKey 
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700' 
-              : 'border-rose-200 bg-rose-50 text-rose-700 animate-pulse'
+              ? 'border-emerald-200 bg-emerald-50/30' 
+              : 'border-rose-200 bg-rose-50/30'
           }`}
-          title="Configure Google AI API Key"
+          title="Account Settings - Manage Studio Key Connection"
         >
-          <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-          {hasKey ? 'Key Active' : 'Set API Key'}
-        </button>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shadow-inner transition-colors ${
+            hasKey ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'
+          }`}>
+            {hasKey ? 'GS' : '?'}
+          </div>
+          <div className="flex flex-col">
+            <span className={`text-[9px] font-black uppercase tracking-widest ${hasKey ? 'text-emerald-700' : 'text-slate-500'}`}>
+              {hasKey ? 'Studio Connected' : 'Disconnected'}
+            </span>
+            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter group-hover:text-brand-600">
+              Manage Vault
+            </span>
+          </div>
+        </div>
 
         <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-300 ml-2">
           <button 
