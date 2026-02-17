@@ -39,16 +39,21 @@ app.post('/api/generate-image', async (req, res) => {
     try {
         const { prompt } = req.body;
         
+        const BACKEND_URL = "https://my-ai-backend-xvc1.onrender.com";
         // This is where you call the NanoBanana API from the server
         // Example (adjust based on their actual docs):
-        const response = await fetch('https://api.nanobanana.com/v1/generate', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.NANOBANANA_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ prompt })
-        });
+        try {
+    const response = await fetch(`${BACKEND_URL}/api/google/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        // Pass the data your backend expects
+        model: 'gemini-1.5-flash',
+        contents: [
+            { role: 'user', parts: [{ text: promptText }] }
+        ]
+      })
+    });
         
         const data = await response.json();
         res.json(data); // Send the image URL/data back to your frontend
