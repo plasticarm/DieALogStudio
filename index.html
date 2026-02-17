@@ -24,22 +24,19 @@
               'xl': '0.75rem',
             },
             colors: {
-              slate: {
-                950: '#020617',
-              },
               brand: {
-                indigo: '#6366f1',
-                yellow: '#facc15',
-                50: '#f1f5f9',
-                100: '#e2e8f0',
-                200: '#cbd5e1',
-                300: '#94a3b8',
-                400: '#64748b',
-                500: '#475569', 
-                600: '#334155', 
-                700: '#1e293b',
-                800: '#0f172a',
-                900: '#020617',
+                indigo: '#4f46e5',
+                yellow: '#eab308',
+                50: '#f8fafc',
+                100: '#f1f5f9',
+                200: '#e2e8f0',
+                300: '#cbd5e1',
+                400: '#94a3b8',
+                500: '#64748b', 
+                600: '#475569', 
+                700: '#334155', 
+                800: '#1e293b',
+                900: '#0f172a',
               }
             }
           },
@@ -48,30 +45,33 @@
     </script>
     <style>
       body {
-        background-color: #020617; /* slate-950 */
-        color: #f1f5f9;
+        background-color: #dbdac8; /* Classic Die A Log Beige */
+        color: #1e293b;
+        transition: background-color 0.5s ease;
       }
       ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 8px;
+        height: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: transparent; 
+        background: rgba(0,0,0,0.05); 
       }
       ::-webkit-scrollbar-thumb {
-        background: #334155; 
+        background: #94a3b8; 
         border-radius: 10px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #475569; 
+        background: #64748b; 
       }
       .glass {
-        background: rgba(15, 23, 42, 0.7);
+        background: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(0, 0, 0, 0.1);
       }
       .modal-backdrop {
-        background-color: rgba(2, 6, 23, 0.85);
+        background-color: rgba(219, 218, 200, 0.8);
         backdrop-filter: blur(8px);
       }
       .font-header { font-family: 'Amatic SC', cursive; font-weight: 700; }
@@ -85,6 +85,9 @@
       }
       .float-animation {
         animation: float 4s ease-in-out infinite;
+      }
+      .read-mode-page img {
+        box-shadow: 0 30px 60px rgba(0,0,0,0.2);
       }
     </style>
   <script type="importmap">

@@ -22,8 +22,10 @@ declare global {
   }
 }
 
+const DEFAULT_BG_COLOR = '#dbdac8';
+
 const DEFAULT_PROJECT_STATE: ProjectState = {
-  version: '3.1.6',
+  version: '3.1.7',
   comics: INITIAL_COMICS,
   history: [],
   bookPages: [],
@@ -40,11 +42,12 @@ const DEFAULT_PROJECT_STATE: ProjectState = {
     pageNumberPosition: 'bottom' as const
   })),
   timestamp: Date.now(),
-  globalBackgroundColor: '#020617',
+  globalBackgroundColor: DEFAULT_BG_COLOR,
   activeSeriesId: null
 };
 
 export default function App() {
+  // 1. Hooks (Must be called unconditionally at the top)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<AppSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -60,15 +63,19 @@ export default function App() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [readModePages, setReadModePages] = useState<SavedComicStrip[] | null>(null);
 
-  // Initialize User
+  // Initialize User from storage
   useEffect(() => {
     const savedUser = localStorage.getItem('app_user');
     if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error("Failed to parse user session", e);
+      }
     }
   }, []);
 
-  // Load Sessions for current user
+  // Sync session state for the authenticated user
   useEffect(() => {
     if (!currentUser) return;
     const sessionKey = `sessions_${currentUser.id}`;
@@ -92,9 +99,27 @@ export default function App() {
     setActiveSessionId(lastActive || parsedSessions[0].id);
   }, [currentUser]);
 
-  // Sync session state to sub-states
-  const activeSession = useMemo(() => sessions.find(s => s.id === activeSessionId) || null, [sessions, activeSessionId]);
-  
+  // Derived state calculations (Unconditional hooks)
+  const activeSession = useMemo(() => 
+    sessions.find(s => s.id === activeSessionId) || null, 
+  [sessions, activeSessionId]);
+
+  const activeComic = useMemo(() => {
+    if (!activeSession) return null;
+    return activeSession.data.comics.find(c => c.id === activeSession.data.activeSeriesId) || null;
+  }, [activeSession]);
+
+  const activeBook = useMemo(() => {
+    if (!activeSession) return null;
+    return activeSession.data.books.find(b => b.id === activeSession.data.activeSeriesId) || null;
+  }, [activeSession]);
+
+  const currentBackgroundColor = useMemo(() => {
+    if (currentTab === 'books' || !activeComic) return DEFAULT_BG_COLOR;
+    return activeComic.backgroundColor || DEFAULT_BG_COLOR;
+  }, [currentTab, activeComic]);
+
+  // Handlers
   const handleUpdateSessionData = useCallback((newData: Partial<ProjectState>) => {
     if (!activeSession || !currentUser) return;
     setIsSaving(true);
@@ -156,7 +181,6 @@ export default function App() {
     reader.onload = (e) => {
       try {
         const importedData = JSON.parse(e.target?.result as string);
-        // Basic schema validation could be added here
         const newSession: AppSession = {
           id: `imported_${Date.now()}`,
           userId: currentUser!.id,
@@ -197,15 +221,21 @@ export default function App() {
     if (activeSessionId === id) handleSwitchSession(updated[0].id);
   };
 
+  // 2. Conditional Returns (Must happen AFTER all hooks are called)
   if (!currentUser) return <AuthModal onAuth={handleAuth} />;
-  if (!activeSession) return <div className="h-screen w-screen bg-slate-950 flex items-center justify-center animate-pulse">Initializing...</div>;
+  
+  if (!activeSession) {
+    return <div className="h-screen w-screen bg-[#dbdac8] flex items-center justify-center animate-pulse">Initializing...</div>;
+  }
 
+  // Final Data extraction for render
   const { comics, history, books, activeSeriesId } = activeSession.data;
-  const activeComic = comics.find(c => c.id === activeSeriesId);
-  const activeBook = books.find(b => b.id === activeSeriesId);
 
   return (
-    <div className="flex flex-col h-screen font-sans selection:bg-indigo-500/30 overflow-hidden bg-slate-950">
+    <div 
+      className="flex flex-col h-screen font-sans selection:bg-indigo-500/20 overflow-hidden transition-all duration-700"
+      style={{ backgroundColor: currentBackgroundColor }}
+    >
       <Header 
         user={currentUser} 
         session={activeSession} 
@@ -215,8 +245,7 @@ export default function App() {
       />
       
       <div className="flex-1 flex overflow-hidden">
-        {/* Main Tab Navigation (Architect Style) */}
-        <aside className="w-20 bg-slate-900/50 border-r border-slate-800 flex flex-col items-center py-8 gap-10 shrink-0">
+        <aside className="w-20 bg-white/40 backdrop-blur-md border-r border-black/5 flex flex-col items-center py-8 gap-8 shrink-0">
           {[
             { id: 'books', icon: 'fa-layer-group', label: 'Vault' },
             { id: 'generate', icon: 'fa-palette', label: 'Studio' },
@@ -226,10 +255,10 @@ export default function App() {
             <button 
               key={tab.id}
               onClick={() => setCurrentTab(tab.id as any)}
-              className={`flex flex-col items-center gap-2 group transition-all ${currentTab === tab.id ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex flex-col items-center gap-2 group transition-all ${currentTab === tab.id ? 'text-brand-800' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all shadow-lg ${
-                currentTab === tab.id ? 'bg-indigo-600/20 shadow-indigo-500/10 border border-indigo-500/30' : 'hover:bg-slate-800'
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all ${
+                currentTab === tab.id ? 'bg-white shadow-lg border border-black/5' : 'hover:bg-black/5'
               }`}>
                 <i className={`fa-solid ${tab.icon}`}></i>
               </div>
@@ -239,7 +268,9 @@ export default function App() {
         </aside>
 
         <main className="flex-1 overflow-hidden relative">
-          <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/graphy.png')]"></div>
+          <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" 
+               style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
+          </div>
           
           <div className="relative z-10 h-full overflow-hidden">
             {currentTab === 'books' && (
@@ -257,6 +288,7 @@ export default function App() {
 
             {currentTab === 'generate' && activeComic && (
               <ComicGenerator 
+                key={activeComic.id} 
                 activeComic={activeComic} 
                 allComics={comics}
                 onSwitchComic={(id) => handleUpdateSessionData({ activeSeriesId: id })}
@@ -272,7 +304,7 @@ export default function App() {
                 editingComic={activeComic}
                 onUpdateComic={(updated) => handleUpdateSessionData({ comics: comics.map(c => c.id === updated.id ? updated : c) })}
                 onPreviewImage={setPreviewImage} 
-                globalColor={activeSession.data.globalBackgroundColor}
+                globalColor={currentBackgroundColor}
                 onUpdateGlobalColor={(color) => handleUpdateSessionData({ globalBackgroundColor: color })}
               />
             )}
@@ -294,7 +326,7 @@ export default function App() {
                   book={activeBook} 
                   onUpdateBook={(updatedBook) => handleUpdateSessionData({ books: books.map(b => b.id === updatedBook.id ? updatedBook : b) })} 
                   onBack={() => setIsEditingSettings(false)}
-                  globalColor={activeSession.data.globalBackgroundColor}
+                  globalColor={currentBackgroundColor}
                   onUpdateGlobalColor={(color) => handleUpdateSessionData({ globalBackgroundColor: color })}
                 />
               ) : (
@@ -314,17 +346,15 @@ export default function App() {
 
             {!activeSeriesId && currentTab !== 'books' && (
               <div className="h-full flex flex-col items-center justify-center p-20 text-center">
-                <i className="fa-solid fa-layer-group text-8xl text-slate-800 mb-8 opacity-20"></i>
-                <h3 className="text-white font-header text-5xl uppercase tracking-widest mb-4">Void Cluster</h3>
-                <p className="text-slate-500 uppercase tracking-widest text-xs mb-10">Choose a production cluster from the Vault to initiate the Studio Engine.</p>
-                <button onClick={() => setCurrentTab('books')} className="px-12 py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase tracking-[0.2em] shadow-2xl hover:bg-indigo-700 transition-all">Open Vault Index</button>
+                <i className="fa-solid fa-layer-group text-8xl text-slate-300 mb-8 opacity-40"></i>
+                <h3 className="text-slate-800 font-header text-5xl uppercase tracking-widest mb-4">No Workspace Selected</h3>
+                <button onClick={() => setCurrentTab('books')} className="px-12 py-4 bg-slate-800 text-white font-black rounded-2xl uppercase tracking-[0.2em] shadow-xl hover:bg-slate-900 transition-all">Open Archives</button>
               </div>
             )}
           </div>
         </main>
       </div>
 
-      {/* Modals */}
       {isProfileOpen && (
         <ProfileModal 
           user={currentUser} 
@@ -348,12 +378,11 @@ export default function App() {
         />
       )}
 
-      {/* Overlays... */}
       {previewImage && (
         <div className="fixed inset-0 z-[2000] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-8xl max-h-full">
-            <img src={previewImage} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.8)] border-[12px] border-slate-900 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
-            <button className="absolute -top-6 -right-6 bg-indigo-600 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-110 transition-all shadow-2xl" onClick={() => setPreviewImage(null)}>
+            <img src={previewImage} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.4)] border-[12px] border-white animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
+            <button className="absolute -top-6 -right-6 bg-slate-800 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-110 transition-all shadow-2xl" onClick={() => setPreviewImage(null)}>
               <i className="fa-solid fa-xmark"></i>
             </button>
           </div>
@@ -361,27 +390,27 @@ export default function App() {
       )}
 
       {readModePages && activeBook && (
-        <div className="fixed inset-0 z-[2000] flex flex-col items-center overflow-hidden animate-in fade-in duration-500 bg-slate-950">
-          <div className="w-full glass border-b border-slate-800 px-10 py-4 flex justify-between items-center shrink-0">
+        <div className="fixed inset-0 z-[2000] flex flex-col items-center overflow-hidden animate-in fade-in duration-500" style={{ backgroundColor: currentBackgroundColor }}>
+          <div className="w-full bg-white/80 backdrop-blur-xl border-b border-black/5 px-10 py-4 flex justify-between items-center shrink-0">
              <div className="flex items-center gap-6">
-                <i className="fa-solid fa-book-open text-indigo-400 text-2xl"></i>
-                <h2 className="text-white font-comic text-3xl tracking-widest uppercase">{activeBook.title}</h2>
+                <i className="fa-solid fa-book-open text-slate-800 text-2xl"></i>
+                <h2 className="text-slate-800 font-comic text-3xl tracking-widest uppercase">{activeBook.title}</h2>
              </div>
              <button onClick={() => setReadModePages(null)} className="text-slate-500 text-4xl hover:text-white transition-all">×</button>
           </div>
           <div className="flex-1 w-full overflow-y-auto pb-96 space-y-60 py-32 px-10">
             {activeBook.coverImageUrl && (
               <div className="max-w-5xl mx-auto flex flex-col items-center">
-                <img src={activeBook.coverImageUrl} className="w-full rounded-[2rem] shadow-[0_0_80px_rgba(0,0,0,0.5)] border-[8px] border-slate-900" />
+                <img src={activeBook.coverImageUrl} className="w-full rounded-[2rem] shadow-2xl border-[8px] border-white" />
               </div>
             )}
             {readModePages.map((page, idx) => (
               <div key={page.id} className="flex flex-col items-center space-y-8 max-w-6xl mx-auto">
-                <div className="w-full flex justify-between items-center text-slate-600 font-black uppercase text-[10px] tracking-widest">
+                <div className="w-full flex justify-between items-center text-slate-500 font-black uppercase text-[10px] tracking-widest">
                   <span>PAGE {idx + 1}</span>
-                  <span className="text-indigo-500/30">{page.arTargetId}</span>
+                  <span className="opacity-30">{page.arTargetId}</span>
                 </div>
-                <img src={page.finishedImageUrl} className="w-full rounded-[2rem] shadow-2xl border-[8px] border-slate-900" />
+                <img src={page.finishedImageUrl} className="w-full rounded-[2rem] shadow-2xl border-[8px] border-white" />
               </div>
             ))}
           </div>
