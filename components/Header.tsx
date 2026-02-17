@@ -7,13 +7,14 @@ interface HeaderProps {
   onOpenProfile: () => void;
   onOpenSessions: () => void;
   isSaving: boolean;
+  onManualSync?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ user, session, onOpenProfile, onOpenSessions, isSaving }) => {
+export const Header: React.FC<HeaderProps> = ({ user, session, onOpenProfile, onOpenSessions, isSaving, onManualSync }) => {
   return (
     <header className="sticky top-0 z-50 h-16 glass px-8 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3 group cursor-pointer">
+        <div className="flex items-center gap-3 group cursor-pointer" onClick={() => window.location.reload()}>
           <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all">
             <i className="fa-solid fa-compass-drafting text-white text-lg"></i>
           </div>
@@ -26,27 +27,34 @@ export const Header: React.FC<HeaderProps> = ({ user, session, onOpenProfile, on
 
       <div className="flex-1 flex justify-center px-10">
         <div 
-          onClick={onOpenSessions}
-          className="bg-white/50 border border-black/5 px-6 py-2 rounded-full flex items-center gap-4 cursor-pointer hover:bg-white hover:border-slate-300 transition-all group"
+          className="bg-white/50 border border-black/5 px-6 py-1.5 rounded-full flex items-center gap-4 group"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={onOpenSessions}>
             <i className="fa-solid fa-box-archive text-[10px] text-slate-400 group-hover:scale-110 transition-transform"></i>
             <span className="text-[11px] font-black uppercase text-slate-800 tracking-widest">{session.name}</span>
           </div>
+          
           <div className="h-4 w-[1px] bg-black/10"></div>
-          <div className="flex items-center gap-2">
+          
+          <button 
+            onClick={onManualSync}
+            disabled={isSaving}
+            className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-all ${
+              isSaving ? 'bg-yellow-50' : 'hover:bg-emerald-50'
+            }`}
+          >
             {isSaving ? (
               <>
                 <i className="fa-solid fa-circle-notch fa-spin text-[10px] text-yellow-600"></i>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Syncing...</span>
+                <span className="text-[9px] font-black text-yellow-700 uppercase tracking-widest">Syncing Vault...</span>
               </>
             ) : (
               <>
-                <i className="fa-solid fa-check text-[10px] text-emerald-600"></i>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Secured</span>
+                <i className="fa-solid fa-cloud-arrow-up text-[10px] text-emerald-600"></i>
+                <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Protocol Secured</span>
               </>
             )}
-          </div>
+          </button>
         </div>
       </div>
 

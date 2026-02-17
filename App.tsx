@@ -25,7 +25,7 @@ declare global {
 const DEFAULT_BG_COLOR = '#dbdac8';
 
 const DEFAULT_PROJECT_STATE: ProjectState = {
-  version: '3.1.7',
+  version: '3.1.9',
   comics: INITIAL_COMICS,
   history: [],
   bookPages: [],
@@ -47,7 +47,7 @@ const DEFAULT_PROJECT_STATE: ProjectState = {
 };
 
 export default function App() {
-  // 1. Hooks (Must be called unconditionally at the top)
+  // 1. Hooks (Unconditional at the top)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<AppSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -75,12 +75,12 @@ export default function App() {
     }
   }, []);
 
-  // Sync session state for the authenticated user
+  // Sync sessions for the current user
   useEffect(() => {
     if (!currentUser) return;
     const sessionKey = `sessions_${currentUser.id}`;
     const savedSessions = localStorage.getItem(sessionKey);
-    const parsedSessions: AppSession[] = savedSessions ? JSON.parse(savedSessions) : [];
+    let parsedSessions: AppSession[] = savedSessions ? JSON.parse(savedSessions) : [];
     
     if (parsedSessions.length === 0) {
       const defaultSession: AppSession = {
@@ -90,7 +90,7 @@ export default function App() {
         lastModified: Date.now(),
         data: { ...DEFAULT_PROJECT_STATE }
       };
-      parsedSessions.push(defaultSession);
+      parsedSessions = [defaultSession];
       localStorage.setItem(sessionKey, JSON.stringify(parsedSessions));
     }
     
@@ -99,7 +99,7 @@ export default function App() {
     setActiveSessionId(lastActive || parsedSessions[0].id);
   }, [currentUser]);
 
-  // Derived state calculations (Unconditional hooks)
+  // Derived state (Unconditional)
   const activeSession = useMemo(() => 
     sessions.find(s => s.id === activeSessionId) || null, 
   [sessions, activeSessionId]);
@@ -115,9 +115,11 @@ export default function App() {
   }, [activeSession]);
 
   const currentBackgroundColor = useMemo(() => {
-    if (currentTab === 'books' || !activeComic) return DEFAULT_BG_COLOR;
-    return activeComic.backgroundColor || DEFAULT_BG_COLOR;
-  }, [currentTab, activeComic]);
+    if (currentTab === 'books') return DEFAULT_BG_COLOR;
+    if (activeComic?.backgroundColor) return activeComic.backgroundColor;
+    if (activeSession?.data.globalBackgroundColor) return activeSession.data.globalBackgroundColor;
+    return DEFAULT_BG_COLOR;
+  }, [currentTab, activeComic, activeSession]);
 
   // Handlers
   const handleUpdateSessionData = useCallback((newData: Partial<ProjectState>) => {
@@ -137,8 +139,16 @@ export default function App() {
     
     setSessions(updatedSessions);
     localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(updatedSessions));
-    setTimeout(() => setIsSaving(false), 500);
+    // Brief timeout for visual feedback of saving
+    setTimeout(() => setIsSaving(false), 600);
   }, [activeSession, currentUser, sessions]);
+
+  const handleManualSync = () => {
+    if (!activeSession || !currentUser) return;
+    setIsSaving(true);
+    localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(sessions));
+    setTimeout(() => setIsSaving(false), 1000);
+  };
 
   const handleAuth = (user: User) => {
     setCurrentUser(user);
@@ -192,7 +202,7 @@ export default function App() {
         setSessions(updated);
         localStorage.setItem(`sessions_${currentUser!.id}`, JSON.stringify(updated));
         handleSwitchSession(newSession.id);
-      } catch (err) { alert('Corrupted or invalid Chronicle JSON.'); }
+      } catch (err) { alert('Invalid archive.'); }
     };
     reader.readAsText(file);
   };
@@ -202,7 +212,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${session.name.replace(/\s+/g, '_')}_data.json`;
+    link.download = `${session.name.replace(/\s+/g, '_')}_chronicle.json`;
     link.click();
   };
 
@@ -221,19 +231,19 @@ export default function App() {
     if (activeSessionId === id) handleSwitchSession(updated[0].id);
   };
 
-  // 2. Conditional Returns (Must happen AFTER all hooks are called)
+  // 2. Returns (After Hooks)
   if (!currentUser) return <AuthModal onAuth={handleAuth} />;
   
   if (!activeSession) {
-    return <div className="h-screen w-screen bg-[#dbdac8] flex items-center justify-center animate-pulse">Initializing...</div>;
+    return <div className="h-screen w-screen bg-[#dbdac8] flex items-center justify-center">Initializing Chronology...</div>;
   }
 
-  // Final Data extraction for render
   const { comics, history, books, activeSeriesId } = activeSession.data;
 
   return (
     <div 
-      className="flex flex-col h-screen font-sans selection:bg-indigo-500/20 overflow-hidden transition-all duration-700"
+      id="app-root-container"
+      className="flex flex-col h-screen font-sans selection:bg-indigo-500/20 overflow-hidden"
       style={{ backgroundColor: currentBackgroundColor }}
     >
       <Header 
@@ -242,6 +252,7 @@ export default function App() {
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenSessions={() => setIsSessionsOpen(true)}
         isSaving={isSaving}
+        onManualSync={handleManualSync}
       />
       
       <div className="flex-1 flex overflow-hidden">
@@ -301,8 +312,11 @@ export default function App() {
 
             {currentTab === 'train' && activeComic && (
               <TrainingCenter 
+                key={`train-${activeComic.id}`}
                 editingComic={activeComic}
-                onUpdateComic={(updated) => handleUpdateSessionData({ comics: comics.map(c => c.id === updated.id ? updated : c) })}
+                onUpdateComic={(updated) => handleUpdateSessionData({ 
+                  comics: comics.map(c => c.id === updated.id ? updated : c) 
+                })}
                 onPreviewImage={setPreviewImage} 
                 globalColor={currentBackgroundColor}
                 onUpdateGlobalColor={(color) => handleUpdateSessionData({ globalBackgroundColor: color })}
@@ -324,7 +338,9 @@ export default function App() {
               ) : isEditingSettings ? (
                 <BookSettings 
                   book={activeBook} 
-                  onUpdateBook={(updatedBook) => handleUpdateSessionData({ books: books.map(b => b.id === updatedBook.id ? updatedBook : b) })} 
+                  onUpdateBook={(updatedBook) => handleUpdateSessionData({ 
+                    books: books.map(b => b.id === updatedBook.id ? updatedBook : b) 
+                  })} 
                   onBack={() => setIsEditingSettings(false)}
                   globalColor={currentBackgroundColor}
                   onUpdateGlobalColor={(color) => handleUpdateSessionData({ globalBackgroundColor: color })}
@@ -332,7 +348,9 @@ export default function App() {
               ) : (
                 <ComicBookEditor 
                   book={activeBook}
-                  onUpdateBook={(updatedBook) => handleUpdateSessionData({ books: books.map(b => b.id === updatedBook.id ? updatedBook : b) })}
+                  onUpdateBook={(updatedBook) => handleUpdateSessionData({ 
+                    books: books.map(b => b.id === updatedBook.id ? updatedBook : b) 
+                  })}
                   onEditPage={(strip) => { setActiveEditingStrip(strip); setCurrentTab('generate'); }} 
                   onPreviewImage={setPreviewImage} 
                   onLaunchReader={setReadModePages}
@@ -347,8 +365,8 @@ export default function App() {
             {!activeSeriesId && currentTab !== 'books' && (
               <div className="h-full flex flex-col items-center justify-center p-20 text-center">
                 <i className="fa-solid fa-layer-group text-8xl text-slate-300 mb-8 opacity-40"></i>
-                <h3 className="text-slate-800 font-header text-5xl uppercase tracking-widest mb-4">No Workspace Selected</h3>
-                <button onClick={() => setCurrentTab('books')} className="px-12 py-4 bg-slate-800 text-white font-black rounded-2xl uppercase tracking-[0.2em] shadow-xl hover:bg-slate-900 transition-all">Open Archives</button>
+                <h3 className="text-slate-800 font-header text-5xl uppercase tracking-widest mb-4">Void Cluster</h3>
+                <button onClick={() => setCurrentTab('books')} className="px-12 py-4 bg-slate-800 text-white font-black rounded-2xl uppercase tracking-[0.2em] shadow-xl hover:bg-slate-900 transition-all">Initialize Archive</button>
               </div>
             )}
           </div>

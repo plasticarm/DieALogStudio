@@ -44,10 +44,16 @@
       }
     </script>
     <style>
+      :root {
+        --theme-bg: #dbdac8;
+      }
       body {
-        background-color: #dbdac8; /* Classic Die A Log Beige */
+        background-color: var(--theme-bg);
         color: #1e293b;
-        transition: background-color 0.5s ease;
+        transition: background-color 1000ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #app-root-container {
+        transition: background-color 1000ms cubic-bezier(0.4, 0, 0.2, 1);
       }
       ::-webkit-scrollbar {
         width: 8px;
