@@ -8,16 +8,15 @@ interface TrainingCenterProps {
   onPreviewImage: (url: string) => void;
   globalColor: string;
   onUpdateGlobalColor: (color: string) => void;
+  contrastColor: string;
 }
 
 export const TrainingCenter: React.FC<TrainingCenterProps> = ({ 
-  editingComic, onUpdateComic, onPreviewImage, globalColor, onUpdateGlobalColor 
+  editingComic, onUpdateComic, onPreviewImage, globalColor, onUpdateGlobalColor, contrastColor 
 }) => {
-  // Local state for scratchpad editing
   const [localComic, setLocalComic] = useState<ComicProfile>(() => JSON.parse(JSON.stringify(editingComic)));
   const [isGeneratingEnv, setIsGeneratingEnv] = useState<string | null>(null);
 
-  // Sync with prop when it changes significantly (like switching comic IDs)
   useEffect(() => {
     setLocalComic(JSON.parse(JSON.stringify(editingComic)));
   }, [editingComic.id]);
@@ -30,7 +29,6 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
   const handleColorChange = (color: string) => {
     const updated = { ...localComic, backgroundColor: color };
     setLocalComic(updated);
-    // Explicitly update global for immediate preview/fade effect in App.tsx
     onUpdateComic(updated);
   };
 
@@ -102,19 +100,19 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
       <div className="flex justify-between items-end mb-12 border-b border-black/5 pb-8">
         <div>
           <div className="flex items-center gap-4 mb-2">
-             <h2 className="text-5xl font-header text-slate-800 tracking-tight uppercase">SERIES GENOME</h2>
+             <h2 className={`text-5xl font-header tracking-tight uppercase ${contrastColor}`}>SERIES GENOME</h2>
              <span className="bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg shadow-sm">
-                PROTOCOL {localComic.id}
+                SERIES {localComic.id}
              </span>
           </div>
-          <p className="text-slate-600 font-medium text-lg italic">Calibrating visual logic for <span className="text-brand-700 font-black">{localComic.name}</span>.</p>
+          <p className={`${contrastColor} opacity-70 font-medium text-lg italic`}>Calibrating visual logic for <span className="font-black underline">{localComic.name}</span>.</p>
         </div>
         
         <div className="flex items-center gap-8">
           <div className="flex flex-col items-end">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Series Ambient Hue</label>
+            <label className={`text-[9px] font-black uppercase tracking-widest mb-2 ${contrastColor} opacity-60`}>Series Ambient Hue</label>
             <div className="flex items-center gap-3">
-              <span className="text-[10px] font-mono text-slate-400 font-bold uppercase">{localComic.backgroundColor || '#dbdac8'}</span>
+              <span className={`text-[10px] font-mono font-bold uppercase ${contrastColor} opacity-60`}>{localComic.backgroundColor || '#dbdac8'}</span>
               <input 
                 type="color" 
                 value={localComic.backgroundColor || '#dbdac8'} 
@@ -125,10 +123,10 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
           </div>
           <button 
             onClick={() => onUpdateComic(localComic)} 
-            className="bg-brand-700 hover:bg-brand-800 text-white px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl transition transform active:scale-95 flex items-center gap-3"
+            className="bg-slate-800 text-white px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl transition transform active:scale-95 flex items-center gap-3"
           >
             <i className="fa-solid fa-cloud-arrow-up"></i>
-            Commit Global DNA
+            Commit DNA Update
           </button>
         </div>
       </div>

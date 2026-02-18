@@ -13,16 +13,16 @@ interface ComicBookEditorProps {
   onOpenSettings: () => void;
   activeSeriesId: string | null;
   history: SavedComicStrip[];
+  contrastColor: string;
 }
 
 export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({ 
-  book, onUpdateBook, onEditPage, onPreviewImage, onLaunchReader, onManageCover, onOpenSettings, activeSeriesId, history
+  book, onUpdateBook, onEditPage, onPreviewImage, onLaunchReader, onManageCover, onOpenSettings, activeSeriesId, history, contrastColor
 }) => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [viewMode, setViewMode] = useState<'master' | 'export'>('master');
 
-  // Filter history to only show assets for the currently active series
   const filteredHistory = history.filter(s => s.comicProfileId === activeSeriesId);
 
   const saveBook = (pages: string[]) => {
@@ -62,7 +62,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
 
   const handleLaunchReader = () => {
     const pages = book.pages.map(id => getStrip(id)).filter((s): s is SavedComicStrip => !!s);
-    if (pages.length === 0 && book.externalPageUrls.length === 0) return alert('Add pages to the volume first!');
+    if (pages.length === 0 && book.externalPageUrls.length === 0) return alert('Bind pages to the volume first!');
     onLaunchReader(pages);
   };
 
@@ -131,11 +131,11 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
           {filteredHistory.length === 0 && (
             <div className="text-center py-20 px-4">
               <div className="text-5xl mb-4 opacity-5">📑</div>
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">No assets for this series yet.</p>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">No assets for this series.</p>
             </div>
           )}
           {filteredHistory.map(s => (
-            <div key={s.id} className="p-4 bg-slate-700/40 border border-slate-600/50 rounded-2xl group shadow-lg hover:border-brand-500 transition-all">
+            <div key={s.id} className="p-4 bg-slate-700/40 border border-slate-600/50 rounded-2xl group shadow-lg hover:border-slate-400 transition-all">
               <div className="aspect-[16/9] w-full overflow-hidden rounded-xl mb-4">
                 <img 
                   src={s.finishedImageUrl} 
@@ -147,9 +147,9 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
               <button 
                 onClick={() => addToBook(s.id)} 
                 disabled={book.pages.includes(s.id)}
-                className={`w-full text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-xl transition-all shadow-md ${book.pages.includes(s.id) ? 'bg-slate-800 cursor-not-allowed text-slate-600' : 'bg-brand-600 hover:bg-brand-700 active:scale-95'}`}
+                className={`w-full text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-xl transition-all shadow-md ${book.pages.includes(s.id) ? 'bg-slate-800 cursor-not-allowed text-slate-600' : 'bg-slate-700 hover:bg-slate-600 active:scale-95'}`}
               >
-                {book.pages.includes(s.id) ? 'Bound' : 'Add to Volume'}
+                {book.pages.includes(s.id) ? 'Bound' : 'Bind to Volume'}
               </button>
             </div>
           ))}
@@ -167,7 +167,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
                 className="bg-transparent border-none text-white font-comic text-3xl outline-none focus:ring-0 w-80 uppercase tracking-widest"
                 placeholder="Volume Title..."
               />
-              <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em]">{book.pages.length} Registered Pages</span>
+              <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em]">{book.pages.length} Pages Registered</span>
             </div>
             <button 
               onClick={onManageCover}
@@ -187,11 +187,17 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
               <button onClick={() => setViewMode('master')} className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg ${viewMode === 'master' ? 'bg-white text-slate-900' : 'text-slate-500'}`}>Production</button>
               <button onClick={() => setViewMode('export')} className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg ${viewMode === 'export' ? 'bg-white text-slate-900' : 'text-slate-500'}`}>Export</button>
             </div>
-            <button onClick={handleLaunchReader} className="bg-brand-600 text-white text-[11px] font-black uppercase tracking-[0.2em] px-8 py-3.5 rounded-2xl hover:bg-brand-700 shadow-2xl transition-all">Open Reader 📖</button>
+            <button onClick={handleLaunchReader} className="bg-slate-800 text-white text-[11px] font-black uppercase tracking-[0.2em] px-8 py-3.5 rounded-2xl hover:bg-slate-900 shadow-2xl transition-all">Open Reader 📖</button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-12 space-y-10">
+          {book.pages.length === 0 && (
+            <div className="flex-1 flex flex-col items-center justify-center py-40 opacity-20">
+               <i className="fa-solid fa-book-open text-9xl mb-8"></i>
+               <p className="font-header text-4xl uppercase tracking-widest">Bind assets to start volume assembly</p>
+            </div>
+          )}
           {book.pages.map((id, index) => {
             const strip = getStrip(id);
             if (!strip) return null;
@@ -212,7 +218,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
                 <div className="flex-1 flex flex-col justify-between">
                   <h4 className="font-header text-4xl text-slate-800 uppercase tracking-tight">{strip.name}</h4>
                   <div className="flex gap-8">
-                    <button onClick={() => onEditPage(strip)} className="text-[11px] font-black uppercase text-brand-600 hover:underline tracking-widest">Studio View</button>
+                    <button onClick={() => onEditPage(strip)} className="text-[11px] font-black uppercase text-slate-600 hover:underline tracking-widest">Studio View</button>
                     <button onClick={() => removePage(id)} className="text-[11px] font-black uppercase text-rose-500 hover:underline tracking-widest">Detach Page</button>
                   </div>
                 </div>

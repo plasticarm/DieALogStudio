@@ -15,12 +15,16 @@ export const Header: React.FC<HeaderProps> = ({ user, session, onOpenProfile, on
     <header className="sticky top-0 z-50 h-16 glass px-8 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3 group cursor-pointer" onClick={() => window.location.reload()}>
-          <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all">
-            <i className="fa-solid fa-compass-drafting text-white text-lg"></i>
+          <div className="w-12 h-12 flex items-center justify-center group-hover:scale-110 transition-all">
+            <img 
+              src="https://raw.githubusercontent.com/plasticarm/DieALogStudio/main/images/DieALog_LogLogo1.png" 
+              alt="Logo" 
+              className="w-full h-full object-contain" 
+            />
           </div>
           <div className="flex flex-col">
             <span className="font-header text-2xl text-slate-800 uppercase tracking-tighter leading-none">Die A Log</span>
-            <span className="text-[8px] text-slate-400 font-black uppercase tracking-[0.3em] group-hover:text-slate-600 transition-colors">Architect Studio</span>
+            <span className="text-[8px] text-slate-400 font-black uppercase tracking-[0.3em] group-hover:text-slate-600 transition-colors">Comic Studio</span>
           </div>
         </div>
       </div>
@@ -46,12 +50,12 @@ export const Header: React.FC<HeaderProps> = ({ user, session, onOpenProfile, on
             {isSaving ? (
               <>
                 <i className="fa-solid fa-circle-notch fa-spin text-[10px] text-yellow-600"></i>
-                <span className="text-[9px] font-black text-yellow-700 uppercase tracking-widest">Syncing Vault...</span>
+                <span className="text-[9px] font-black text-yellow-700 uppercase tracking-widest">Saving Assets...</span>
               </>
             ) : (
               <>
                 <i className="fa-solid fa-cloud-arrow-up text-[10px] text-emerald-600"></i>
-                <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Protocol Secured</span>
+                <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Assets Secured</span>
               </>
             )}
           </button>
@@ -70,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({ user, session, onOpenProfile, on
         >
           <div className="flex flex-col items-end">
             <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest group-hover:text-slate-600 transition-all">{user.name}</span>
-            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">Architect Tier</span>
+            <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">Producer Tier</span>
           </div>
           <div className="w-10 h-10 rounded-full bg-white border-2 border-slate-200 overflow-hidden group-hover:border-slate-400 transition-all shadow-md">
             {user.picture ? (

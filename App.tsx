@@ -24,8 +24,16 @@ declare global {
 
 const DEFAULT_BG_COLOR = '#dbdac8';
 
+function getLuminance(hex: string) {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
 const DEFAULT_PROJECT_STATE: ProjectState = {
-  version: '3.1.9',
+  version: '3.2.0',
   comics: INITIAL_COMICS,
   history: [],
   bookPages: [],
@@ -47,7 +55,7 @@ const DEFAULT_PROJECT_STATE: ProjectState = {
 };
 
 export default function App() {
-  // 1. Hooks (Unconditional at the top)
+  // 1. Hooks (Unconditional)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sessions, setSessions] = useState<AppSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -63,7 +71,6 @@ export default function App() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [readModePages, setReadModePages] = useState<SavedComicStrip[] | null>(null);
 
-  // Initialize User from storage
   useEffect(() => {
     const savedUser = localStorage.getItem('app_user');
     if (savedUser) {
@@ -75,7 +82,6 @@ export default function App() {
     }
   }, []);
 
-  // Sync sessions for the current user
   useEffect(() => {
     if (!currentUser) return;
     const sessionKey = `sessions_${currentUser.id}`;
@@ -86,7 +92,7 @@ export default function App() {
       const defaultSession: AppSession = {
         id: 'default_chronicle',
         userId: currentUser.id,
-        name: 'Prime Chronicle',
+        name: 'Assets',
         lastModified: Date.now(),
         data: { ...DEFAULT_PROJECT_STATE }
       };
@@ -99,7 +105,6 @@ export default function App() {
     setActiveSessionId(lastActive || parsedSessions[0].id);
   }, [currentUser]);
 
-  // Derived state (Unconditional)
   const activeSession = useMemo(() => 
     sessions.find(s => s.id === activeSessionId) || null, 
   [sessions, activeSessionId]);
@@ -121,7 +126,10 @@ export default function App() {
     return DEFAULT_BG_COLOR;
   }, [currentTab, activeComic, activeSession]);
 
-  // Handlers
+  const uiContrastColor = useMemo(() => {
+    return getLuminance(currentBackgroundColor) > 0.5 ? 'text-slate-800' : 'text-slate-100';
+  }, [currentBackgroundColor]);
+
   const handleUpdateSessionData = useCallback((newData: Partial<ProjectState>) => {
     if (!activeSession || !currentUser) return;
     setIsSaving(true);
@@ -139,8 +147,7 @@ export default function App() {
     
     setSessions(updatedSessions);
     localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(updatedSessions));
-    // Brief timeout for visual feedback of saving
-    setTimeout(() => setIsSaving(false), 600);
+    setTimeout(() => setIsSaving(false), 500);
   }, [activeSession, currentUser, sessions]);
 
   const handleManualSync = () => {
@@ -176,7 +183,7 @@ export default function App() {
     const newSession: AppSession = {
       id: `session_${Date.now()}`,
       userId: currentUser.id,
-      name: `New Chronicle ${sessions.length + 1}`,
+      name: `Assets ${sessions.length + 1}`,
       lastModified: Date.now(),
       data: { ...DEFAULT_PROJECT_STATE }
     };
@@ -194,7 +201,7 @@ export default function App() {
         const newSession: AppSession = {
           id: `imported_${Date.now()}`,
           userId: currentUser!.id,
-          name: importedData.name || 'Imported Chronicle',
+          name: importedData.name || 'Imported Assets',
           lastModified: Date.now(),
           data: importedData.data || DEFAULT_PROJECT_STATE
         };
@@ -212,7 +219,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${session.name.replace(/\s+/g, '_')}_chronicle.json`;
+    link.download = `${session.name.replace(/\s+/g, '_')}_assets.json`;
     link.click();
   };
 
@@ -231,11 +238,10 @@ export default function App() {
     if (activeSessionId === id) handleSwitchSession(updated[0].id);
   };
 
-  // 2. Returns (After Hooks)
   if (!currentUser) return <AuthModal onAuth={handleAuth} />;
   
   if (!activeSession) {
-    return <div className="h-screen w-screen bg-[#dbdac8] flex items-center justify-center">Initializing Chronology...</div>;
+    return <div className="h-screen w-screen bg-[#dbdac8] flex items-center justify-center">Loading Comic Studio...</div>;
   }
 
   const { comics, history, books, activeSeriesId } = activeSession.data;
@@ -273,7 +279,7 @@ export default function App() {
               }`}>
                 <i className={`fa-solid ${tab.icon}`}></i>
               </div>
-              <span className="text-[8px] font-black uppercase tracking-widest">{tab.label}</span>
+              <span className={`text-[8px] font-black uppercase tracking-widest ${currentTab === tab.id ? 'text-slate-800' : 'text-slate-400'}`}>{tab.label}</span>
             </button>
           ))}
         </aside>
@@ -307,6 +313,7 @@ export default function App() {
                 onPreviewImage={setPreviewImage}
                 onSaveHistory={(strip) => handleUpdateSessionData({ history: [strip, ...history] })}
                 history={history}
+                contrastColor={uiContrastColor}
               />
             )}
 
@@ -320,6 +327,7 @@ export default function App() {
                 onPreviewImage={setPreviewImage} 
                 globalColor={currentBackgroundColor}
                 onUpdateGlobalColor={(color) => handleUpdateSessionData({ globalBackgroundColor: color })}
+                contrastColor={uiContrastColor}
               />
             )}
 
@@ -327,7 +335,7 @@ export default function App() {
                isManagingCover ? (
                 <CoverGenerator 
                   book={activeBook} 
-                  comics={comics} 
+                  activeComic={activeComic!}
                   onSaveCover={(url) => {
                     const updated = books.map(b => b.id === activeBook.id ? { ...b, coverImageUrl: url } : b);
                     handleUpdateSessionData({ books: updated });
@@ -358,15 +366,16 @@ export default function App() {
                   onOpenSettings={() => setIsEditingSettings(true)}
                   activeSeriesId={activeSeriesId}
                   history={history}
+                  contrastColor={uiContrastColor}
                 />
               )
             )}
 
             {!activeSeriesId && currentTab !== 'books' && (
               <div className="h-full flex flex-col items-center justify-center p-20 text-center">
-                <i className="fa-solid fa-layer-group text-8xl text-slate-300 mb-8 opacity-40"></i>
-                <h3 className="text-slate-800 font-header text-5xl uppercase tracking-widest mb-4">Void Cluster</h3>
-                <button onClick={() => setCurrentTab('books')} className="px-12 py-4 bg-slate-800 text-white font-black rounded-2xl uppercase tracking-[0.2em] shadow-xl hover:bg-slate-900 transition-all">Initialize Archive</button>
+                <i className={`fa-solid fa-layer-group text-8xl mb-8 opacity-40 ${uiContrastColor}`}></i>
+                <h3 className={`font-header text-5xl uppercase tracking-widest mb-4 ${uiContrastColor}`}>No Series Selected</h3>
+                <button onClick={() => setCurrentTab('books')} className="px-12 py-4 bg-slate-800 text-white font-black rounded-2xl uppercase tracking-[0.2em] shadow-xl hover:bg-slate-900 transition-all">Open Library</button>
               </div>
             )}
           </div>
