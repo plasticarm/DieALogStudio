@@ -150,7 +150,7 @@ function App() {
         await updateDoc(doc(db, "comic_profiles", id), data);
       } catch (error) {
         console.error("Failed to update comic profile:", error);
-        setGlobalError("Failed to save your changes. Please check your connection.");
+        setGlobalError("Failed to update comic profile.");
       } finally {
         setTimeout(() => setIsSyncing(false), 1000);
       }
@@ -379,7 +379,6 @@ function App() {
   }
 
   // If not logged in, show Login component
-  // This prevents Header from rendering with a null user
   if (!user) {
     return <Login onLogin={handleLogin} />;
   }
@@ -389,14 +388,19 @@ function App() {
     if (viewMode === 'gallery') {
       return (
         <BooksLibrary
-          comicProfiles={comicProfiles}
-          comics={comics}
-          onNewComic={handleCreateNewComic}
+          comics={comicProfiles} // PASSED CORRECTLY: Profiles go to the 'comics' prop of BooksLibrary
+          books={[]} // Mock empty books
+          history={[]} // Mock empty history
+          onOpenBook={(profileId) => {
+             const profile = comicProfiles.find(p => p.id === profileId);
+             if (profile) handleEditComic(profile);
+          }}
+          onCreateComic={handleCreateNewComic}
           onEditComic={handleEditComic}
-          onViewComic={handleViewComic}
-          onDeleteComic={handleDeleteComic}
-          onDeleteProfile={handleDeleteComicProfile}
-          onAdvanceGuide={setGuideStep}
+          onDeleteComic={handleDeleteComicProfile} // Corrected handler for profiles
+          onClearHistory={() => {}}
+          onSyncLibrary={() => {}}
+          activeSeriesId={null}
         />
       );
     }
