@@ -373,9 +373,9 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                     >
                       <i className={`fa-solid ${isGeneratingAsset === `${char.id}_main` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
                     </button>
-                    <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
+                    <label className="relative w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
                       {isUploading === `char-main_${char.id}` ? <i className="fa-solid fa-spinner animate-spin text-[10px]"></i> : <i className="fa-solid fa-upload text-[10px]"></i>}
-                      <input type="file" className="hidden" disabled={!!isUploading} onChange={e => {
+                      <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={!!isUploading} onChange={e => {
                         if (!e.target.files?.[0]) return;
                         handleUploadAndVault(
                           e.target.files[0],
@@ -436,9 +436,9 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                     >
                       <i className={`fa-solid ${isGeneratingAsset === `${char.id}_sheet` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
                     </button>
-                    <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
+                    <label className="relative w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
                       {isUploading === `char-sheet_${char.id}` ? <i className="fa-solid fa-spinner animate-spin text-[10px]"></i> : <i className="fa-solid fa-upload text-[10px]"></i>}
-                      <input type="file" className="hidden" disabled={!!isUploading} onChange={e => {
+                      <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={!!isUploading} onChange={e => {
                         if (!e.target.files?.[0]) return;
                         handleUploadAndVault(
                           e.target.files[0],
@@ -490,9 +490,9 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                     >
                       <i className={`fa-solid ${isGeneratingAsset === `${char.id}_expression` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
                     </button>
-                    <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
+                    <label className="relative w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
                        {isUploading === `char-expr_${char.id}` ? <i className="fa-solid fa-spinner animate-spin text-[10px]"></i> : <i className="fa-solid fa-upload text-[10px]"></i>}
-                      <input type="file" className="hidden" disabled={!!isUploading} onChange={e => {
+                      <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={!!isUploading} onChange={e => {
                         if (!e.target.files?.[0]) return;
                         handleUploadAndVault(
                           e.target.files[0],
@@ -656,7 +656,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                             handleSaveProtocol(updated);
                           }
                         );
-                      }} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   </div>
                 )}
               </div>
@@ -758,12 +758,12 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                         <div className="w-full h-full flex items-center justify-center text-slate-100 text-4xl">👤</div>
                       )}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                        <label className="text-[8px] font-black uppercase text-white bg-white/20 px-3 py-1 rounded-full cursor-pointer hover:bg-white/30 transition-all">
+                        <label className="relative text-[8px] font-black uppercase text-white bg-white/20 px-3 py-1 rounded-full cursor-pointer hover:bg-white/30 transition-all">
                            {isUploading === `char-avatar_${char.id}` ? <i className="fa-solid fa-spinner animate-spin"></i> : <>Upload</>}
-                          <input type="file" disabled={!!isUploading} onChange={(e) => {
+                           <input type="file" disabled={!!isUploading} onChange={(e) => {
                              if (!e.target.files?.[0]) return;
                              handleUploadAndVault(e.target.files[0], `char-avatar_${char.id}`, (vaultedUrl) => updateCharacter(char.id, {imageUrl: vaultedUrl, avatarUrl: vaultedUrl}));
-                          }} className="hidden" />
+                          }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                         </label>
                         {char.imageUrl && (
                           <button 
@@ -833,14 +833,14 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                   <div className="w-36 h-36 shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-lg">
                     {env.imageUrl ? <CachedImage src={env.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-100 text-4xl">🏞️</div>}
                     <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-black/40 flex items-center justify-center">
-                        <label className="text-[8px] font-black uppercase text-white bg-white/20 px-3 py-1 rounded-full cursor-pointer hover:bg-white/30 transition-all">
+                        <label className="relative text-[8px] font-black uppercase text-white bg-white/20 px-3 py-1 rounded-full cursor-pointer hover:bg-white/30 transition-all">
                             {isUploading === `env_${env.id}` ? <i className="fa-solid fa-spinner animate-spin"></i> : <>Upload</>}
                             <input type="file" disabled={!!isUploading} onChange={(e) => {
                                 if (!e.target.files?.[0]) return;
                                 handleUploadAndVault(e.target.files[0], `env_${env.id}`, (vaultedUrl) => {
                                     const ne = [...localComic.environments]; ne[idx].imageUrl = vaultedUrl; handleSaveProtocol({...localComic, environments: ne});
                                 });
-                            }} className="hidden" />
+                            }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                         </label>
                     </div>
                   </div>
