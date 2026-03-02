@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { ComicBook, ComicProfile, ArtModelType } from '../types';
 import { generateComicArt } from '../services/gemini';
+import { downscaleImage } from '../utils/imageUtils';
+import { imageStore } from '../services/imageStore';
+import { CachedImage } from './CachedImage';
 
 interface CoverGeneratorProps {
   book: ComicBook;
@@ -23,8 +26,10 @@ export const CoverGenerator: React.FC<CoverGeneratorProps> = ({ book, activeComi
         visualDescription: `Main cover illustration: ${prompt}. Cinematic, epic composition, high detail, high resolution production quality. Including the branding and tone of the series: ${activeComic.name}.`,
         dialogue: []
       }];
-      const img = await generateComicArt(activeComic, mockScript, model);
-      setPreviewCover(img);
+      const rawImg = await generateComicArt(activeComic, mockScript, model);
+      const img = await downscaleImage(rawImg, 1024, 0.8);
+      const vaultedImg = await imageStore.vaultify(img);
+      setPreviewCover(vaultedImg);
     } catch (e: any) { alert(e.message); }
     finally { setIsProcessing(false); }
   };
@@ -61,23 +66,42 @@ export const CoverGenerator: React.FC<CoverGeneratorProps> = ({ book, activeComi
                 <option value="gemini-3-pro-image-preview">💎 Pro Render</option>
               </select>
             </div>
-            <button 
-              onClick={handleGenerateCover}
-              disabled={isProcessing}
-              className="w-full bg-slate-800 text-white font-black uppercase py-4 rounded-xl shadow-lg hover:bg-slate-900 transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-              {isProcessing ? 'Rendering...' : '🎨 Generate Cover'}
-            </button>
+            <div className="flex gap-4">
+              <button 
+                data-guide="cover-generate"
+                onClick={handleGenerateCover}
+                disabled={isProcessing}
+                className="flex-1 bg-slate-800 text-white font-black uppercase py-4 rounded-xl shadow-lg hover:bg-slate-900 transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                {isProcessing ? 'Rendering...' : '🎨 Generate Cover'}
+              </button>
+              <label className="bg-slate-100 text-slate-600 font-black uppercase px-6 rounded-xl shadow-md hover:bg-slate-200 transition flex items-center justify-center cursor-pointer">
+                <i className="fa-solid fa-upload"></i>
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = async (ev) => {
+                        const url = await downscaleImage(ev.target?.result as string, 1024, 0.8);
+                        const vaultedUrl = await imageStore.vaultify(url);
+                        setPreviewCover(vaultedUrl);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} 
+                />
+              </label>
+            </div>
           </div>
 
           <div className="flex-1 bg-slate-50 flex flex-col items-center justify-center p-8 relative">
             {previewCover ? (
               <div className="w-full aspect-[3/4] bg-white rounded-2xl shadow-2xl border-[10px] border-white overflow-hidden relative group">
-                <img src={previewCover} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/20 group-hover:opacity-0 transition-opacity flex flex-col items-center justify-center text-white pointer-events-none">
-                  <span className="font-comic text-5xl text-center px-4 drop-shadow-xl">{book.title}</span>
-                </div>
+                <CachedImage src={previewCover} className="w-full h-full object-cover" />
                 <button 
                   onClick={() => onSaveCover(previewCover)}
                   className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-emerald-700 transition"

@@ -1,19 +1,22 @@
 {
-  "name": "die-a-log---comic-editor",
+  "name": "copy-of-die-a-log---comic-editor",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "react-dom": "^19.2.4",
-    "react": "^19.2.4",
     "@google/genai": "^1.41.0",
+    "@tailwindcss/vite": "^4.2.0",
+    "jspdf": "^2.5.1",
     "jszip": "^3.10.1",
-    "jspdf": "^2.5.1"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

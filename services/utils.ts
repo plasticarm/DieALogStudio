@@ -1,4 +1,5 @@
 import { GeneratedPanelScript, ComicProfile } from "../types";
+import { imageStore } from "./imageStore";
 
 export const downloadCSV = (comicName: string, script: GeneratedPanelScript[]) => {
   const headers = ['Panel', 'Character', 'Dialogue', 'Visual Note'];
@@ -32,10 +33,33 @@ export const downloadCSV = (comicName: string, script: GeneratedPanelScript[]) =
   document.body.removeChild(link);
 };
 
-export const downloadImage = (dataUrl: string, filename: string) => {
+export const downloadImage = async (dataUrl: string, filename: string) => {
+  let urlToDownload = dataUrl;
+  
+  if (dataUrl.startsWith('vault:')) {
+    const resolved = await imageStore.getImage(dataUrl);
+    if (resolved) {
+      urlToDownload = resolved;
+    } else {
+      console.error("Failed to resolve vault URL for download");
+      return;
+    }
+  }
+
   const link = document.createElement('a');
-  link.href = dataUrl;
+  link.href = urlToDownload;
   link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+export const downloadJSON = (data: any, filename: string) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

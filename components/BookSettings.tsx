@@ -1,5 +1,7 @@
 import React from 'react';
 import { ComicBook } from '../types';
+import { imageStore } from '../services/imageStore';
+import { CachedImage } from './CachedImage';
 
 interface BookSettingsProps {
   book: ComicBook;
@@ -14,8 +16,9 @@ export const BookSettings: React.FC<BookSettingsProps> = ({ book, onUpdateBook, 
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        onUpdateBook({ ...book, logoUrl: ev.target?.result as string });
+      reader.onload = async (ev) => {
+        const vaultedUrl = await imageStore.vaultify(ev.target?.result as string);
+        onUpdateBook({ ...book, logoUrl: vaultedUrl });
       };
       reader.readAsDataURL(file);
     }
@@ -83,7 +86,7 @@ export const BookSettings: React.FC<BookSettingsProps> = ({ book, onUpdateBook, 
             <div className="flex items-center gap-6">
               <div className="w-24 h-24 bg-slate-100 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden relative group">
                 {book.logoUrl ? (
-                  <img src={book.logoUrl} className="w-full h-full object-contain" />
+                  <CachedImage src={book.logoUrl} className="w-full h-full object-contain" />
                 ) : (
                   <span className="text-[9px] font-black text-slate-400 uppercase text-center px-2">Logo</span>
                 )}
