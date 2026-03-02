@@ -4,7 +4,7 @@ import { collection, addDoc, query, where, onSnapshot, updateDoc, doc, deleteDoc
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from './services/firebase';
 import { Login } from './components/Login';
-import { ComicStrip } from './components/ComicStrip';
+import { ComicBookEditor } from './components/ComicBookEditor';
 import { Comic, ComicProfile, GeneratedPanel, User } from './types';
 import { generateComicScript, generateComicArt, removeTextFromComic, generateVeoVideo } from './services/gemini';
 import { TrainingCenter } from './components/TrainingCenter';
@@ -380,7 +380,7 @@ function App() {
     if (viewMode === 'comic-view' && activeComic) {
       const profile = comicProfiles.find(p => p.id === activeComic.profileId);
       return (
-        <ComicStrip
+        <ComicBookEditor
           comic={activeComic}
           profile={profile}
           onRegenerate={handleRegenerateArt}
