@@ -85,6 +85,27 @@ export class ImageStore {
   }
 
   /**
+   * Helper to upload a data URL to Firebase Storage and return the download URL.
+   * This is useful for sharing or persistent cloud storage.
+   */
+  async cloudify(url: string, userId: string, pathPrefix: string = 'images'): Promise<string> {
+    if (!url || !url.startsWith('data:')) return url;
+    
+    // Lazy import to avoid circular dependencies or loading firebase when not needed
+    const { firebaseService } = await import('./firebaseService');
+    const fileName = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+    const path = `${userId}/${pathPrefix}/${fileName}`;
+    
+    try {
+      const cloudUrl = await firebaseService.uploadImage(url, path);
+      return cloudUrl;
+    } catch (error) {
+      console.error("Cloud upload failed, falling back to vault:", error);
+      return await this.vaultify(url);
+    }
+  }
+
+  /**
    * Deletes an image from the cache.
    */
   async deleteImage(key: string): Promise<void> {

@@ -7,7 +7,9 @@ interface HeaderProps {
   onOpenProfile: () => void;
   onOpenSessions: () => void;
   isSaving: boolean;
+  isSyncingToCloud?: boolean;
   onManualSync?: () => void;
+  onSyncToCloud?: () => void;
   guideEnabled?: boolean;
   onToggleGuide?: () => void;
   onBackToModeSelect?: () => void;
@@ -20,7 +22,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile, 
   onOpenSessions, 
   isSaving, 
+  isSyncingToCloud,
   onManualSync,
+  onSyncToCloud,
   guideEnabled,
   onToggleGuide,
   onBackToModeSelect,
@@ -107,6 +111,29 @@ export const Header: React.FC<HeaderProps> = ({
               <>
                 <i className="fa-solid fa-cloud-arrow-up text-[10px] text-emerald-600"></i>
                 <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Assets Secured</span>
+              </>
+            )}
+          </button>
+
+          <div className="h-4 w-[1px] bg-black/10"></div>
+
+          <button 
+            onClick={onSyncToCloud}
+            disabled={isSyncingToCloud}
+            className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-all ${
+              isSyncingToCloud ? 'bg-indigo-50' : 'hover:bg-indigo-50'
+            }`}
+            title="Sync all assets to Firebase Cloud"
+          >
+            {isSyncingToCloud ? (
+              <>
+                <i className="fa-solid fa-circle-notch fa-spin text-[10px] text-indigo-600"></i>
+                <span className="text-[9px] font-black text-indigo-700 uppercase tracking-widest">Syncing to Cloud...</span>
+              </>
+            ) : (
+              <>
+                <i className="fa-solid fa-cloud text-[10px] text-indigo-600"></i>
+                <span className="text-[9px] font-black text-indigo-700 uppercase tracking-widest">Cloud Sync</span>
               </>
             )}
           </button>
