@@ -1,5 +1,6 @@
 import React from 'react';
 import { User } from '../types';
+import { CachedImage } from './CachedImage';
 
 interface AuthModalProps {
   onAuth: (user: User) => void;
@@ -40,13 +41,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuth }) => {
       <div className="relative z-10 w-full max-w-lg px-6">
         <div className="text-center mb-12 animate-in zoom-in duration-700">
           <div className="h-40 w-40 mx-auto mb-6 float-animation">
-            <img 
+            <CachedImage 
               src="https://raw.githubusercontent.com/plasticarm/DieALogStudio/main/images/DieALog_LogLogo1.png" 
-              alt="Die A Log" 
+              alt="DiE-A-Log" 
               className="w-full h-full object-contain drop-shadow-2xl" 
             />
           </div>
-          <h1 className="text-slate-800 font-header text-7xl uppercase tracking-tighter mb-2">Die A Log</h1>
+          <h1 className="text-slate-800 font-header text-7xl uppercase tracking-tighter mb-2">DiE-A-Log</h1>
           <p className="text-slate-500 font-bold uppercase tracking-[0.4em] text-xs">Comic Studio v3.2.0</p>
         </div>
 
@@ -57,7 +58,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuth }) => {
             onClick={handleGoogleSignIn}
             className="w-full bg-white border-2 border-slate-200 text-slate-800 py-5 rounded-2xl font-black uppercase text-sm tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-4 active:scale-95 shadow-sm"
           >
-            <i className="fa-brands fa-google text-xl text-brand-indigo"></i>
+            <i className="fa-brands fa-google text-xl text-amber-700"></i>
             Sign in with Google
           </button>
 

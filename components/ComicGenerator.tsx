@@ -1,8 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import JSZip from 'jszip';
-import { ComicProfile, GeneratedPanelScript, SavedComicStrip, ArtModelType } from '../types';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { ComicProfile, GeneratedPanelScript, SavedComicStrip, ArtModelType, TextField } from '../types';
 import { generateComicScript, generateComicArt, removeTextFromComic } from '../services/gemini';
-import { downloadImage } from '../services/utils';
+import { downloadImage, downloadJSON } from '../services/utils';
+import { downscaleImage } from '../utils/imageUtils';
+import { imageStore } from '../services/imageStore';
+import { CachedImage } from './CachedImage';
+import { COMIC_FONTS } from '../constants';
 
 interface ComicGeneratorProps {
   activeComic: ComicProfile;
@@ -11,257 +14,1186 @@ interface ComicGeneratorProps {
   initialStrip?: SavedComicStrip | null;
   onPreviewImage: (url: string) => void;
   onSaveHistory: (strip: SavedComicStrip) => void;
+  onDeleteHistoryItem: (id: string) => void;
   history: SavedComicStrip[];
   contrastColor: string;
+  onAdvanceGuide?: (step: number) => void;
 }
 
+const getFontFamily = (fontName: string) => {
+  const font = COMIC_FONTS.find(f => f.name === fontName);
+  return font ? font.family : 'Inter, sans-serif';
+};
+
 export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ 
-  activeComic, allComics, onSwitchComic, initialStrip, onPreviewImage, onSaveHistory, history, contrastColor 
+  activeComic, allComics, onSwitchComic, initialStrip, onPreviewImage, onSaveHistory, onDeleteHistoryItem, history, contrastColor, onAdvanceGuide
 }) => {
   const [prompt, setPrompt] = useState(initialStrip?.prompt || '');
   const [panelCount, setPanelCount] = useState(initialStrip?.panelCount || 3);
-  const [model, setModel] = useState<ArtModelType>('gemini-3-pro-image-preview');
+  const [model, setModel] = useState<ArtModelType>('gemini-3.1-flash-image-preview');
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
   
   const [script, setScript] = useState<GeneratedPanelScript[] | null>(initialStrip?.script || null);
   const [finishedImage, setFinishedImage] = useState<string | null>(initialStrip?.finishedImageUrl || null);
+  const [imageHistory, setImageHistory] = useState<string[]>(initialStrip?.imageHistory || []);
   const [exportImage, setExportImage] = useState<string | null>(initialStrip?.exportImageUrl || null);
   const [activeTab, setActiveTab] = useState<'finished' | 'export' | 'history'>('finished');
   
   const [stripName, setStripName] = useState(initialStrip?.name || 'New Episode');
-  const [sessionAssets, setSessionAssets] = useState<{name: string, data: string, type: 'png'}[]>([]);
+  const [currentStripId, setCurrentStripId] = useState<string | null>(initialStrip?.id || null);
+  const [currentArTargetId, setCurrentArTargetId] = useState<string | null>(initialStrip?.arTargetId || null);
 
-  const filteredHistory = useMemo(() => history.filter(s => s.comicProfileId === activeComic.id), [history, activeComic.id]);
+  const [textFields, setTextFields] = useState<TextField[]>(initialStrip?.textFields || []);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+  
+  const [interactionType, setInteractionType] = useState<'none' | 'drawing' | 'moving' | 'resizing' | 'painting'>('none');
+  const [interactionStart, setInteractionStart] = useState<{ x: number, y: number, fieldX: number, fieldY: number, fieldW: number, fieldH: number } | null>(null);
+  const [drawCurrent, setDrawCurrent] = useState<{ x: number, y: number } | null>(null);
+  const [toolMode, setToolMode] = useState<'select' | 'text'>('select');
 
-  const handleGenerateFullComic = async (isRandom: boolean) => {
-    setIsProcessing(true); setScript(null); setFinishedImage(null); setExportImage(null);
-    try {
-      setStatusMessage('Scripting...');
-      const s = await generateComicScript(activeComic, prompt, isRandom, panelCount);
-      setScript(s);
-      setStatusMessage('Rendering...');
-      const img = await generateComicArt(activeComic, s, model);
-      setFinishedImage(img);
-    } catch (e: any) { alert(`Generation Failed: ${e.message}`); }
-    finally { setIsProcessing(false); setStatusMessage(''); }
+  const [isManualCleaning, setIsManualCleaning] = useState(false);
+  const [cleaningTool, setCleaningTool] = useState<'brush' | 'polygon' | 'eyedropper'>('brush');
+  const [cleaningColor, setCleaningColor] = useState<string>('#FFFFFF');
+  const [brushSize, setBrushSize] = useState(30);
+  const [polygonPoints, setPolygonPoints] = useState<{ x: number, y: number }[]>([]);
+  const [cleaningHistory, setCleaningHistory] = useState<string[]>([]);
+  const manualCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const filteredHistory = useMemo(() => (history || []).filter(s => s && activeComic && s.comicProfileId === activeComic.id), [history, activeComic?.id]);
+
+  useEffect(() => {
+    if (initialStrip) {
+      setStripName(initialStrip.name);
+      setCurrentStripId(initialStrip.id);
+      setCurrentArTargetId(initialStrip.arTargetId);
+      setScript(initialStrip.script);
+      setFinishedImage(initialStrip.finishedImageUrl);
+      setExportImage(initialStrip.exportImageUrl || null);
+      setTextFields(initialStrip.textFields || []);
+      setPrompt(initialStrip.prompt);
+      setPanelCount(initialStrip.panelCount);
+    }
+  }, [initialStrip]);
+
+  useEffect(() => {
+    if (isManualCleaning && finishedImage && manualCanvasRef.current) {
+      const canvas = manualCanvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const loadImage = async () => {
+        try {
+          const imageUrl = await imageStore.getImage(finishedImage);
+          if (!imageUrl) throw new Error('Could not resolve image from vault.');
+
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = imageUrl;
+          img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          };
+          img.onerror = () => {
+            throw new Error('Failed to load image onto canvas.');
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Failed to load image for cleaning. It might be corrupted.');
+          setIsManualCleaning(false);
+        }
+      };
+
+      loadImage();
+    }
+  }, [isManualCleaning, finishedImage]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && isManualCleaning && cleaningTool === 'polygon' && polygonPoints.length > 2) {
+        finishPolygon();
+      }
+      if (e.key === 'Escape') {
+        setPolygonPoints([]);
+      }
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey) && isManualCleaning) {
+        e.preventDefault();
+        undoCleaning();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isManualCleaning, cleaningTool, polygonPoints]);
+
+  const saveCleaningState = () => {
+    if (!manualCanvasRef.current) return;
+    const dataUrl = manualCanvasRef.current.toDataURL();
+    setCleaningHistory(prev => [...prev, dataUrl].slice(-20)); // Keep last 20 states
   };
 
-  const handleRegenerateArt = async () => {
-    if (!script) return;
-    setIsProcessing(true);
+  const undoCleaning = () => {
+    if (cleaningHistory.length === 0 || !manualCanvasRef.current) return;
+    const canvas = manualCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const newHistory = [...cleaningHistory];
+    newHistory.pop(); // Remove current state
+    const prevState = newHistory[newHistory.length - 1];
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (prevState) {
+      const img = new Image();
+      img.src = prevState;
+      img.onload = () => ctx.drawImage(img, 0, 0);
+    }
+    setCleaningHistory(newHistory);
+  };
+
+  const finishPolygon = () => {
+    if (!manualCanvasRef.current || polygonPoints.length < 3) return;
+    saveCleaningState();
+    const canvas = manualCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.beginPath();
+    ctx.moveTo(polygonPoints[0].x * canvas.width / 100, polygonPoints[0].y * canvas.height / 100);
+    for (let i = 1; i < polygonPoints.length; i++) {
+      ctx.lineTo(polygonPoints[i].x * canvas.width / 100, polygonPoints[i].y * canvas.height / 100);
+    }
+    ctx.closePath();
+    ctx.fillStyle = cleaningColor;
+    ctx.fill();
+    setPolygonPoints([]);
+  };
+
+  const handleGenerateFullComic = async (isRandom: boolean) => {
+    if (isProcessing) return;
+    setIsProcessing(true); 
+    setError(null);
+    setStatusMessage('Scripting Plot...');
+    
+    // Create a timeout promise
+    const timeout = (ms: number) => new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Generation timed out. The AI architect is busy. Please try again.')), ms)
+    );
+
     try {
-      setStatusMessage('Re-Rendering...');
-      const img = await generateComicArt(activeComic, script, model);
-      setFinishedImage(img);
+      // Script generation with 60s timeout
+      const s = await Promise.race([
+        generateComicScript(activeComic, prompt, isRandom, panelCount),
+        timeout(60000)
+      ]) as GeneratedPanelScript[];
+      
+      setScript(s);
+      setStatusMessage('Rendering Visuals...');
+      onAdvanceGuide?.(5);
+      
+      // Art generation with 180s timeout
+      const rawImg = await Promise.race([
+        generateComicArt(activeComic, s, model),
+        timeout(180000)
+      ]) as string;
+      
+      const img = await downscaleImage(rawImg, 1024, 0.8);
+      const vaultedImg = await imageStore.vaultify(img);
+      
+      setFinishedImage(vaultedImg);
+      setImageHistory(prev => [vaultedImg, ...prev].slice(0, 10));
       setExportImage(null);
+      setTextFields([]);
       setActiveTab('finished');
-    } catch (e: any) { alert(e.message); }
+      setIsManualCleaning(false);
+      if (manualCanvasRef.current) {
+        const ctx = manualCanvasRef.current.getContext('2d');
+        ctx?.clearRect(0, 0, manualCanvasRef.current.width, manualCanvasRef.current.height);
+      }
+      setPolygonPoints([]);
+
+      // Automatically save to history
+      const newId = `strip_${Date.now()}`;
+      const newArId = `DIAL-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      setCurrentStripId(newId);
+      setCurrentArTargetId(newArId);
+
+      const newStrip: SavedComicStrip = {
+        id: newId, 
+        arTargetId: newArId,
+        name: stripName, 
+        comicProfileId: activeComic.id, 
+        prompt, 
+        script: s,
+        finishedImageUrl: vaultedImg, 
+        timestamp: Date.now(), 
+        panelCount,
+        textFields: []
+      };
+      onSaveHistory(newStrip);
+    } catch (e: any) { 
+      console.error(e);
+      setError(e.message || 'An unexpected error occurred during production.');
+    }
     finally { setIsProcessing(false); setStatusMessage(''); }
   };
 
   const handleGenerateExport = async () => {
-    if (!finishedImage) return;
-    setIsProcessing(true); setStatusMessage('Baking clean copy...');
+    if (!finishedImage || isProcessing) return;
+
+    if (isManualCleaning) {
+      setIsProcessing(true);
+      setStatusMessage('Finalizing manual cleanup...');
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx || !manualCanvasRef.current) return;
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        
+        // Resolve vault URL if necessary
+        let resolvedSrc = finishedImage;
+        if (finishedImage.startsWith('vault:')) {
+          const url = await imageStore.getImage(finishedImage);
+          if (!url) throw new Error('Could not resolve image from vault.');
+          resolvedSrc = url;
+        }
+        
+        img.src = resolvedSrc;
+        await img.decode();
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(manualCanvasRef.current, 0, 0);
+
+        const flattened = canvas.toDataURL('image/png');
+        const imgDownscaled = await downscaleImage(flattened, 1024, 0.8);
+        const vaultedImg = await imageStore.vaultify(imgDownscaled);
+        setExportImage(vaultedImg);
+        setActiveTab('export');
+        setIsManualCleaning(false);
+      } catch (e: any) {
+        console.error(e);
+        alert(`Manual cleanup failed: ${e.message}`);
+      } finally {
+        setIsProcessing(false);
+        setStatusMessage('');
+      }
+      return;
+    }
+
+    setIsProcessing(true); setStatusMessage('Extracting clean plate...');
     try {
-      const img = await removeTextFromComic(finishedImage, model);
-      setExportImage(img); setActiveTab('export');
-    } catch (e: any) { alert(e.message); }
+      const rawImg = await removeTextFromComic(finishedImage, model);
+      const img = await downscaleImage(rawImg, 1024, 0.8);
+      setExportImage(img); 
+      setActiveTab('export');
+      onAdvanceGuide?.(7);
+    } catch (e: any) { 
+      console.error(e);
+      alert(`Export failed: ${e.message}`); 
+    }
     finally { setIsProcessing(false); setStatusMessage(''); }
   };
 
   const loadStrip = (s: SavedComicStrip) => {
     setFinishedImage(s.finishedImageUrl);
+    setImageHistory(s.imageHistory || []);
     setExportImage(s.exportImageUrl || null);
     setScript(s.script);
     setStripName(s.name);
     setPrompt(s.prompt);
     setPanelCount(s.panelCount);
+    setTextFields(s.textFields || []);
     setActiveTab('finished');
-  };
-
-  const generateARId = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const segment = () => Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    return `DIAL-${segment()}-${segment()}`;
   };
 
   const saveToHistory = () => {
     if (!finishedImage || !script) return;
     const newStrip: SavedComicStrip = {
-      id: `strip_${Date.now()}`, 
-      arTargetId: generateARId(),
+      id: currentStripId || `strip_${Date.now()}`, 
+      arTargetId: currentArTargetId || `DIAL-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
       name: stripName, 
       comicProfileId: activeComic.id, 
       prompt, 
       script,
       finishedImageUrl: finishedImage, 
+      imageHistory: imageHistory,
       exportImageUrl: exportImage || undefined, 
       timestamp: Date.now(), 
-      panelCount
+      panelCount,
+      textFields
     };
     onSaveHistory(newStrip);
-    setSessionAssets(prev => [...prev, { name: `${stripName}_master`, data: finishedImage, type: 'png' }]);
+    if (!currentStripId) setCurrentStripId(newStrip.id);
+    if (!currentArTargetId) setCurrentArTargetId(newStrip.arTargetId);
+    onAdvanceGuide?.(6);
     alert('Asset saved to Library.');
   };
 
-  const downloadSessionZip = async () => {
-    if (sessionAssets.length === 0) return alert('No session assets to export.');
-    const zip = new JSZip();
-    sessionAssets.forEach(a => zip.file(`${a.name}.png`, a.data.split(',')[1], { base64: true }));
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `diealog_session_${Date.now()}.zip`;
-    link.click();
+  const getRelativeCoords = (e: React.MouseEvent) => {
+    if (!containerRef.current) return { x: 0, y: 0 };
+    const rect = containerRef.current.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100
+    };
   };
 
+  const pickColor = async (e: React.MouseEvent) => {
+    if (!containerRef.current || !finishedImage) return;
+
+    // Try using the EyeDropper API if available
+    if ('EyeDropper' in window) {
+      try {
+        // @ts-ignore
+        const eyeDropper = new window.EyeDropper();
+        const result = await eyeDropper.open();
+        setCleaningColor(result.sRGBHex);
+        setCleaningTool('brush');
+        return;
+      } catch (err) {
+        // User canceled or error, fallback to canvas method
+      }
+    }
+
+    // Fallback: draw image to offscreen canvas and get pixel
+    try {
+      const coords = getRelativeCoords(e);
+      const imageUrl = await imageStore.getImage(finishedImage);
+      if (!imageUrl) return;
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = imageUrl;
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        ctx.drawImage(img, 0, 0);
+        
+        // Also draw the manual cleaning canvas over it to pick up any existing edits
+        if (manualCanvasRef.current) {
+          ctx.drawImage(manualCanvasRef.current, 0, 0);
+        }
+
+        const x = Math.floor((coords.x / 100) * canvas.width);
+        const y = Math.floor((coords.y / 100) * canvas.height);
+        
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        const rgbToHex = (r: number, g: number, b: number) => {
+          return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
+        };
+        setCleaningColor(rgbToHex(pixel[0], pixel[1], pixel[2]));
+        setCleaningTool('brush');
+      };
+    } catch (err) {
+      console.error("Failed to pick color:", err);
+    }
+  };
+
+  const handleContainerMouseDown = (e: React.MouseEvent) => {
+    const coords = getRelativeCoords(e);
+
+    if (isManualCleaning && activeTab === 'finished') {
+      if (cleaningTool === 'eyedropper') {
+        pickColor(e);
+        return;
+      }
+      if (cleaningTool === 'brush') {
+        saveCleaningState();
+        setInteractionType('painting');
+        paintAt(coords.x, coords.y);
+      } else if (cleaningTool === 'polygon') {
+        setPolygonPoints(prev => [...prev, coords]);
+      }
+      return;
+    }
+
+    if (activeTab !== 'export' || !containerRef.current || isProcessing) return;
+
+    if (toolMode === 'text') {
+      setInteractionType('drawing');
+      setInteractionStart({ x: coords.x, y: coords.y, fieldX: 0, fieldY: 0, fieldW: 0, fieldH: 0 });
+      setDrawCurrent({ x: coords.x, y: coords.y });
+    } else {
+      setSelectedFieldId(null);
+    }
+  };
+
+  const paintAt = (x: number, y: number) => {
+    if (!manualCanvasRef.current) return;
+    const canvas = manualCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = cleaningColor;
+    ctx.beginPath();
+    ctx.arc(x * canvas.width / 100, y * canvas.height / 100, brushSize * (canvas.width / 1000), 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const handleFieldInteractionStart = (e: React.MouseEvent, field: TextField, type: 'moving' | 'resizing') => {
+    e.stopPropagation();
+    if (activeTab !== 'export' || isProcessing) return;
+    
+    const coords = getRelativeCoords(e);
+    setSelectedFieldId(field.id);
+    setInteractionType(type);
+    setInteractionStart({ 
+      x: coords.x, 
+      y: coords.y, 
+      fieldX: field.x, 
+      fieldY: field.y, 
+      fieldW: field.width, 
+      fieldH: field.height 
+    });
+  };
+
+  const handleContainerMouseMove = (e: React.MouseEvent) => {
+    if (isManualCleaning) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      }
+    }
+    if (interactionType === 'none' || !interactionStart) {
+      if (interactionType === 'painting' && isManualCleaning) {
+        const coords = getRelativeCoords(e);
+        paintAt(coords.x, coords.y);
+      }
+      return;
+    }
+    const coords = getRelativeCoords(e);
+
+    if (interactionType === 'drawing') {
+      setDrawCurrent({ x: coords.x, y: coords.y });
+    } else if (interactionType === 'moving' && selectedFieldId) {
+      const dx = coords.x - interactionStart.x;
+      const dy = coords.y - interactionStart.y;
+      updateField(selectedFieldId, {
+        x: Math.max(0, Math.min(100 - interactionStart.fieldW, interactionStart.fieldX + dx)),
+        y: Math.max(0, Math.min(100 - interactionStart.fieldH, interactionStart.fieldY + dy))
+      });
+    } else if (interactionType === 'resizing' && selectedFieldId) {
+      const dx = coords.x - interactionStart.x;
+      const dy = coords.y - interactionStart.y;
+      updateField(selectedFieldId, {
+        width: Math.max(5, Math.min(100 - interactionStart.fieldX, interactionStart.fieldW + dx)),
+        height: Math.max(5, Math.min(100 - interactionStart.fieldY, interactionStart.fieldH + dy))
+      });
+    }
+  };
+
+  const handleContainerMouseUp = () => {
+    if (interactionType === 'drawing' && interactionStart && drawCurrent) {
+      const x = Math.min(interactionStart.x, drawCurrent.x);
+      const y = Math.min(interactionStart.y, drawCurrent.y);
+      const width = Math.abs(interactionStart.x - drawCurrent.x);
+      const height = Math.abs(interactionStart.y - drawCurrent.y);
+
+      if (width > 2 && height > 2) {
+        const newId = `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+        const newField: TextField = {
+          id: newId, text: 'New Dialogue', x, y, width, height,
+          font: activeComic.selectedFonts?.[0] || 'Amatic SC', fontSize: 24, alignment: 'center', characterName: 'Unknown'
+        };
+        setTextFields(prev => [...prev, newField]);
+        setSelectedFieldId(newId);
+        setToolMode('select');
+      }
+    }
+    setInteractionType('none');
+    setInteractionStart(null);
+    setDrawCurrent(null);
+  };
+
+  const updateField = (id: string, updates: Partial<TextField>) => {
+    setTextFields(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+  };
+
+  const deleteSelectedField = () => {
+    if (!selectedFieldId) return;
+    setTextFields(prev => prev.filter(f => f.id !== selectedFieldId));
+    setSelectedFieldId(null);
+  };
+
+  const handleFlattenExport = async () => {
+    if (!exportImage || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = exportImage;
+      await img.decode();
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const scale = canvas.width / 1000;
+
+      textFields.forEach(field => {
+        ctx.save();
+        const fx = (field.x / 100) * canvas.width;
+        const fy = (field.y / 100) * canvas.height;
+        const fw = (field.width / 100) * canvas.width;
+        
+        const fSize = field.fontSize * scale;
+        ctx.font = `bold ${fSize}px "${field.font}"`;
+        ctx.textAlign = field.alignment;
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#000000';
+
+        const words = field.text.split(/\s+/);
+        let line = '';
+        let lines = [];
+        
+        for(let n = 0; n < words.length; n++) {
+          let testLine = line + words[n] + ' ';
+          let metrics = ctx.measureText(testLine);
+          if (metrics.width > fw && n > 0) {
+            lines.push(line);
+            line = words[n] + ' ';
+          } else {
+            line = testLine;
+          }
+        }
+        lines.push(line);
+
+        let alignX = fx;
+        if (field.alignment === 'center') alignX = fx + fw / 2;
+        if (field.alignment === 'right') alignX = fx + fw;
+
+        lines.forEach((l, i) => {
+          ctx.fillText(l.trim(), alignX, fy + (i * fSize * 0.8));
+        });
+        ctx.restore();
+      });
+
+      const flattened = canvas.toDataURL('image/png');
+      downloadImage(flattened, `${stripName.replace(/\s+/g, '_')}_final.png`);
+    } catch (e) {
+      console.error(e);
+      alert("Flattening failed.");
+    }
+  };
+
+  const handleExportManifest = () => {
+    const pageId = initialStrip?.arTargetId || 'TMP';
+    const manifest = {
+      series: activeComic.name,
+      strip: stripName,
+      arTargetId: pageId,
+      timestamp: Date.now(),
+      layout: textFields.map((f, idx) => ({
+        ...f,
+        uniqueId: `${activeComic.name.replace(/\s+/g, '_')}_${pageId}_${f.characterName.replace(/\s+/g, '')}_${idx + 1}`
+      }))
+    };
+    downloadJSON(manifest, `${stripName.replace(/\s+/g, '_')}_AR_manifest.json`);
+  };
+
+  const selectedField = useMemo(() => textFields.find(f => f.id === selectedFieldId), [textFields, selectedFieldId]);
+
   return (
-    <div className="h-full flex flex-col p-6 overflow-hidden">
-      <div className="bg-white p-5 rounded-2xl border border-slate-300 shadow-xl mb-6 flex gap-6 items-end flex-wrap z-10">
-        <div className="flex-1 min-w-[200px]">
-          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">Active Series</label>
-          <div className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-black text-slate-800 tracking-tight uppercase">
-            {activeComic.name}
-          </div>
+    <div className={`h-full flex flex-col transition-all overflow-hidden bg-white ${isMaximized ? 'p-0' : 'p-6'}`}>
+      {/* Universal Property Bar */}
+      <div className={`bg-white border-b border-slate-200 px-6 py-4 flex gap-6 items-center shrink-0 shadow-sm z-[200]`}>
+        <div className="flex-1 flex items-center gap-4 overflow-hidden">
+           <div className="flex flex-col shrink-0">
+             <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Production Series</label>
+             <select 
+               value={activeComic.id}
+               onChange={(e) => onSwitchComic(e.target.value)}
+               className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 text-xs font-black uppercase text-slate-800 outline-none focus:ring-2 focus:ring-slate-200 transition-all max-w-[180px]"
+             >
+               {allComics?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+             </select>
+           </div>
+           <div className="h-6 w-[1px] bg-slate-200 shrink-0"></div>
+           <div className="flex flex-col flex-1 min-w-0">
+             <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Episode Title</label>
+             <div className="flex items-center gap-3">
+               <input 
+                 type="text" 
+                 value={stripName} 
+                 onChange={e => setStripName(e.target.value)}
+                 className="bg-transparent font-bold text-sm outline-none text-slate-800 focus:text-slate-900 border-b border-transparent focus:border-slate-200 flex-1"
+                 placeholder="Untitled Project"
+               />
+               {filteredHistory.length > 0 && (
+                 <select
+                   onChange={(e) => {
+                     const selected = filteredHistory.find(h => h.id === e.target.value);
+                     if (selected) loadStrip(selected);
+                   }}
+                   value={currentStripId || ''}
+                   className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] font-black uppercase text-slate-500 outline-none focus:ring-2 focus:ring-slate-200 transition-all max-w-[120px]"
+                 >
+                   <option key="switch-page-default" value="">Switch Page...</option>
+                   {filteredHistory.map(h => (
+                     <option key={h.id} value={h.id}>{h.name}</option>
+                   ))}
+                 </select>
+               )}
+             </div>
+           </div>
         </div>
 
-        <div className="w-24">
-          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">Panels</label>
-          <input type="number" min="1" max="12" value={panelCount} onChange={e => setPanelCount(Number(e.target.value))} className="w-full bg-slate-100 border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-400" />
+        <div className="flex items-center gap-3 shrink-0">
+           <button 
+             onClick={() => setIsMaximized(!isMaximized)} 
+             className={`flex items-center gap-3 px-6 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border ${isMaximized ? 'bg-slate-800 text-white border-transparent' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
+             title={isMaximized ? 'Standard View' : 'Focus Mode'}
+           >
+             <i className={`fa-solid ${isMaximized ? 'fa-compress' : 'fa-expand'}`}></i>
+             {isMaximized ? 'Exit Focus' : 'Focus'}
+           </button>
+           <button 
+             data-guide="studio-save"
+             onClick={saveToHistory} 
+             className="bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-emerald-800 transition-all active:scale-95 flex items-center gap-2"
+           >
+             Save Changes
+           </button>
         </div>
-        <div className="w-40">
-          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">Art Engine</label>
-          <select value={model} onChange={e => setModel(e.target.value as ArtModelType)} className="w-full bg-slate-100 border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-400">
-            <option value="gemini-2.5-flash-image">⚡ Fast Draft</option>
-            <option value="gemini-3-pro-image-preview">💎 High-Res</option>
-          </select>
-        </div>
-        <div className="flex-[3] min-w-[300px]">
-          <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">Script Plot / Episode Logic</label>
-          <input type="text" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the scene..." className="w-full bg-slate-100 border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-400" />
-        </div>
-        <button onClick={() => handleGenerateFullComic(false)} disabled={isProcessing} className="bg-slate-800 text-white font-black uppercase text-xs tracking-widest px-10 py-2.5 rounded-xl hover:bg-slate-900 disabled:opacity-50 transition-all shadow-lg active:scale-95">Generate</button>
       </div>
 
-      <div className="flex-1 flex gap-6 overflow-hidden">
-        <div className="w-1/4 bg-white rounded-2xl border border-slate-300 flex flex-col overflow-hidden shadow-lg">
-          <div className="flex bg-slate-50 border-b border-slate-200">
-            <button onClick={() => setActiveTab('finished')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${activeTab !== 'history' ? 'bg-white text-slate-800 border-r border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>Current Script</button>
-            <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-colors ${activeTab === 'history' ? 'bg-white text-slate-800 border-l border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>Asset Archive</button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {activeTab === 'history' ? (
-              filteredHistory.length > 0 ? (
-                filteredHistory.map(s => (
-                  <div key={s.id} onClick={() => loadStrip(s)} className="p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:border-slate-800 hover:bg-slate-50 group transition-all shadow-sm">
-                    <div className="text-[10px] font-bold truncate group-hover:text-slate-900 text-slate-700 mb-2">{s.name}</div>
-                    <div className="aspect-[16/9] w-full overflow-hidden rounded-lg shadow-inner">
-                      <img src={s.finishedImageUrl} className="h-full w-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-24 text-slate-300 px-6">
-                  <div className="text-5xl mb-4 opacity-10">🗄️</div>
-                  <p className="text-[10px] font-black uppercase tracking-widest">Awaiting assets.</p>
-                </div>
-              )
-            ) : script?.map(p => (
-              <div key={p.panelNumber} className="p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm group relative">
-                <div className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-2 border-b border-slate-100 pb-2">PANEL {p.panelNumber}</div>
-                <div className="text-[11px] text-slate-600 italic mb-3 leading-relaxed border-l-2 border-slate-300 pl-3">{p.visualDescription}</div>
-                {p.dialogue.map((d, i) => (
-                  <div key={i} className="text-[12px] mb-2 leading-snug last:mb-0">
-                    <span className="font-black text-slate-800 uppercase text-[9px] tracking-tight mr-1">{d.character}:</span> 
-                    <span className="text-slate-700 font-medium">"{d.text}"</span>
-                  </div>
-                ))}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Studio Sidebar */}
+        <div className="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0 overflow-y-auto">
+           {/* Directives Panel */}
+           <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-4">
+              <div className="flex justify-between items-center">
+                 <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Directives</h4>
+                 <select 
+                   data-guide="studio-model"
+                   value={model} 
+                   onChange={(e) => { setModel(e.target.value as ArtModelType); onAdvanceGuide?.(2); }}
+                   className="bg-transparent border-none text-[9px] font-black uppercase text-slate-400 hover:text-slate-800 outline-none cursor-pointer"
+                 >
+                   <option key="model-pro" value="gemini-3.1-flash-image-preview">Model: Pro</option>
+                   <option key="model-flash" value="gemini-2.5-flash-image">Model: Flash</option>
+                 </select>
               </div>
-            ))}
-          </div>
+              
+              <textarea 
+                data-guide="studio-prompt"
+                value={prompt}
+                onChange={(e) => { setPrompt(e.target.value); onAdvanceGuide?.(4); }}
+                placeholder="Plot directives for this episode..."
+                className="w-full bg-white border border-slate-200 rounded-xl p-4 text-[11px] font-medium leading-relaxed resize-none h-32 outline-none focus:ring-2 focus:ring-slate-100 transition-all shadow-sm"
+              />
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Panel Count (1-6)</label>
+                <div data-guide="studio-panels" className="flex bg-white border border-slate-200 rounded-lg p-1">
+                  {[1, 2, 3, 4, 5, 6].map(n => (
+                    <button 
+                      key={n}
+                      onClick={() => { setPanelCount(n); onAdvanceGuide?.(3); }}
+                      className={`flex-1 h-7 rounded flex items-center justify-center text-[10px] font-black transition-all ${panelCount === n ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button 
+                    onClick={() => handleGenerateFullComic(true)} 
+                    disabled={isProcessing}
+                    className="w-10 h-10 bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-all border border-slate-200 shadow-sm disabled:opacity-30"
+                    title="Randomized Plot"
+                  >
+                    <i className="fa-solid fa-dice"></i>
+                  </button>
+                  <button 
+                    data-guide="studio-render"
+                    onClick={() => handleGenerateFullComic(false)} 
+                    disabled={isProcessing}
+                    className="h-10 px-4 bg-slate-800 text-white rounded-xl flex items-center justify-center text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-md disabled:opacity-30 flex-1"
+                  >
+                    {isProcessing ? 'Rendering...' : 'Commit Render'}
+                  </button>
+                </div>
+              </div>
+           </div>
+
+           {/* Tabs for Sidebar content */}
+           <div className="flex border-b border-slate-100 shrink-0">
+              <button onClick={() => setActiveTab('finished')} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest transition-colors ${activeTab !== 'history' ? 'bg-slate-50 text-slate-800 border-b-2 border-slate-800' : 'text-slate-400'}`}>Current Script</button>
+              <button onClick={() => setActiveTab('history')} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest transition-colors ${activeTab === 'history' ? 'bg-slate-50 text-slate-800 border-b-2 border-slate-800' : 'text-slate-400'}`}>History</button>
+           </div>
+           
+           <div className="p-4 space-y-4">
+              {activeTab === 'history' ? (
+                filteredHistory.length > 0 ? (
+                  filteredHistory.map(s => (
+                    <div key={s.id} onClick={() => loadStrip(s)} className="p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-800 transition-all group shadow-sm relative">
+                       <button 
+                         onClick={(e) => { e.stopPropagation(); if(window.confirm('Remove from vault?')) onDeleteHistoryItem(s.id); }}
+                         className="absolute top-2 right-2 w-8 h-8 bg-rose-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-lg hover:scale-110"
+                         title="Delete from Vault"
+                       >
+                         <i className="fa-solid fa-trash-can text-[10px]"></i>
+                       </button>
+                       <div className="aspect-[16/9] rounded-lg overflow-hidden bg-slate-50 border border-slate-100 mb-2">
+                          <CachedImage src={s.finishedImageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                       </div>
+                       <div className="text-[10px] font-black uppercase text-slate-500 group-hover:text-slate-800 truncate px-1">{s.name}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-20 text-center px-6">
+                    <i className="fa-solid fa-clock-rotate-left text-4xl text-slate-200 mb-4"></i>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">No history found for this series.</p>
+                  </div>
+                )
+              ) : script?.map(p => (
+                 <div key={p.panelNumber} className="p-4 bg-slate-50/50 rounded-xl border border-slate-100 shadow-sm">
+                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Panel {p.panelNumber}</div>
+                    <p className="text-[11px] text-slate-600 italic mb-2 leading-relaxed">"{p.visualDescription}"</p>
+                    {p.dialogue?.map((d, i) => (
+                       <div key={i} className="text-[11px] font-bold text-slate-800 mb-1 flex items-start gap-1">
+                         <span className="bg-slate-200 text-slate-500 text-[8px] px-1 rounded shrink-0 mt-0.5">{d.id}</span>
+                         <div>
+                           <span className="uppercase text-[9px] text-slate-400 mr-1 font-black">{d.character}:</span> "{d.text}"
+                         </div>
+                       </div>
+                    ))}
+                 </div>
+              ))}
+           </div>
         </div>
 
-        <div className="flex-1 bg-white rounded-2xl border border-slate-300 overflow-hidden flex flex-col relative shadow-2xl">
-          {(finishedImage || exportImage) && (
-            <div className="px-8 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/80 backdrop-blur-md z-10">
-              <div className="flex gap-8">
-                <button onClick={() => setActiveTab('finished')} className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === 'finished' ? 'text-slate-800 underline decoration-4 underline-offset-8' : 'text-slate-400 hover:text-slate-600'}`}>Production Master</button>
-                <button onClick={() => setActiveTab('export')} disabled={!exportImage} className={`text-[11px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === 'export' ? 'text-slate-800 underline decoration-4 underline-offset-8' : 'text-slate-400 hover:text-slate-600'} disabled:opacity-20`}>Asset Export</button>
-              </div>
-              <div className="flex gap-3">
-                <input 
-                  type="text" 
-                  value={stripName} 
-                  onChange={e => setStripName(e.target.value)} 
-                  className="bg-white border border-slate-300 px-4 py-2 text-xs rounded-xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500 w-56 shadow-sm" 
-                />
-                <button onClick={saveToHistory} className="bg-emerald-700 text-white px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-800 shadow-md transition-all active:scale-95">Save to Vault</button>
-              </div>
-            </div>
-          )}
+        {/* Main Workspace Area */}
+        <div className="flex-1 bg-slate-100 flex flex-col relative overflow-hidden">
+           {/* Tab bar for the central workspace */}
+           <div className="bg-white/90 backdrop-blur-md px-6 py-2 border-b border-slate-200 flex gap-6 items-center shrink-0 z-10">
+              <button onClick={() => setActiveTab('finished')} className={`text-[10px] font-black uppercase tracking-widest py-3 border-b-2 transition-all ${activeTab === 'finished' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Visual Production</button>
+              {imageHistory.length > 1 && activeTab === 'finished' && (
+                <div className="flex items-center gap-2 ml-4">
+                  <span className="text-[8px] font-black uppercase text-slate-400">Versions:</span>
+                  <div className="flex gap-1">
+                    {imageHistory.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setFinishedImage(img)}
+                        className={`w-6 h-6 rounded-md border-2 transition-all overflow-hidden ${finishedImage === img ? 'border-slate-800 scale-110' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                      >
+                        <CachedImage src={img} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button onClick={() => setActiveTab('export')} disabled={!finishedImage} className={`text-[10px] font-black uppercase tracking-widest py-3 border-b-2 transition-all ${activeTab === 'export' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'} disabled:opacity-20`}>Dialog Overlay (AR Layer)</button>
+              <div className="flex-1"></div>
+              {activeTab === 'finished' && finishedImage && (
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setIsManualCleaning(!isManualCleaning)}
+                    className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${isManualCleaning ? 'bg-slate-800 text-white border-transparent shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    <i className="fa-solid fa-hand-dots"></i>
+                    Manual Cleaning
+                  </button>
+                  <button 
+                    data-guide="studio-clean"
+                    onClick={handleGenerateExport} 
+                    disabled={isProcessing} 
+                    className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 px-5 py-2 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition-all flex items-center gap-2 shadow-sm"
+                  >
+                    <i className="fa-solid fa-sparkles"></i>
+                    {isManualCleaning ? 'Prepare Clean Asset (Manual)' : 'Prepare Clean Asset'}
+                  </button>
+                </div>
+              )}
+           </div>
 
-          <div className="flex-1 overflow-y-auto p-10 flex flex-col items-center relative">
-            {isProcessing && (
-              <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center">
-                <div className="w-12 h-12 border-[6px] border-slate-800 border-t-transparent rounded-full animate-spin mb-6"></div>
-                <p className="text-lg font-black text-slate-800 uppercase tracking-[0.3em] animate-pulse">{statusMessage}</p>
+            {/* Manual Cleaning Tools - Docked at Bottom */}
+            {activeTab === 'finished' && isManualCleaning && (
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-4 items-center bg-slate-800 text-white p-2 rounded-2xl shadow-2xl border border-white/10 animate-in slide-in-from-bottom-4 z-50">
+                <div className="flex gap-2 px-2">
+                  <button 
+                    onClick={() => setCleaningTool('brush')}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${cleaningTool === 'brush' ? 'bg-white text-slate-800 shadow-md' : 'text-slate-400 hover:bg-white/10'}`}
+                    title="Brush Tool"
+                  >
+                    <i className="fa-solid fa-paintbrush"></i>
+                  </button>
+                  <button 
+                    onClick={() => setCleaningTool('polygon')}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${cleaningTool === 'polygon' ? 'bg-white text-slate-800 shadow-md' : 'text-slate-400 hover:bg-white/10'}`}
+                    title="Polygon Tool (Enter to finish)"
+                  >
+                    <i className="fa-solid fa-draw-polygon"></i>
+                  </button>
+                  <button 
+                    onClick={() => setCleaningTool('eyedropper')}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${cleaningTool === 'eyedropper' ? 'bg-white text-slate-800 shadow-md' : 'text-slate-400 hover:bg-white/10'}`}
+                    title="Eyedropper Tool"
+                  >
+                    <i className="fa-solid fa-eye-dropper"></i>
+                  </button>
+                </div>
+                
+                <div className="w-[1px] h-6 bg-white/10"></div>
+
+                <div className="flex items-center gap-2 px-2">
+                  <input 
+                    type="color" 
+                    value={cleaningColor} 
+                    onChange={(e) => setCleaningColor(e.target.value)}
+                    className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0"
+                    title="Cleaning Color"
+                  />
+                </div>
+
+                <div className="w-[1px] h-6 bg-white/10"></div>
+
+                {cleaningTool === 'brush' && (
+                  <div className="flex items-center gap-3 px-2">
+                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest">Size</label>
+                    <input 
+                      type="range" 
+                      min="4" 
+                      max="20" 
+                      value={brushSize} 
+                      onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                      className="w-32 accent-white"
+                    />
+                    <span className="text-[10px] font-black w-6 text-center">{brushSize}</span>
+                  </div>
+                )}
+
+                {cleaningTool === 'polygon' && (
+                  <div className="text-[8px] font-black uppercase text-slate-400 tracking-widest px-2 flex flex-col items-center">
+                    <span>{polygonPoints.length} points</span>
+                    <span className="text-white/50">Enter to fill</span>
+                  </div>
+                )}
+
+                <div className="w-[1px] h-6 bg-white/10"></div>
+
+                <div className="flex gap-2 px-2">
+                  <button 
+                    onClick={undoCleaning}
+                    disabled={cleaningHistory.length === 0}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-20"
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <i className="fa-solid fa-rotate-left"></i>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (manualCanvasRef.current) {
+                        saveCleaningState();
+                        const ctx = manualCanvasRef.current.getContext('2d');
+                        ctx?.clearRect(0, 0, manualCanvasRef.current.width, manualCanvasRef.current.height);
+                        setPolygonPoints([]);
+                      }
+                    }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all"
+                    title="Clear All"
+                  >
+                    <i className="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
               </div>
             )}
 
-            {activeTab === 'finished' && finishedImage && (
-              <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
-                <div className="group relative w-full max-w-6xl">
-                  <div className="bg-slate-900 p-3 rounded-2xl shadow-2xl relative">
-                    <img 
-                      src={finishedImage} 
-                      className="w-full h-auto rounded-lg cursor-zoom-in transition-all group-hover:opacity-95" 
-                      onClick={() => onPreviewImage(finishedImage)}
-                    />
-                    <div className="absolute top-8 right-8 flex gap-3">
-                      <button 
-                        onClick={handleRegenerateArt}
-                        className="bg-slate-800 text-white text-[10px] font-black px-4 py-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest shadow-2xl hover:bg-slate-900"
+            {/* Floating Toolbar for Dialogue Overlay */}
+            {activeTab === 'export' && exportImage && (
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-50 animate-in slide-in-from-top-4">
+                <div className="flex gap-2 items-center bg-white/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200 shadow-2xl">
+                  <button 
+                    onClick={() => setToolMode('select')} 
+                    className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${toolMode === 'select' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                    title="Select & Move (S)"
+                  >
+                    <i className="fa-solid fa-arrow-pointer"></i>
+                  </button>
+                  <button 
+                    onClick={() => setToolMode('text')} 
+                    className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${toolMode === 'text' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                    title="Add New Textbox (T)"
+                  >
+                    <i className="fa-solid fa-font"></i>
+                  </button>
+                  <div className="w-[1px] h-6 bg-slate-200 mx-2"></div>
+                  <button 
+                    onClick={() => { if(window.confirm('Delete all dialogue fields?')) setTextFields([]); }}
+                    className="w-10 h-10 rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-all"
+                    title="Clear All Fields"
+                  >
+                    <i className="fa-solid fa-trash-can"></i>
+                  </button>
+                  <div className="w-[1px] h-6 bg-slate-200 mx-2"></div>
+                  <button onClick={handleExportManifest} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-white hover:bg-slate-50 rounded-xl border border-slate-200 shadow-sm transition-all">Manifest</button>
+                  <button onClick={handleFlattenExport} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-emerald-700 text-white hover:bg-emerald-800 rounded-xl shadow-lg transition-all ml-1">Export PNG</button>
+                </div>
+              </div>
+            )}
+
+            {/* Property Bar for Selected Field - Moved to Bottom */}
+            {activeTab === 'export' && selectedField && (
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-4 items-center bg-slate-800 text-white p-2 rounded-2xl shadow-2xl border border-white/10 animate-in slide-in-from-bottom-4 z-50">
+                <div className="flex items-center gap-3 px-2">
+                  {(() => {
+                    const char = activeComic.characters?.find(c => c.name === selectedField.characterName);
+                    const avatar = char?.avatarUrl || char?.imageUrl;
+                    return avatar ? (
+                      <CachedImage src={avatar} className="w-8 h-8 rounded-full object-cover border border-white/20" alt="" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[8px] font-black text-slate-400">?</div>
+                    );
+                  })()}
+                  <div className="flex flex-col">
+                      <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Character</label>
+                      <select 
+                        value={selectedField.characterName}
+                        onChange={(e) => updateField(selectedField.id, { characterName: e.target.value })}
+                        className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer"
                       >
-                        🔄 Redraw Episode
+                        <option key="char-unknown" value="Unknown" className="text-slate-800">Unknown</option>
+                        {activeComic.characters?.map(c => <option key={c.id} value={c.name} className="text-slate-800">{c.name}</option>)}
+                      </select>
+                  </div>
+                </div>
+                <div className="w-[1px] h-6 bg-white/10"></div>
+                <div className="flex flex-col px-2">
+                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Font</label>
+                    <select 
+                      value={selectedField.font}
+                      onChange={(e) => updateField(selectedField.id, { font: e.target.value })}
+                      className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer"
+                      style={{ fontFamily: getFontFamily(selectedField.font) }}
+                    >
+                      {(activeComic.selectedFonts || ['Amatic SC', 'Annie Use Your Telescope', 'Inter']).map(fontName => {
+                        return (
+                          <option key={fontName} value={fontName} className="text-slate-800" style={{ fontFamily: getFontFamily(fontName) }}>
+                            {fontName}
+                          </option>
+                        );
+                      })}
+                    </select>
+                </div>
+                <div className="w-[1px] h-6 bg-white/10"></div>
+                <div className="flex items-center gap-2 px-2">
+                    <button 
+                      onClick={() => updateField(selectedField.id, { fontSize: Math.max(8, selectedField.fontSize - 2) })}
+                      className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px]"
+                    >
+                      <i className="fa-solid fa-minus"></i>
+                    </button>
+                    <span className="text-[10px] font-black w-6 text-center">{selectedField.fontSize}</span>
+                    <button 
+                      onClick={() => updateField(selectedField.id, { fontSize: Math.min(120, selectedField.fontSize + 2) })}
+                      className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px]"
+                    >
+                      <i className="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+                <div className="w-[1px] h-6 bg-white/10"></div>
+                <div className="flex gap-1 px-2">
+                    {(['left', 'center', 'right'] as const).map(align => (
+                      <button 
+                        key={align}
+                        onClick={() => updateField(selectedField.id, { alignment: align })}
+                        className={`w-7 h-7 rounded flex items-center justify-center text-[10px] transition-all ${selectedField.alignment === align ? 'bg-white text-slate-800' : 'hover:bg-white/10'}`}
+                      >
+                        <i className={`fa-solid fa-align-${align}`}></i>
+                      </button>
+                    ))}
+                </div>
+                <div className="w-[1px] h-6 bg-white/10"></div>
+                <div className="flex flex-col px-2">
+                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Script Link</label>
+                    <select 
+                      value={selectedField.dialogueId || ''}
+                      onChange={(e) => updateField(selectedField.id, { dialogueId: e.target.value })}
+                      className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer max-w-[80px]"
+                    >
+                      <option key="diag-none" value="" className="text-slate-800">None</option>
+                      {script?.flatMap(p => p.dialogue).map(d => (
+                        <option key={d.id} value={d.id} className="text-slate-800">{d.id} ({d.character})</option>
+                      ))}
+                    </select>
+                </div>
+                <div className="w-[1px] h-6 bg-white/10"></div>
+                <button 
+                  onClick={deleteSelectedField}
+                  className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center ml-1"
+                  title="Delete Field"
+                >
+                  <i className="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
+            )}
+
+           {/* EXTENDED SCROLL AREA */}
+           <div className="flex-1 overflow-auto relative scroll-smooth bg-slate-50/50">
+              <div className="min-h-[250%] w-full flex flex-col items-center pt-12">
+                <div 
+                  ref={containerRef}
+                  className={`relative bg-white shadow-[0_40px_120px_rgba(0,0,0,0.2)] select-none transition-all ${activeTab === 'export' ? (toolMode === 'text' ? 'cursor-crosshair' : 'cursor-default') : 'cursor-zoom-in'}`}
+                  style={{ width: '90%', maxWidth: isMaximized ? '1400px' : '1000px' }}
+                  onMouseDown={handleContainerMouseDown}
+                  onMouseMove={handleContainerMouseMove}
+                  onMouseUp={handleContainerMouseUp}
+                  onClick={() => { if(activeTab === 'finished' && finishedImage && !isManualCleaning) onPreviewImage(finishedImage); }}
+                >
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-white/95 z-[500] flex flex-col items-center justify-center p-10 text-center animate-in fade-in">
+                       <div className="w-16 h-16 border-4 border-slate-800 border-t-transparent rounded-full animate-spin mb-6"></div>
+                       <p className="text-sm font-black uppercase tracking-[0.4em] text-slate-800 animate-pulse">{statusMessage}</p>
+                    </div>
+                  )}
+
+                  {error && !isProcessing && (
+                    <div className="absolute inset-0 bg-rose-50/95 z-[500] flex flex-col items-center justify-center p-10 text-center animate-in fade-in">
+                       <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                          <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
+                       </div>
+                       <h3 className="text-xl font-black uppercase tracking-widest text-rose-900 mb-2">Production Interrupted</h3>
+                       <p className="text-sm text-rose-700 mb-8 max-w-md leading-relaxed font-medium italic">"{error}"</p>
+                       <button 
+                         onClick={() => { setError(null); handleGenerateFullComic(false); }}
+                         className="px-10 py-3 bg-rose-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-rose-700 transition-all"
+                       >
+                         Retry Production
+                       </button>
+                    </div>
+                  )}
+
+                  {(finishedImage || exportImage) ? (
+                    <CachedImage 
+                      src={activeTab === 'export' ? (exportImage || finishedImage)! : finishedImage!} 
+                      className="w-full h-auto block pointer-events-none rounded-sm" 
+                      alt="Workspace Art"
+                    />
+                  ) : (
+                    <div style={{ aspectRatio: '16/9' }}></div>
+                  )}
+
+                  {/* Manual Cleaning Overlay */}
+                  {activeTab === 'finished' && isManualCleaning && (
+                    <div className={`absolute inset-0 z-40 pointer-events-auto ${cleaningTool === 'brush' ? 'cursor-none' : cleaningTool === 'eyedropper' ? 'cursor-[url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Im0yIDIyIDEuNS0xLjUiLz48cGF0aCBkPSJtMi41IDIuNSAyMCAyMCIvPjxwYXRoIGQ9Im0yMS41IDIuNS0yIDIuNSIvPjxwYXRoIGQ9Ik0yMS41IDIuNSAyMCA0LjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48L3N2Zz4=)_0_24,crosshair]' : 'cursor-crosshair'}`}>
+                      <canvas 
+                        ref={manualCanvasRef}
+                        className="w-full h-full object-contain pointer-events-none"
+                      />
+                      {/* Custom Brush Cursor */}
+                      {cleaningTool === 'brush' && (
+                        <div 
+                          className="fixed pointer-events-none border border-white/50 bg-white/20 rounded-full z-[1000] mix-blend-difference"
+                          style={{
+                            left: mousePos.x + (containerRef.current?.getBoundingClientRect().left || 0),
+                            top: mousePos.y + (containerRef.current?.getBoundingClientRect().top || 0),
+                            width: brushSize * ((containerRef.current?.clientWidth || 1) / (manualCanvasRef.current?.width || 1)),
+                            height: brushSize * ((containerRef.current?.clientWidth || 1) / (manualCanvasRef.current?.width || 1)),
+                            transform: 'translate(-50%, -50%)'
+                          }}
+                        />
+                      )}
+                      {/* Polygon Preview */}
+                      {cleaningTool === 'polygon' && polygonPoints.length > 0 && (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <polyline
+                            points={polygonPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                            fill="none"
+                            stroke="white"
+                            strokeWidth="0.5"
+                            strokeDasharray="1"
+                          />
+                          {polygonPoints.map((p, i) => (
+                            <circle key={i} cx={p.x} cy={p.y} r="0.5" fill="white" />
+                          ))}
+                        </svg>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'export' && (
+                    <div className="absolute inset-0 z-10" onClick={(e) => e.stopPropagation()}>
+                      {textFields?.map(field => (
+                        <div
+                          key={field.id}
+                          className={`absolute border-2 transition-shadow ${selectedFieldId === field.id ? 'border-emerald-500 ring-4 ring-emerald-500/10 bg-white/5 shadow-2xl z-30' : 'border-dashed border-slate-300 hover:border-slate-500 z-20'}`}
+                          style={{ left: `${field.x}%`, top: `${field.y}%`, width: `${field.width}%`, height: `${field.height}%` }}
+                        >
+                          <div 
+                            className="absolute inset-0 cursor-move"
+                            onMouseDown={(e) => handleFieldInteractionStart(e, field, 'moving')}
+                          ></div>
+                          
+                          <textarea
+                            value={field.text}
+                            onChange={(e) => updateField(field.id, { text: e.target.value })}
+                            onFocus={() => setSelectedFieldId(field.id)}
+                            className="absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] bg-transparent outline-none font-bold resize-none leading-tight overflow-hidden caret-emerald-500 z-10 pointer-events-auto"
+                            style={{ fontFamily: getFontFamily(field.font), fontSize: `${field.fontSize}px`, textAlign: field.alignment, color: '#000', lineHeight: 0.8 }}
+                            placeholder="..."
+                          />
+
+                          {selectedFieldId === field.id && (
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-50 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-lg z-20 cursor-move border-2 border-white">
+                               <i className="fa-solid fa-up-down-left-right text-[8px]"></i>
+                            </div>
+                          )}
+
+                          {selectedFieldId === field.id && (
+                            <div 
+                              className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-emerald-500 cursor-ns-resize flex items-center justify-center text-white text-[10px] z-30 shadow-lg border-2 border-white rounded-full transition-transform hover:scale-110 active:scale-90"
+                              onMouseDown={(e) => handleFieldInteractionStart(e, field, 'resizing')}
+                            >
+                              <i className="fa-solid fa-arrows-up-down text-[8px]"></i>
+                            </div>
+                          )}
+                          
+                          <div className="absolute -top-3 -left-3 bg-slate-800 text-white text-[8px] font-black px-2 py-0.5 rounded shadow-sm z-20 pointer-events-none uppercase tracking-widest">
+                            {field.characterName || 'Unknown'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {!finishedImage && !isProcessing && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center pointer-events-none">
+                      <i className="fa-solid fa-palette text-[140px] opacity-5 mb-10"></i>
+                      <p className="text-2xl font-black uppercase tracking-[0.5em] opacity-20 mb-8">Studio Ready</p>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleGenerateFullComic(false); }} 
+                        className="px-14 py-4 bg-slate-800 text-white rounded-full pointer-events-auto shadow-[0_20px_40px_rgba(0,0,0,0.2)] hover:scale-105 transition-all font-black uppercase tracking-widest text-xs border border-slate-700"
+                      >
+                        Begin Production
                       </button>
                     </div>
-                  </div>
-                </div>
-                {!exportImage && !isProcessing && (
-                  <button onClick={handleGenerateExport} className="mt-8 bg-slate-800 text-white px-12 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-slate-900 transform hover:scale-105 transition-all">Extract Clean Copy</button>
-                )}
-              </div>
-            )}
-            
-            {activeTab === 'export' && exportImage && (
-              <div className="w-full flex flex-col items-center animate-in fade-in zoom-in-95 duration-700">
-                <div className="group relative w-full max-w-6xl">
-                   <div className="bg-slate-900 p-3 rounded-2xl shadow-2xl">
-                    <img 
-                      src={exportImage} 
-                      className="w-full h-auto rounded-lg cursor-zoom-in transition-all group-hover:opacity-95" 
-                      onClick={() => onPreviewImage(exportImage)}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-6 mt-8">
-                  <button onClick={() => downloadImage(exportImage, `${stripName.replace(/\s+/g, '_')}_export.png`)} className="bg-white text-slate-800 px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest border border-slate-300 hover:bg-slate-50 shadow-xl transition-all">Download PNG</button>
-                  <button onClick={downloadSessionZip} className="bg-slate-800 text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-slate-900 transition-all">📦 Export Bundle (ZIP)</button>
+                  )}
                 </div>
               </div>
-            )}
-            
-            {!finishedImage && !isProcessing && (
-              <div className="flex-1 flex flex-col items-center justify-center pointer-events-none select-none py-20">
-                <div className={`text-[200px] mb-8 opacity-5 transform -rotate-12 ${contrastColor}`}>🎬</div>
-                <div className={`font-black text-7xl opacity-10 tracking-tighter uppercase ${contrastColor}`}>STUDIO STAGE</div>
-                <p className={`text-sm font-bold uppercase tracking-[0.4em] mt-10 animate-pulse border-y py-4 ${contrastColor} opacity-40`}>Awaiting Script Input</p>
-              </div>
-            )}
-          </div>
+           </div>
         </div>
       </div>
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 };

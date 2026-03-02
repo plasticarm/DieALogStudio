@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=Alatsi&family=Amatic+SC:wght@400;700&family=Annie+Use+Your+Telescope&family=Bangers&family=Boogaloo&family=Bowlby+One+SC&family=Bubblegum+Sans&family=Chewy&family=Comic+Neue:wght@400;700&family=Creepster&family=Eater&family=Exo:ital,wght@0,100..900;1,100..900&family=Fredoka+One&family=Gloria+Hallelujah&family=Gochi+Hand&family=Gruppo&family=Handlee&family=Indie+Flower&family=Inter:wght@400;700;900&family=Jolly+Lodger&family=Just+Me+Again+Down+Here&family=Kalam:wght@400;700&family=Londrina+Solid:wght@100;300;400;900&family=Luckiest+Guy&family=Metal+Mania&family=Mochiy+Pop+One&family=Mountains+of+Christmas:wght@400;700&family=Nanum+Pen+Script&family=Neucha&family=Odor+Mean+Chey&family=Orbitron:wght@400..900&family=Patrick+Hand&family=Permanent+Marker&family=Press+Start+2P&family=Righteous&family=Rock+Salt&family=Rubik+Mono+One&family=Schoolbell&family=Shadows+Into+Light&family=Special+Elite&family=Tilt+Warp&family=Titan+One&family=Walter+Turncoat&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-header: "Amatic SC", cursive;
+  --font-comic: "Amatic SC", cursive;
+  --font-handwritten: "Annie Use Your Telescope", cursive;
+  
+  --color-brand-indigo: #78350f; /* Brownish Amber */
+  --color-brand-yellow: #d97706; /* Muted Gold */
+  --color-brand-50: #f8fafc;
+  --color-brand-100: #f1f5f9;
+  --color-brand-200: #e2e8f0;
+  --color-brand-300: #cbd5e1;
+  --color-brand-400: #94a3b8;
+  --color-brand-500: #64748b;
+  --color-brand-600: #475569;
+  --color-brand-700: #334155;
+  --color-brand-800: #1e293b;
+  --color-brand-900: #0f172a;
+  
+  --radius-3xl: 1.5rem;
+  --radius-2xl: 1rem;
+  --radius-xl: 0.75rem;
+}
+
+:root {
+  --theme-bg: #dbdac8;
+}
+
+body {
+  @apply h-screen overflow-hidden;
+  background-color: var(--theme-bg);
+  color: #1e293b;
+  transition: background-color 1000ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#app-root-container {
+  transition: background-color 1000ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.05); 
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8; 
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b; 
+}
+
+.glass {
+  @apply bg-white/85 backdrop-blur-xl border border-black/10;
+}
+
+.modal-backdrop {
+  @apply bg-[#dbdac8]/80 backdrop-blur-md;
+}
+
+.font-header { font-family: 'Amatic SC', cursive; font-weight: 700; }
+.font-comic { font-family: 'Amatic SC', cursive; font-weight: 700; }
+.font-handwritten { font-family: 'Annie Use Your Telescope', cursive; }
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.float-animation {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-progress-indeterminate {
+  animation: progress-indeterminate 1.5s infinite linear;
+}
+
+.read-mode-page img {
+  box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+}

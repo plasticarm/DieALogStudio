@@ -4,114 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Die A Log - Architect Studio</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Annie+Use+Your+Telescope&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              header: ['"Amatic SC"', 'cursive'],
-              comic: ['"Amatic SC"', 'cursive'],
-              handwritten: ['"Annie Use Your Telescope"', 'cursive'],
-            },
-            borderRadius: {
-              '3xl': '1.5rem',
-              '2xl': '1rem',
-              'xl': '0.75rem',
-            },
-            colors: {
-              brand: {
-                indigo: '#4f46e5',
-                yellow: '#eab308',
-                50: '#f8fafc',
-                100: '#f1f5f9',
-                200: '#e2e8f0',
-                300: '#cbd5e1',
-                400: '#94a3b8',
-                500: '#64748b', 
-                600: '#475569', 
-                700: '#334155', 
-                800: '#1e293b',
-                900: '#0f172a',
-              }
-            }
-          },
-        },
-      }
-    </script>
-    <style>
-      :root {
-        --theme-bg: #dbdac8;
-      }
-      body {
-        background-color: var(--theme-bg);
-        color: #1e293b;
-        transition: background-color 1000ms cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      #app-root-container {
-        transition: background-color 1000ms cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: rgba(0,0,0,0.05); 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #94a3b8; 
-        border-radius: 10px;
-        border: 2px solid transparent;
-        background-clip: padding-box;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #64748b; 
-      }
-      .glass {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(0, 0, 0, 0.1);
-      }
-      .modal-backdrop {
-        background-color: rgba(219, 218, 200, 0.8);
-        backdrop-filter: blur(8px);
-      }
-      .font-header { font-family: 'Amatic SC', cursive; font-weight: 700; }
-      .font-comic { font-family: 'Amatic SC', cursive; font-weight: 700; }
-      .font-handwritten { font-family: 'Annie Use Your Telescope', cursive; }
-      
-      @keyframes float {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
-        100% { transform: translateY(0px); }
-      }
-      .float-animation {
-        animation: float 4s ease-in-out infinite;
-      }
-      .read-mode-page img {
-        box-shadow: 0 30px 60px rgba(0,0,0,0.2);
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "jszip": "https://esm.sh/jszip@^3.10.1",
-    "jspdf": "https://esm.sh/jspdf@^2.5.1"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
+    <link rel="stylesheet" href="/index.css">
+  </head>
   <body class="h-screen overflow-hidden">
     <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>

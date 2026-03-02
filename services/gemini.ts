@@ -1,33 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ComicProfile, GeneratedPanelScript, ArtModelType } from "../types";
+import { imageStore } from './imageStore';
 
 /**
- * Resolves the API key based on the defined priority:
- * 1. User's custom key from profile
- * 2. AI Studio environment check
- * 3. Fallback to process.env.API_KEY
+ * Fresh client instance using process.env.API_KEY.
  */
-const getApiKey = async (): Promise<string | undefined> => {
-  // Check local storage for user custom key
-  const savedUser = localStorage.getItem('app_user');
-  if (savedUser) {
-    const user = JSON.parse(savedUser);
-    if (user.apiKeys?.gemini) return user.apiKeys.gemini;
-  }
-
-  // Check AI Studio vault
-  try {
-    const hasStudioKey = await (window as any).aistudio?.hasSelectedApiKey();
-    if (hasStudioKey) return process.env.API_KEY; // The platform injects it here
-  } catch (e) {}
-
-  // Final fallback
-  return process.env.API_KEY;
-};
-
-const getAiClient = async () => {
-  const apiKey = await getApiKey();
-  return new GoogleGenAI({ apiKey: apiKey || '' });
+const getAiClient = () => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  return new GoogleGenAI({ apiKey: apiKey || "" });
 };
 
 const handleApiError = (error: any) => {
@@ -45,20 +25,33 @@ export const generateComicScript = async (
   panelCount: number
 ): Promise<GeneratedPanelScript[]> => {
   try {
-    const ai = await getAiClient();
-    const characterContext = profile.characters.map(c => `${c.name}: ${c.description}`).join('\n');
+    const ai = getAiClient();
+    const characterContext = (profile.characters || []).map(c => `${c.name}: ${c.description}`).join('\n');
     const environmentContext = (profile.environments || []).map(e => `${e.name}: ${e.description}`).join('\n');
 
-    let fullPrompt = `Create a ${panelCount}-panel comic strip script for "${profile.name}".
+    let fullPrompt = `Create a ${panelCount}-panel comic strip script for the series "${profile.name}".
+    
+    SERIES CONTEXT:
     Art Style: ${profile.artStyle}
+    Style Description: ${profile.styleDescription || 'Not specified'}
     Environments: ${environmentContext}
     Characters: ${characterContext}
-    Task: ${isRandom ? "Random funny situation" : `Plot: ${userPrompt}`}
-    Return ONLY JSON.`;
+    
+    EPISODE DIRECTIVE:
+    Task: ${isRandom ? "Create a random funny or dramatic situation" : `Plot: ${userPrompt}`}
+    
+    OUTPUT SPECIFICATION:
+    Return a JSON array of exactly ${panelCount} objects.
+    Each object must have:
+    - panelNumber (integer)
+    - visualDescription (string, detailed for image generation)
+    - dialogue (array of objects with {character: string, text: string})
+    
+    Ensure the story is self-contained and fits perfectly in ${panelCount} panels.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: fullPrompt,
+      model: 'gemini-3.1-pro-preview',
+      contents: [{ parts: [{ text: fullPrompt }] }],
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
@@ -68,14 +61,28 @@ export const generateComicScript = async (
             properties: {
               panelNumber: { type: Type.INTEGER },
               visualDescription: { type: Type.STRING },
-              dialogue: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { character: { type: Type.STRING }, text: { type: Type.STRING } } } }
-            }
+              dialogue: { 
+                type: Type.ARRAY, 
+                items: { 
+                  type: Type.OBJECT, 
+                  properties: { 
+                    id: { type: Type.STRING, description: "A unique short ID for this dialogue line, e.g. 'D1', 'D2'" },
+                    character: { type: Type.STRING }, 
+                    text: { type: Type.STRING } 
+                  },
+                  required: ["id", "character", "text"]
+                } 
+              }
+            },
+            required: ["panelNumber", "visualDescription", "dialogue"]
           }
         }
       }
     });
 
-    return JSON.parse(response.text || '[]');
+    const text = response.text || '[]';
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     return handleApiError(error);
   }
@@ -87,29 +94,78 @@ export const generateComicArt = async (
   model: ArtModelType
 ): Promise<string> => {
   try {
-    const ai = await getAiClient();
-    const panelsDesc = script.map(p => `Panel ${p.panelNumber}: ${p.visualDescription}`).join('\n');
-    const dialogDesc = script.map(p => `Panel ${p.panelNumber} Dialogue: ${p.dialogue.map(d => `${d.character} says "${d.text}"`).join(', ')}`).join('\n');
+    const ai = getAiClient();
+    const safeScript = script || [];
+    const panelsDesc = safeScript.map(p => {
+      const dialogueText = (p.dialogue || []).map(d => `${d.character}: ${d.text}`).join(' | ');
+      return `Panel ${p.panelNumber}: ${p.visualDescription}. Dialogue: ${dialogueText}`;
+    }).join('\n');
     
-    let promptText = `Horizontal ${script.length}-panel comic strip. Style: ${profile.artStyle}. Content: ${panelsDesc}. Include legible speech bubbles and dialogue text for characters: ${dialogDesc}. Use the provided character descriptions for visual consistency.`;
+    let promptText = `A horizontal comic strip with ${safeScript.length} panels.
+    Series: ${profile.name}
+    Aesthetic: ${profile.artStyle}
+    Action: ${panelsDesc}
+    Note: Highly cinematic, clear panel borders, gutters, professional comic book layout. Explicitly include speech bubbles and dialogue as described in the action. Ensure the text is legible and correctly attributed to the characters.`;
 
-    const parts: any[] = [{ text: promptText }];
-    profile.characters.forEach(char => {
-      if (char.imageUrl?.startsWith('data:')) {
-        parts.push({ text: `Visual reference for ${char.name}:` }, { inlineData: { data: char.imageUrl.split(',')[1], mimeType: char.imageUrl.split(';')[0].split(':')[1] } });
+    const parts: any[] = [];
+    
+    // Add Style References (Master Aesthetic Anchor)
+    for (const url of profile.styleReferenceImageUrls || []) {
+      if (url) {
+        const resolvedUrl = await imageStore.getImage(url);
+        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
+          const [header, data] = resolvedUrl.split(',');
+          const mimeType = header.split(';')[0].split(':')[1];
+          parts.push({
+            inlineData: {
+              data: data,
+              mimeType: mimeType
+            }
+          });
+        }
       }
-    });
+    }
+
+    // Add Character References
+    for (const char of profile.characters || []) {
+      if (char.imageUrl) {
+        const resolvedUrl = await imageStore.getImage(char.imageUrl);
+        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
+          const [header, data] = resolvedUrl.split(',');
+          const mimeType = header.split(';')[0].split(':')[1];
+          parts.push({
+            inlineData: {
+              data: data,
+              mimeType: mimeType
+            }
+          });
+        }
+      }
+    }
+
+    parts.push({ text: promptText });
+
+    const imageConfig: any = { aspectRatio: "16:9" };
+    if (model === 'gemini-3.1-flash-image-preview') {
+      imageConfig.imageSize = "1K";
+    }
 
     const response = await ai.models.generateContent({
       model: model,
       contents: { parts },
-      config: { imageConfig: { aspectRatio: "16:9", imageSize: "1K" } }
+      config: { imageConfig }
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    const candidate = response.candidates?.[0];
+    if (!candidate) throw new Error("No candidates returned from AI.");
+
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
     }
-    throw new Error("No image generated by model response");
+    
+    throw new Error("No image data found in AI response.");
   } catch (error) {
     return handleApiError(error);
   }
@@ -117,19 +173,47 @@ export const generateComicArt = async (
 
 export const removeTextFromComic = async (imageBase64: string, model: ArtModelType): Promise<string> => {
   try {
-    const ai = await getAiClient();
-    const prompt = `This is a comic strip. Please edit this image to REMOVE ALL DIALOGUE TEXT from the speech bubbles. The bubbles must remain but they should be completely white and empty inside. Do not change anything else in the image.`;
+    const ai = getAiClient();
+    const prompt = `Remove all text, letters, and dialogue from this comic image. Retain only the background art and characters. Clear any speech bubbles so they are empty. CRITICAL: Do not alter the image outside the speech bubbles; preserve the original art, characters, and background exactly as they are.`;
     
+    const resolvedUrl = await imageStore.getImage(imageBase64);
+    if (!resolvedUrl || !resolvedUrl.startsWith('data:')) {
+      throw new Error("Invalid image data provided to text removal.");
+    }
+
+    const [header, data] = resolvedUrl.split(',');
+    const mimeType = header.split(';')[0].split(':')[1] || 'image/png';
+
+    const imageConfig: any = { aspectRatio: "16:9" };
+    if (model === 'gemini-3.1-flash-image-preview') {
+      imageConfig.imageSize = "1K";
+    }
+
     const response = await ai.models.generateContent({
       model: model,
-      contents: { parts: [{ inlineData: { data: imageBase64.split(',')[1], mimeType: 'image/png' } }, { text: prompt }] },
-      config: { imageConfig: { aspectRatio: "16:9", imageSize: "1K" } }
+      contents: { 
+        parts: [
+          { 
+            inlineData: { 
+              data: data, 
+              mimeType: mimeType
+            } 
+          }, 
+          { text: prompt }
+        ] 
+      },
+      config: { imageConfig }
     });
     
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    const candidate = response.candidates?.[0];
+    if (!candidate) throw new Error("No candidates returned.");
+
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
     }
-    throw new Error("Failed clean copy extraction");
+    throw new Error("Failed to clear image text.");
   } catch (error) {
     return handleApiError(error);
   }
@@ -137,12 +221,279 @@ export const removeTextFromComic = async (imageBase64: string, model: ArtModelTy
 
 export const generateEnvironmentDescription = async (theme: string): Promise<string> => {
   try {
-    const ai = await getAiClient();
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Visual description for: "${theme}".`,
+      model: 'gemini-3.1-pro-preview',
+      contents: `Describe the visual atmosphere of an environment with theme: "${theme}".`,
     });
     return response.text || "";
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const generateCharacterImage = async (
+  profile: ComicProfile,
+  characterName: string,
+  description: string,
+  model: ArtModelType
+): Promise<string> => {
+  try {
+    const ai = getAiClient();
+    const prompt = `A professional character portrait for the series "${profile.name}".
+    Character: ${characterName}
+    Description: ${description}
+    Art Style: ${profile.artStyle}
+    Style Description: ${profile.styleDescription || 'Not specified'}
+    Framing: Full body or medium shot, centered, high quality.`;;
+
+    const parts: any[] = [];
+    
+    // Add Style References (Master Aesthetic Anchor)
+    for (const url of profile.styleReferenceImageUrls || []) {
+      if (url) {
+        const resolvedUrl = await imageStore.getImage(url);
+        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
+          const [header, data] = resolvedUrl.split(',');
+          const mimeType = header.split(';')[0].split(':')[1];
+          parts.push({
+            inlineData: {
+              data: data,
+              mimeType: mimeType
+            }
+          });
+        }
+      }
+    }
+
+    parts.push({ text: prompt });
+
+    const imageConfig: any = { aspectRatio: "1:1" };
+    if (model === 'gemini-3.1-flash-image-preview') {
+      imageConfig.imageSize = "1K";
+    }
+
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: { parts },
+      config: { imageConfig }
+    });
+
+    const candidate = response.candidates?.[0];
+    if (!candidate) throw new Error("No candidates returned.");
+
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+    }
+    throw new Error("No image data found.");
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const generateCharacterSheet = async (
+  profile: ComicProfile,
+  characterName: string,
+  referenceImageUrl: string,
+  model: ArtModelType
+): Promise<string> => {
+  try {
+    const ai = getAiClient();
+    const prompt = `You are a professional 3D modeler referencing this character.
+    Task: Create a precise ORTHOGRAPHIC view for 3D modeling.
+    Character: ${characterName}
+    Series: ${profile.name}
+    Art Style: ${profile.artStyle}
+    
+    Key Instructions:
+    1. View Direction:
+       - LEFT PROFILE: character facing completely LEFT. Only left side visible. 
+       - RIGHT PROFILE: character facing completely RIGHT. Only right side visible. 
+       - BACK VIEW: character facing AWAY from camera. 
+       - FRONT VIEW: character facing TOWARD camera. 
+    3. Framing: Full body, centered, 1:1 aspect ratio. The entire character must fit within the frame.
+    4. Cleanliness: NO BACKGROUND NOISE.
+    6. Fidelity: Maintain 100% consistency with the reference design.`;
+
+    const parts: any[] = [];
+
+    // Add Style References (Master Aesthetic Anchor)
+    for (const url of profile.styleReferenceImageUrls || []) {
+      if (url) {
+        const resolvedUrl = await imageStore.getImage(url);
+        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
+          const [header, data] = resolvedUrl.split(',');
+          const mimeType = header.split(';')[0].split(':')[1];
+          parts.push({
+            inlineData: {
+              data: data,
+              mimeType: mimeType
+            }
+          });
+        }
+      }
+    }
+
+    if (referenceImageUrl.startsWith('data:')) {
+      const [header, data] = referenceImageUrl.split(',');
+      const mimeType = header.split(';')[0].split(':')[1];
+      parts.push({ inlineData: { data: data, mimeType: mimeType } });
+    }
+    
+    parts.push({ text: prompt });
+
+    const imageConfig: any = { aspectRatio: "1:1" };
+    if (model === 'gemini-3.1-flash-image-preview') {
+      imageConfig.imageSize = "1K";
+    }
+
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: { parts },
+      config: { imageConfig }
+    });
+
+    const candidate = response.candidates?.[0];
+    if (!candidate) throw new Error("No candidates returned.");
+
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+    }
+    throw new Error("No image data found.");
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const generateExpressionSheet = async (
+  profile: ComicProfile,
+  characterName: string,
+  referenceImageUrl: string,
+  model: ArtModelType
+): Promise<string> => {
+  try {
+    const ai = getAiClient();
+    const prompt = `Create a Character Expression and Pose sheet for "${characterName}" from the series "${profile.name}".
+    Art Style: ${profile.artStyle}
+    
+    The sheet should focus on:
+    1. Multiple renderings of the head isolated making different facial expressions: Happy, Sad, Angry, Confused, Surprised, Speaking, Listening.
+    2. The character in a variety of poses: Walking, Talking, Running, Furious, Exasperated and other expressive full body poses.
+    
+    Framing: Multiple figures on a clean background, high detail, consistent character design.`;
+
+    const parts: any[] = [];
+
+    // Add Style References (Master Aesthetic Anchor)
+    for (const url of profile.styleReferenceImageUrls || []) {
+      if (url) {
+        const resolvedUrl = await imageStore.getImage(url);
+        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
+          const [header, data] = resolvedUrl.split(',');
+          const mimeType = header.split(';')[0].split(':')[1];
+          parts.push({
+            inlineData: {
+              data: data,
+              mimeType: mimeType
+            }
+          });
+        }
+      }
+    }
+
+    if (referenceImageUrl.startsWith('data:')) {
+      const [header, data] = referenceImageUrl.split(',');
+      const mimeType = header.split(';')[0].split(':')[1];
+      parts.push({ inlineData: { data: data, mimeType: mimeType } });
+    }
+    
+    parts.push({ text: prompt });
+
+    const imageConfig: any = { aspectRatio: "1:1" };
+    if (model === 'gemini-3.1-flash-image-preview') {
+      imageConfig.imageSize = "1K";
+    }
+
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: { parts },
+      config: { imageConfig }
+    });
+
+    const candidate = response.candidates?.[0];
+    if (!candidate) throw new Error("No candidates returned.");
+
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+    }
+    throw new Error("No image data found.");
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const generateVeoVideo = async (
+  imageBase64: string,
+  model: 'veo-3.1-fast-generate-preview' | 'veo-3.1-generate-preview',
+  onProgress?: (status: string) => void
+): Promise<string> => {
+  try {
+    const ai = getAiClient();
+    const prompt = `Using the attached comic image, generate a sequential video that transitions chronologically through each panel. Expand the background art of every panel to seamlessly fill a 16:9 widescreen format. Animate the action within each panel. When a character speaks, generate voice audio and synchronize it with the original speech bubbles popping onto the screen to display the comic's text.`;
+
+    const [header, data] = imageBase64.split(',');
+    const mimeType = header.split(';')[0].split(':')[1] || 'image/png';
+
+    onProgress?.("Initializing video generation...");
+    
+    let operation = await ai.models.generateVideos({
+      model: model,
+      prompt: prompt,
+      image: {
+        imageBytes: data,
+        mimeType: mimeType,
+      },
+      config: {
+        numberOfVideos: 1,
+        resolution: '1080p',
+        aspectRatio: '16:9'
+      }
+    });
+
+    onProgress?.("Video generation in progress (this may take a few minutes)...");
+
+    // Poll for completion
+    while (!operation.done) {
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      operation = await ai.operations.getVideosOperation({ operation: operation });
+      
+      // Optional: you could try to estimate progress or just keep the user updated
+      onProgress?.("Still processing... Veo is crafting your cinematic comic.");
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) throw new Error("Video generation completed but no download link was found.");
+
+    onProgress?.("Downloading final render...");
+
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const response = await fetch(downloadLink, {
+      method: 'GET',
+      headers: {
+        'x-goog-api-key': apiKey || '',
+      },
+    });
+
+    if (!response.ok) throw new Error(`Failed to download video: ${response.statusText}`);
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
   } catch (error) {
     return handleApiError(error);
   }
