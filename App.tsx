@@ -5,11 +5,12 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from './services/firebase';
 import { Login } from './components/Login';
 import { ComicBookEditor } from './components/ComicBookEditor';
-import { Comic, ComicProfile, GeneratedPanel, User } from './types';
+import { Comic, ComicProfile, GeneratedPanel, User, AppSession, ProjectState } from './types';
 import { generateComicScript, generateComicArt, removeTextFromComic, generateVeoVideo } from './services/gemini';
 import { TrainingCenter } from './components/TrainingCenter';
 import { BooksLibrary } from './components/BooksLibrary';
 import { Header } from './components/Header';
+import { GuideBuddy } from './components/GuideBuddy';
 import { imageStore } from './services/imageStore';
 
 // Debounce helper
@@ -36,6 +37,24 @@ function App() {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [guideStep, setGuideStep] = useState(0);
 
+  // Default mock session for Header
+  const [session, setSession] = useState<AppSession>({
+    id: 'default',
+    userId: '',
+    name: 'My Workspace',
+    lastModified: Date.now(),
+    data: {
+      version: '1.0',
+      comics: [],
+      history: [],
+      bookPages: [],
+      books: [],
+      timestamp: Date.now(),
+      globalBackgroundColor: '#1E293B',
+      activeSeriesId: null
+    }
+  });
+
   const globalColor = editingComic?.backgroundColor || '#1E293B';
   const contrastColor = '#ffffff';
 
@@ -53,13 +72,16 @@ function App() {
     
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        // Map Firebase user to our App's User type
         const userData: User = {
-          uid: firebaseUser.uid,
-          displayName: firebaseUser.displayName || 'Anonymous',
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || 'Anonymous',
           email: firebaseUser.email || '',
-          photoURL: firebaseUser.photoURL || '',
+          picture: firebaseUser.photoURL || '',
+          apiKeys: {}
         };
         setUser(userData);
+        setSession(prev => ({ ...prev, userId: firebaseUser.uid }));
         setIsLoading(false);
       } else {
         setUser(null);
@@ -77,7 +99,7 @@ function App() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "comics"), where("uid", "==", user.uid));
+    const q = query(collection(db, "comics"), where("uid", "==", user.id));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const comicsData: Comic[] = [];
       querySnapshot.forEach((doc) => {
@@ -90,7 +112,7 @@ function App() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "comic_profiles"), where("uid", "==", user.uid));
+    const q = query(collection(db, "comic_profiles"), where("uid", "==", user.id));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const profilesData: ComicProfile[] = [];
       querySnapshot.forEach((doc) => {
@@ -146,7 +168,7 @@ function App() {
     setIsLoading(true);
     try {
       const newProfile: Omit<ComicProfile, 'id'> = {
-        uid: user.uid,
+        uid: user.id,
         name: "My New Comic Series",
         styleDescription: "A vibrant and energetic comic book style.",
         artStyle: 'gemini-3.1-flash-image-preview',
@@ -200,7 +222,7 @@ function App() {
     if (!user || !profile) return;
     
     const newComic: Omit<Comic, 'id'> = {
-      uid: user.uid,
+      uid: user.id,
       profileId: profile.id,
       prompt: prompt,
       status: 'generating-script',
@@ -222,7 +244,7 @@ function App() {
       });
       
       const art = await generateComicArt(profile, script, profile.artStyle as any);
-      const storageRef = ref(storage, `${user.uid}/${newComicId}/strip.png`);
+      const storageRef = ref(storage, `${user.id}/${newComicId}/strip.png`);
       const blob = await (await fetch(art)).blob();
       await uploadBytes(storageRef, blob);
       const artUrl = await getDownloadURL(storageRef);
@@ -265,7 +287,7 @@ function App() {
       await updateDoc(doc(db, "comics", comicId), { status: 'generating-art' });
       
       const art = await generateComicArt(profile, activeComic.panels, profile.artStyle as any);
-      const storageRef = ref(storage, `${user.uid}/${comicId}/strip.png`);
+      const storageRef = ref(storage, `${user.id}/${comicId}/strip.png`);
       const blob = await (await fetch(art)).blob();
       await uploadBytes(storageRef, blob);
       const artUrl = await getDownloadURL(storageRef);
@@ -288,7 +310,7 @@ function App() {
 
         const clearedArt = await removeTextFromComic(activeComic.artUrl, editingComic?.artStyle as any);
         
-        const storageRef = ref(storage, `${user.uid}/${comicId}/strip_textless.png`);
+        const storageRef = ref(storage, `${user.id}/${comicId}/strip_textless.png`);
         const blob = await (await fetch(clearedArt)).blob();
         await uploadBytes(storageRef, blob);
         const textlessArtUrl = await getDownloadURL(storageRef);
@@ -313,7 +335,7 @@ function App() {
          updateDoc(doc(db, "comics", comicId), { videoGenerationProgress: progress });
       });
 
-      const storageRef = ref(storage, `${user.uid}/${comicId}/video.mp4`);
+      const storageRef = ref(storage, `${user.id}/${comicId}/video.mp4`);
       const blob = await (await fetch(videoUrl)).blob();
       await uploadBytes(storageRef, blob);
       const downloadUrl = await getDownloadURL(storageRef);
@@ -351,15 +373,19 @@ function App() {
       }
   };
 
+  // If loading, show spinner
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen"><i className="fa-solid fa-spinner-third animate-spin text-4xl"></i></div>;
+  }
+
+  // If not logged in, show Login component
+  // This prevents Header from rendering with a null user
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // Render the view content only when user is logged in
   const renderContent = () => {
-    if (isLoading) {
-      return <div className="flex items-center justify-center h-screen"><i className="fa-solid fa-spinner-third animate-spin text-4xl"></i></div>;
-    }
-
-    if (!user) {
-      return <Login onLogin={handleLogin} />;
-    }
-
     if (viewMode === 'gallery') {
       return (
         <BooksLibrary
@@ -404,10 +430,6 @@ function App() {
       );
     }
 
-    // Fallback if state is inconsistent
-    if (viewMode !== 'gallery') {
-      handleBackToGallery();
-    }
     return null;
   };
 
@@ -415,9 +437,12 @@ function App() {
     <div className="h-screen flex flex-col bg-slate-800" style={{ backgroundColor: globalColor }}>
       <Header 
         user={user} 
-        onLogout={handleLogout} 
+        session={session}
+        onOpenProfile={() => {}}
+        onOpenSessions={() => {}}
+        isSaving={isSyncing}
+        onManualSync={() => {}}
         onBack={viewMode !== 'gallery' ? handleBackToGallery : undefined}
-        isSyncing={isSyncing}
         contrastColor={contrastColor}
       />
 
@@ -433,6 +458,11 @@ function App() {
         </div>
       )}
       
+      <GuideBuddy 
+        user={user}
+        currentStep={guideStep}
+        onStepComplete={(step) => setGuideStep(step + 1)}
+      />
     </div>
   );
 }
