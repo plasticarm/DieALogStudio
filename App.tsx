@@ -8,10 +8,8 @@ import { ComicBookEditor } from './components/ComicBookEditor';
 import { Comic, ComicProfile, GeneratedPanel, User } from './types';
 import { generateComicScript, generateComicArt, removeTextFromComic, generateVeoVideo } from './services/gemini';
 import { TrainingCenter } from './components/TrainingCenter';
-import { Gallery } from './components/Gallery';
-import { TopNav } from './components/TopNav';
-import { GuideBuddy } from './components/GuideBuddy';
-import { ImagePreview } from './components/ImagePreview';
+import { BooksLibrary } from './components/BooksLibrary';
+import { Header } from './components/Header';
 import { imageStore } from './services/imageStore';
 
 // Debounce helper
@@ -364,7 +362,7 @@ function App() {
 
     if (viewMode === 'gallery') {
       return (
-        <Gallery
+        <BooksLibrary
           comicProfiles={comicProfiles}
           comics={comics}
           onNewComic={handleCreateNewComic}
@@ -415,7 +413,7 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-800" style={{ backgroundColor: globalColor }}>
-      <TopNav 
+      <Header 
         user={user} 
         onLogout={handleLogout} 
         onBack={viewMode !== 'gallery' ? handleBackToGallery : undefined}
@@ -435,13 +433,6 @@ function App() {
         </div>
       )}
       
-      {previewImageUrl && <ImagePreview imageUrl={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />}
-
-      <GuideBuddy 
-        user={user}
-        currentStep={guideStep}
-        onStepComplete={(step) => setGuideStep(step + 1)}
-      />
     </div>
   );
 }
