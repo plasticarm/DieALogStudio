@@ -4,6 +4,8 @@ import { generateEnvironmentDescription, generateCharacterImage, generateCharact
 import { downscaleImage } from '../utils/imageUtils';
 import { downloadImage } from '../services/utils';
 import { imageStore } from '../services/imageStore';
+import { auth, storage } from '../services/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { AvatarCropper } from './AvatarCropper';
 import { CachedImage } from './CachedImage';
 import { GoogleGenAI, VideoGenerationReferenceType } from "@google/genai";
@@ -26,6 +28,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
   const [isGeneratingEnv, setIsGeneratingEnv] = useState<string | null>(null);
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
   const [isGeneratingAsset, setIsGeneratingAsset] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState<string | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [croppingCharacterId, setCroppingCharacterId] = useState<string | null>(null);
   const [cropperImageUrl, setCropperImageUrl] = useState<string>('');
@@ -62,6 +65,42 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
       characters: (localComic.characters || []).map(c => c.id === id ? { ...c, ...updates } : c)
     };
     handleSaveProtocol(updated);
+  };
+
+  const handleUploadAndVault = async (file: File, uploadId: string, updateFunc: (vaultedUrl: string) => void) => {
+    setIsUploading(uploadId);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const dataUrl = await downscaleImage(event.target?.result as string, 1024);
+
+          // Upload to Firebase for persistence and user visibility
+          try {
+            const user = auth.currentUser;
+            if (user) {
+              const blob = await (await fetch(dataUrl)).blob();
+              const storageRef = ref(storage, `user_assets/${user.uid}/${uploadId}_${file.name}`);
+              await uploadBytes(storageRef, blob);
+            }
+          } catch (fbError) {
+            console.error("Firebase upload failed, but continuing with local vault:", fbError);
+          }
+
+          // Vault locally for immediate use in the app (maintains existing logic)
+          const vaultedUrl = await imageStore.vaultify(dataUrl);
+          updateFunc(vaultedUrl);
+        } catch (e: any) {
+          alert(`Image processing failed: ${e.message}`);
+        } finally {
+          setIsUploading(null);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (e: any) {
+      alert(`Image upload failed: ${e.message}`);
+      setIsUploading(null);
+    }
   };
 
   const handleGenerateCharacterAsset = async (charId: string, type: 'main' | 'sheet' | 'expression') => {
@@ -136,21 +175,17 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
         const hasKey = await window.aistudio.hasSelectedApiKey();
         if (!hasKey) {
           await window.aistudio.openSelectKey();
-          // After openSelectKey, we should assume the key is selected or will be available
         }
       }
 
       setIsGeneratingVideo(true);
 
-      // Gather reference images (up to 3)
       const refImages: string[] = [];
       
-      // 1. Style references
       if (localComic.styleReferenceImageUrls?.length) {
         refImages.push(...localComic.styleReferenceImageUrls.slice(0, 3));
       }
       
-      // 2. Characters if we need more
       if (refImages.length < 3 && localComic.characters?.length) {
         for (const char of localComic.characters) {
           if (char.imageUrl && !refImages.includes(char.imageUrl)) {
@@ -160,7 +195,6 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
         }
       }
 
-      // 3. Environments if we still need more
       if (refImages.length < 3 && localComic.environments?.length) {
         for (const env of localComic.environments) {
           if (env.imageUrl && !refImages.includes(env.imageUrl)) {
@@ -245,30 +279,6 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
     handleSaveProtocol(updated);
   };
 
-  const handleImageUpload = async (type: 'char' | 'env' | 'style', id: string | null, file: File) => {
-    try {
-      const vaultedUrl = await processAndVaultImage(file);
-      let updated = { ...localComic };
-
-      if (type === 'char') {
-        updated.characters = (localComic.characters || []).map(c => c.id === id ? { ...c, imageUrl: vaultedUrl, avatarUrl: vaultedUrl } : c);
-      } else if (type === 'env') {
-        updated.environments = (localComic.environments || []).map(ev => ev.id === id ? { ...ev, imageUrl: vaultedUrl } : ev);
-      } else if (type === 'style') {
-        const currentUrls = localComic.styleReferenceImageUrls || (localComic.styleReferenceImageUrl ? [localComic.styleReferenceImageUrl] : []);
-        if (currentUrls.length < 4) {
-          const updatedUrls = [...currentUrls, vaultedUrl];
-          updated.styleReferenceImageUrls = updatedUrls;
-          updated.styleReferenceImageUrl = updatedUrls[0];
-        }
-      }
-      handleSaveProtocol(updated);
-    } catch (error: any) {
-      console.error("Image processing failed:", error);
-      alert(`The selected image could not be processed: ${error.message}`);
-    }
-  };
-
   const removeStyleImage = (index: number) => {
     const currentUrls = localComic.styleReferenceImageUrls || (localComic.styleReferenceImageUrl ? [localComic.styleReferenceImageUrl] : []);
     const updatedUrls = currentUrls.filter((_, i) => i !== index);
@@ -286,28 +296,6 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
       characters: (localComic.characters || []).filter(c => c.id !== id)
     };
     handleSaveProtocol(updated);
-  };
-
-  const processAndVaultImage = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      if (!file.type.startsWith('image/')) {
-        return reject(new Error('Invalid file type. Please select an image.'));
-      }
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const rawDataUrl = e.target?.result as string;
-          const dataUrl = await downscaleImage(rawDataUrl, 600);
-          const vaultedUrl = await imageStore.vaultify(dataUrl);
-          resolve(vaultedUrl);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(file);
-    });
   };
 
   if (editingCharacterId) {
@@ -379,15 +367,22 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                   <div className="flex gap-2">
                      <button 
                       onClick={() => handleGenerateCharacterAsset(char.id, 'main')}
-                      disabled={!!isGeneratingAsset}
+                      disabled={!!isGeneratingAsset || !!isUploading}
                       className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
                       title="Generate / Regenerate"
                     >
                       <i className={`fa-solid ${isGeneratingAsset === `${char.id}_main` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
                     </button>
                     <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
-                      <i className="fa-solid fa-upload text-[10px]"></i>
-                      <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleImageUpload('char', char.id, e.target.files[0])} />
+                      {isUploading === `char-main_${char.id}` ? <i className="fa-solid fa-spinner animate-spin text-[10px]"></i> : <i className="fa-solid fa-upload text-[10px]"></i>}
+                      <input type="file" className="hidden" disabled={!!isUploading} onChange={e => {
+                        if (!e.target.files?.[0]) return;
+                        handleUploadAndVault(
+                          e.target.files[0],
+                          `char-main_${char.id}`,
+                          (vaultedUrl) => updateCharacter(char.id, { imageUrl: vaultedUrl, avatarUrl: vaultedUrl })
+                        );
+                      }} />
                     </label>
                     {char.imageUrl && (
                       <div className="flex gap-2">
@@ -435,22 +430,21 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                   <div className="flex gap-2">
                     <button 
                       onClick={() => handleGenerateCharacterAsset(char.id, 'sheet')}
-                      disabled={!!isGeneratingAsset || !char.imageUrl}
+                      disabled={!!isGeneratingAsset || !char.imageUrl || !!isUploading}
                       className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
                       title="Generate / Regenerate"
                     >
                       <i className={`fa-solid ${isGeneratingAsset === `${char.id}_sheet` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
                     </button>
                     <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
-                      <i className="fa-solid fa-upload text-[10px]"></i>
-                      <input type="file" className="hidden" onChange={e => {
-                        const reader = new FileReader();
-                        reader.onload = async (ev) => {
-                          const url = await downscaleImage(ev.target?.result as string, 1024, 0.8);
-                          const vaultedUrl = await imageStore.vaultify(url);
-                          updateCharacter(char.id, { characterSheetUrl: vaultedUrl });
-                        };
-                        if(e.target.files?.[0]) reader.readAsDataURL(e.target.files[0]);
+                      {isUploading === `char-sheet_${char.id}` ? <i className="fa-solid fa-spinner animate-spin text-[10px]"></i> : <i className="fa-solid fa-upload text-[10px]"></i>}
+                      <input type="file" className="hidden" disabled={!!isUploading} onChange={e => {
+                        if (!e.target.files?.[0]) return;
+                        handleUploadAndVault(
+                          e.target.files[0],
+                          `char-sheet_${char.id}`,
+                          (vaultedUrl) => updateCharacter(char.id, { characterSheetUrl: vaultedUrl })
+                        );
                       }} />
                     </label>
                     {char.characterSheetUrl && (
@@ -490,22 +484,21 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                   <div className="flex gap-2">
                     <button 
                       onClick={() => handleGenerateCharacterAsset(char.id, 'expression')}
-                      disabled={!!isGeneratingAsset || !char.imageUrl}
+                      disabled={!!isGeneratingAsset || !char.imageUrl || !!isUploading}
                       className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
                       title="Generate / Regenerate"
                     >
                       <i className={`fa-solid ${isGeneratingAsset === `${char.id}_expression` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
                     </button>
                     <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
-                      <i className="fa-solid fa-upload text-[10px]"></i>
-                      <input type="file" className="hidden" onChange={e => {
-                        const reader = new FileReader();
-                        reader.onload = async (ev) => {
-                          const url = await downscaleImage(ev.target?.result as string, 1024, 0.8);
-                          const vaultedUrl = await imageStore.vaultify(url);
-                          updateCharacter(char.id, { expressionSheetUrl: vaultedUrl });
-                        };
-                        if(e.target.files?.[0]) reader.readAsDataURL(e.target.files[0]);
+                       {isUploading === `char-expr_${char.id}` ? <i className="fa-solid fa-spinner animate-spin text-[10px]"></i> : <i className="fa-solid fa-upload text-[10px]"></i>}
+                      <input type="file" className="hidden" disabled={!!isUploading} onChange={e => {
+                        if (!e.target.files?.[0]) return;
+                        handleUploadAndVault(
+                          e.target.files[0],
+                          `char-expr_${char.id}`,
+                          (vaultedUrl) => updateCharacter(char.id, { expressionSheetUrl: vaultedUrl })
+                        );
                       }} />
                     </label>
                     {char.expressionSheetUrl && (
@@ -646,8 +639,24 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                 ))}
                 {(localComic.styleReferenceImageUrls?.length || 0) < 4 && (
                   <div className="relative aspect-square rounded-2xl border-4 border-dashed border-slate-100 flex items-center justify-center hover:border-slate-200 transition-colors">
-                    <i className="fa-solid fa-plus text-slate-200"></i>
-                    <input type="file" onChange={e => e.target.files?.[0] && handleImageUpload('style', null, e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    {isUploading === `style_${(localComic.styleReferenceImageUrls || []).length}` ? <i className="fa-solid fa-spinner animate-spin text-slate-200"></i> : <i className="fa-solid fa-plus text-slate-200"></i>}
+                    <input type="file" disabled={!!isUploading} onChange={e => {
+                        if (!e.target.files?.[0]) return;
+                        handleUploadAndVault(
+                          e.target.files[0],
+                          `style_${(localComic.styleReferenceImageUrls || []).length}`,
+                          (vaultedUrl) => {
+                            const currentUrls = localComic.styleReferenceImageUrls || (localComic.styleReferenceImageUrl ? [localComic.styleReferenceImageUrl] : []);
+                            const updatedUrls = [...currentUrls, vaultedUrl];
+                            const updated = {
+                              ...localComic,
+                              styleReferenceImageUrls: updatedUrls,
+                              styleReferenceImageUrl: updatedUrls[0]
+                            };
+                            handleSaveProtocol(updated);
+                          }
+                        );
+                      }} className="absolute inset-0 opacity-0 cursor-pointer" />
                   </div>
                 )}
               </div>
@@ -750,8 +759,11 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                       )}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                         <label className="text-[8px] font-black uppercase text-white bg-white/20 px-3 py-1 rounded-full cursor-pointer hover:bg-white/30 transition-all">
-                          Upload
-                          <input type="file" onChange={(e) => e.target.files?.[0] && handleImageUpload('char', char.id, e.target.files[0])} className="hidden" />
+                           {isUploading === `char-avatar_${char.id}` ? <i className="fa-solid fa-spinner animate-spin"></i> : <>Upload</>}
+                          <input type="file" disabled={!!isUploading} onChange={(e) => {
+                             if (!e.target.files?.[0]) return;
+                             handleUploadAndVault(e.target.files[0], `char-avatar_${char.id}`, (vaultedUrl) => updateCharacter(char.id, {imageUrl: vaultedUrl, avatarUrl: vaultedUrl}));
+                          }} className="hidden" />
                         </label>
                         {char.imageUrl && (
                           <button 
@@ -820,7 +832,17 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                   </button>
                   <div className="w-36 h-36 shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-lg">
                     {env.imageUrl ? <CachedImage src={env.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-100 text-4xl">🏞️</div>}
-                    <input type="file" onChange={(e) => e.target.files?.[0] && handleImageUpload('env', env.id, e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                    <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-black/40 flex items-center justify-center">
+                        <label className="text-[8px] font-black uppercase text-white bg-white/20 px-3 py-1 rounded-full cursor-pointer hover:bg-white/30 transition-all">
+                            {isUploading === `env_${env.id}` ? <i className="fa-solid fa-spinner animate-spin"></i> : <>Upload</>}
+                            <input type="file" disabled={!!isUploading} onChange={(e) => {
+                                if (!e.target.files?.[0]) return;
+                                handleUploadAndVault(e.target.files[0], `env_${env.id}`, (vaultedUrl) => {
+                                    const ne = [...localComic.environments]; ne[idx].imageUrl = vaultedUrl; handleSaveProtocol({...localComic, environments: ne});
+                                });
+                            }} className="hidden" />
+                        </label>
+                    </div>
                   </div>
                   <div className="flex-1 space-y-4">
                     <input type="text" value={env.name} onChange={e => {
@@ -847,10 +869,26 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
           imageUrl={cropperImageUrl}
           onClose={() => setCroppingCharacterId(null)}
           onSave={async (croppedUrl) => {
-            const vaultedUrl = await imageStore.vaultify(croppedUrl);
-            updateCharacter(croppingCharacterId, { avatarUrl: vaultedUrl });
-            setCroppingCharacterId(null);
-            setCropperImageUrl('');
+            const uploadId = `avatar_${croppingCharacterId}`;
+            setIsUploading(uploadId);
+            try {
+              const vaultedUrl = await imageStore.vaultify(croppedUrl);
+              // Also upload to firebase
+              const user = auth.currentUser;
+              if(user){
+                const blob = await (await fetch(croppedUrl)).blob();
+                const storageRef = ref(storage, `user_assets/${user.uid}/${uploadId}.png`);
+                await uploadBytes(storageRef, blob);
+              }
+              updateCharacter(croppingCharacterId!, { avatarUrl: vaultedUrl });
+            } catch(e) {
+              console.error("Avatar crop and upload failed", e)
+              alert("Avatar crop and upload failed")
+            } finally {
+              setIsUploading(null);
+              setCroppingCharacterId(null);
+              setCropperImageUrl('');
+            }
           }}
         />
       )}
