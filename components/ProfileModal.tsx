@@ -81,11 +81,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onUpdate, onLo
               {showKeys && (
                 <div className="p-4 bg-white space-y-4 animate-in slide-in-from-top-2 duration-200">
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest block mb-1">Gemini API Key</label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest block">Gemini API Key</label>
+                      {window.aistudio && (
+                        <button 
+                          onClick={async () => {
+                            await window.aistudio.openSelectKey();
+                            // We don't necessarily get the key back here, but we can prompt the user
+                            alert("API Key selection triggered. If you selected a key, it will be used for future generations.");
+                          }}
+                          className="text-[8px] font-black uppercase text-amber-600 hover:text-amber-700 transition-all"
+                        >
+                          Select from Platform
+                        </button>
+                      )}
+                    </div>
                     <input 
                       type="password" 
                       value={localUser.apiKeys?.gemini || ''} 
-                      onChange={e => setLocalUser({ ...localUser, apiKeys: { ...localUser.apiKeys, gemini: e.target.value } })}
+                      onChange={e => setLocalUser({ ...localUser, apiKeys: { ...(localUser.apiKeys || {}), gemini: e.target.value } })}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-800 outline-none focus:border-slate-400"
                       placeholder="Custom Key..."
                     />
@@ -95,7 +109,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onUpdate, onLo
                     <input 
                       type="password" 
                       value={localUser.apiKeys?.elevenLabs || ''} 
-                      onChange={e => setLocalUser({ ...localUser, apiKeys: { ...localUser.apiKeys, elevenLabs: e.target.value } })}
+                      onChange={e => setLocalUser({ ...localUser, apiKeys: { ...(localUser.apiKeys || {}), elevenLabs: e.target.value } })}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-800 outline-none focus:border-slate-400"
                       placeholder="Optional Voice Key..."
                     />

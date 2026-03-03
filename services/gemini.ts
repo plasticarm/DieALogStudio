@@ -2,20 +2,62 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ComicProfile, GeneratedPanelScript, ArtModelType } from "../types";
 import { imageStore } from './imageStore';
 
+let userApiKey: string | null = null;
+
 /**
- * Fresh client instance using process.env.API_KEY.
+ * Set a custom user API key to override environment variables.
+ */
+export const setGeminiApiKey = (key: string | null) => {
+  userApiKey = key;
+};
+
+/**
+ * Get the current API key being used.
+ */
+export const getGeminiApiKey = () => {
+  return userApiKey || process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+};
+
+/**
+ * Fresh client instance using user-provided key or process.env.API_KEY.
  */
 const getAiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-  return new GoogleGenAI({ apiKey: apiKey || "" });
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error("Gemini API Key is missing. Please provide one in your Architect Profile or select one via the platform.");
+  }
+  return new GoogleGenAI({ apiKey });
 };
 
 const handleApiError = (error: any) => {
   console.error("Gemini API Error:", error);
+  
+  let message = error.message || "Unknown API Error";
+  
+  // Try to extract message from common error structures
+  if (error.error?.message) {
+    message = error.error.message;
+  } else if (typeof error === 'string' && error.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(error);
+      message = parsed.error?.message || message;
+    } catch (e) {}
+  }
+  
+  // Detect leaked key error
+  if (message.toLowerCase().includes("leaked") || message.includes("PERMISSION_DENIED")) {
+    message = "Your Gemini API key has been reported as leaked and disabled by Google. Please provide a new API key in your Architect Profile or select a paid key via the platform.";
+    
+    // Trigger platform key selection if available
+    if (window.aistudio) {
+      window.aistudio.openSelectKey().catch(console.error);
+    }
+  }
+
   window.dispatchEvent(new CustomEvent('gemini-api-error', { 
-    detail: { message: error.message || "Unknown API Error" } 
+    detail: { message } 
   }));
-  throw error;
+  throw new Error(message);
 };
 
 export const generateComicScript = async (
@@ -482,7 +524,7 @@ export const generateVeoVideo = async (
 
     onProgress?.("Downloading final render...");
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const apiKey = userApiKey || process.env.GEMINI_API_KEY || process.env.API_KEY;
     const response = await fetch(downloadLink, {
       method: 'GET',
       headers: {

@@ -20,6 +20,7 @@ import { imageStore } from './services/imageStore';
 import { firebaseService } from './services/firebaseService';
 import { auth } from './services/firebase';
 import { signInAnonymously } from 'firebase/auth';
+import { setGeminiApiKey } from './services/gemini';
 
 declare global {
   interface AIStudio {
@@ -86,6 +87,7 @@ export default function App() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [resolvedPreviewImage, setResolvedPreviewImage] = useState<string | null>(null);
   const [readModePages, setReadModePages] = useState<{ pages: SavedComicStrip[], mode: 'finished' | 'clean' } | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // New Series Naming State
   const [isNamingNewSeries, setIsNamingNewSeries] = useState(false);
@@ -105,6 +107,29 @@ export default function App() {
       setResolvedPreviewImage(null);
     }
   }, [previewImage]);
+
+  useEffect(() => {
+    const handleApiError = (e: any) => {
+      const message = e.detail?.message || "An error occurred with the Gemini API.";
+      setApiError(message);
+      
+      // If it's a leaked key, open profile modal to help user fix it
+      if (message.includes("leaked")) {
+        setIsProfileOpen(true);
+      }
+    };
+    
+    window.addEventListener('gemini-api-error', handleApiError);
+    return () => window.removeEventListener('gemini-api-error', handleApiError);
+  }, []);
+
+  useEffect(() => {
+    if (currentUser?.apiKeys?.gemini) {
+      setGeminiApiKey(currentUser.apiKeys.gemini);
+    } else {
+      setGeminiApiKey(null);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -508,6 +533,7 @@ export default function App() {
 
   const handleAuth = (user: User) => {
     setCurrentUser(user);
+    setApiError(null); // Clear API errors when profile is updated
     try {
       localStorage.setItem('app_user', JSON.stringify(user));
     } catch (e) {}
@@ -840,6 +866,28 @@ export default function App() {
       className="flex flex-col h-screen font-sans selection:bg-amber-600/20 overflow-hidden"
       style={{ backgroundColor: currentBackgroundColor }}
     >
+      {apiError && (
+        <div className="bg-rose-600 text-white px-6 py-3 flex justify-between items-center animate-in slide-in-from-top duration-300 z-[2000] sticky top-0">
+          <div className="flex items-center gap-3">
+            <i className="fa-solid fa-triangle-exclamation text-xl"></i>
+            <p className="text-sm font-bold">{apiError}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsProfileOpen(true)}
+              className="bg-white text-rose-600 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all"
+            >
+              Fix in Profile
+            </button>
+            <button 
+              onClick={() => setApiError(null)}
+              className="text-white/60 hover:text-white transition-all"
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+      )}
       <Header 
         user={currentUser} 
         session={activeSession} 

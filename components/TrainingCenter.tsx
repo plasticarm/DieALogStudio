@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ComicProfile, Character, Environment, ArtModelType } from '../types';
-import { generateEnvironmentDescription, generateCharacterImage, generateCharacterSheet, generateExpressionSheet } from '../services/gemini';
+import { generateEnvironmentDescription, generateCharacterImage, generateCharacterSheet, generateExpressionSheet, getGeminiApiKey } from '../services/gemini';
 import { downscaleImage } from '../utils/imageUtils';
 import { downloadImage } from '../services/utils';
 import { imageStore } from '../services/imageStore';
@@ -170,7 +170,8 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
         }
       }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      const apiKey = getGeminiApiKey();
+      const ai = new GoogleGenAI({ apiKey });
       
       const referenceImagesPayload: any[] = [];
       for (const imgUrl of refImages) {
@@ -206,10 +207,11 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
 
       const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
       if (downloadLink) {
+        const apiKey = getGeminiApiKey();
         const response = await fetch(downloadLink, {
           method: 'GET',
           headers: {
-            'x-goog-api-key': process.env.API_KEY || '',
+            'x-goog-api-key': apiKey,
           },
         });
         const blob = await response.blob();
