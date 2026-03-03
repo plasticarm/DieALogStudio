@@ -2,19 +2,69 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ComicProfile, GeneratedPanelScript, ArtModelType } from "../types";
 import { imageStore } from './imageStore';
 
+// Extend Window interface for AI Studio security
+declare global {
+  interface Window {
+    aistudio?: {
+      getApiKey: () => Promise<string | undefined>;
+      openSelectKey: () => Promise<void>;
+      hasSelectedApiKey: () => Promise<boolean>;
+    };
+  }
+}
+
+// Internal state to hold a key entered via the UI
+let runtimeApiKey: string | null = null;
+
 /**
- * Fresh client instance using process.env.API_KEY.
+ * Allows the app to set the API key at runtime (e.g. from a user profile or settings modal)
  */
-const getAiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-  return new GoogleGenAI({ apiKey: apiKey || "" });
+export const setGeminiApiKey = (key: string) => {
+  runtimeApiKey = key;
+};
+
+/**
+ * Securely retrieves the best available API key.
+ */
+const getAiClient = async () => {
+  let apiKey: string | undefined;
+
+  // 1. Try Google AI Studio Secure Key
+  if (window.aistudio) {
+    try {
+      apiKey = await window.aistudio.getApiKey();
+    } catch (e) {
+      console.warn("AI Studio key access failed, checking other sources.");
+    }
+  }
+
+  // 2. Try Runtime Key (entered in UI)
+  if (!apiKey && runtimeApiKey) {
+    apiKey = runtimeApiKey;
+  }
+
+  // 3. Fallback to Environment Variables (Vercel/Local)
+  if (!apiKey) {
+    apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  }
+
+  if (!apiKey) {
+    throw new Error("API Key not found. Please enter your Gemini API key in settings or select one in AI Studio.");
+  }
+
+  return new GoogleGenAI({ apiKey });
 };
 
 const handleApiError = (error: any) => {
   console.error("Gemini API Error:", error);
+  
+  const message = error.message || "Unknown API Error";
+  
+  // Dispatch event so the UI can show a nice error message
   window.dispatchEvent(new CustomEvent('gemini-api-error', { 
-    detail: { message: error.message || "Unknown API Error" } 
+    detail: { message } 
   }));
+  
   throw error;
 };
 
@@ -25,7 +75,7 @@ export const generateComicScript = async (
   panelCount: number
 ): Promise<GeneratedPanelScript[]> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const characterContext = (profile.characters || []).map(c => `${c.name}: ${c.description}`).join('\n');
     const environmentContext = (profile.environments || []).map(e => `${e.name}: ${e.description}`).join('\n');
 
@@ -94,7 +144,7 @@ export const generateComicArt = async (
   model: ArtModelType
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const safeScript = script || [];
     const panelsDesc = safeScript.map(p => {
       const dialogueText = (p.dialogue || []).map(d => `${d.character}: ${d.text}`).join(' | ');
@@ -109,7 +159,6 @@ export const generateComicArt = async (
 
     const parts: any[] = [];
     
-    // Add Style References (Master Aesthetic Anchor)
     for (const url of profile.styleReferenceImageUrls || []) {
       if (url) {
         const resolvedUrl = await imageStore.getImage(url);
@@ -126,7 +175,6 @@ export const generateComicArt = async (
       }
     }
 
-    // Add Character References
     for (const char of profile.characters || []) {
       if (char.imageUrl) {
         const resolvedUrl = await imageStore.getImage(char.imageUrl);
@@ -173,7 +221,7 @@ export const generateComicArt = async (
 
 export const removeTextFromComic = async (imageBase64: string, model: ArtModelType): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const prompt = `Remove all text, letters, and dialogue from this comic image. Retain only the background art and characters. Clear any speech bubbles so they are empty. CRITICAL: Do not alter the image outside the speech bubbles; preserve the original art, characters, and background exactly as they are.`;
     
     const resolvedUrl = await imageStore.getImage(imageBase64);
@@ -221,7 +269,7 @@ export const removeTextFromComic = async (imageBase64: string, model: ArtModelTy
 
 export const generateEnvironmentDescription = async (theme: string): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3.1-pro-preview',
       contents: `Describe the visual atmosphere of an environment with theme: "${theme}".`,
@@ -239,7 +287,7 @@ export const generateCharacterImage = async (
   model: ArtModelType
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const prompt = `A professional character portrait for the series "${profile.name}".
     Character: ${characterName}
     Description: ${description}
@@ -249,7 +297,6 @@ export const generateCharacterImage = async (
 
     const parts: any[] = [];
     
-    // Add Style References (Master Aesthetic Anchor)
     for (const url of profile.styleReferenceImageUrls || []) {
       if (url) {
         const resolvedUrl = await imageStore.getImage(url);
@@ -300,7 +347,7 @@ export const generateCharacterSheet = async (
   model: ArtModelType
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const prompt = `You are a professional 3D modeler referencing this character.
     Task: Create a precise ORTHOGRAPHIC view for 3D modeling.
     Character: ${characterName}
@@ -319,7 +366,6 @@ export const generateCharacterSheet = async (
 
     const parts: any[] = [];
 
-    // Add Style References (Master Aesthetic Anchor)
     for (const url of profile.styleReferenceImageUrls || []) {
       if (url) {
         const resolvedUrl = await imageStore.getImage(url);
@@ -376,7 +422,7 @@ export const generateExpressionSheet = async (
   model: ArtModelType
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const prompt = `Create a Character Expression and Pose sheet for "${characterName}" from the series "${profile.name}".
     Art Style: ${profile.artStyle}
     
@@ -388,7 +434,6 @@ export const generateExpressionSheet = async (
 
     const parts: any[] = [];
 
-    // Add Style References (Master Aesthetic Anchor)
     for (const url of profile.styleReferenceImageUrls || []) {
       if (url) {
         const resolvedUrl = await imageStore.getImage(url);
@@ -444,7 +489,7 @@ export const generateVeoVideo = async (
   onProgress?: (status: string) => void
 ): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     const prompt = `Using the attached comic image, generate a sequential video that transitions chronologically through each panel. Expand the background art of every panel to seamlessly fill a 16:9 widescreen format. Animate the action within each panel. When a character speaks, generate voice audio and synchronize it with the original speech bubbles popping onto the screen to display the comic's text.`;
 
     const [header, data] = imageBase64.split(',');
@@ -468,12 +513,9 @@ export const generateVeoVideo = async (
 
     onProgress?.("Video generation in progress (this may take a few minutes)...");
 
-    // Poll for completion
     while (!operation.done) {
       await new Promise(resolve => setTimeout(resolve, 10000));
       operation = await ai.operations.getVideosOperation({ operation: operation });
-      
-      // Optional: you could try to estimate progress or just keep the user updated
       onProgress?.("Still processing... Veo is crafting your cinematic comic.");
     }
 
@@ -482,7 +524,7 @@ export const generateVeoVideo = async (
 
     onProgress?.("Downloading final render...");
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const apiKey = (await ai.auth).apiKey;
     const response = await fetch(downloadLink, {
       method: 'GET',
       headers: {
