@@ -213,10 +213,18 @@ export const generateComicArt = async (
   }
 };
 
-export const removeTextFromComic = async (imageBase64: string, model: ArtModelType): Promise<string> => {
+export const removeTextFromComic = async (
+  imageBase64: string, 
+  model: ArtModelType,
+  options?: { removeSpeechBubbles?: boolean }
+): Promise<string> => {
   try {
     const ai = getAiClient();
-    const prompt = `Remove all text, letters, and dialogue from this comic image. Retain only the background art and characters. Clear any speech bubbles so they are empty. CRITICAL: Do not alter the image outside the speech bubbles; preserve the original art, characters, and background exactly as they are.`;
+    let prompt = `Remove all text, letters, and dialogue from this comic image. Retain only the background art and characters. Clear any speech bubbles so they are empty. CRITICAL: Do not alter the image outside the speech bubbles; preserve the original art, characters, and background exactly as they are.`;
+    
+    if (options?.removeSpeechBubbles) {
+      prompt = `Remove all text, letters, dialogue, AND all speech bubbles from this comic image. Retain only the background art and characters. Fill in the areas where speech bubbles were with appropriate background art. CRITICAL: Do not alter the characters or the rest of the background; preserve the original art exactly as it is.`;
+    }
     
     const resolvedUrl = await imageStore.getImage(imageBase64);
     if (!resolvedUrl || !resolvedUrl.startsWith('data:')) {

@@ -8,16 +8,37 @@ import { AppSession, ProjectState } from "../types";
  * Firestore does not allow undefined values in documents.
  */
 const sanitizeData = (data: any): any => {
+  if (data === null || data === undefined) return null;
+  
   if (Array.isArray(data)) {
     return data.map(v => sanitizeData(v));
-  } else if (data !== null && typeof data === 'object') {
-    return Object.fromEntries(
-      Object.entries(data)
-        .filter(([_, v]) => v !== undefined)
-        .map(([k, v]) => [k, sanitizeData(v)])
-    );
+  } 
+  
+  if (typeof data === 'object') {
+    // Handle Date objects
+    if (data instanceof Date) return data.getTime();
+    
+    // Handle plain objects
+    const entries = Object.entries(data);
+    const sanitizedEntries = entries
+      .filter(([_, v]) => v !== undefined)
+      .map(([k, v]) => [k, sanitizeData(v)]);
+    
+    return Object.fromEntries(sanitizedEntries);
   }
+  
   return data;
+};
+
+/**
+ * Estimates the size of a JSON-serializable object in bytes.
+ */
+const estimateSize = (obj: any): number => {
+  try {
+    return new Blob([JSON.stringify(obj)]).size;
+  } catch (e) {
+    return 0;
+  }
 };
 
 /**
@@ -28,17 +49,27 @@ export const firebaseService = {
   /**
    * Syncs a session to Firestore.
    */
-  async saveSession(session: AppSession): Promise<void> {
+  async saveSession(session: AppSession): Promise<number> {
     if (!session.userId) throw new Error("User ID is required to save session");
     const sessionRef = doc(db, "sessions", session.id);
     
     // Sanitize data to remove undefined values which Firestore doesn't support
     const cleanSession = sanitizeData(session);
+    const timestamp = session.lastModified || Date.now();
     
-    await setDoc(sessionRef, {
+    const finalDoc = {
       ...cleanSession,
-      lastModified: Date.now()
-    });
+      lastModified: timestamp
+    };
+
+    const size = estimateSize(finalDoc);
+    if (size > 1000000) { // Slightly less than 1MB to be safe
+      console.error(`Document size (${size} bytes) exceeds Firestore limit. Pruning required.`);
+      throw new Error(`Document too large (${(size / 1024 / 1024).toFixed(2)}MB). Please prune history or assets.`);
+    }
+    
+    await setDoc(sessionRef, finalDoc);
+    return timestamp;
   },
 
   /**

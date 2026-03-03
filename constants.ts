@@ -11,6 +11,34 @@ export const GENRES = [
   { id: 'Category 8: Niche, Mood, & Abstract', name: 'Niche & Abstract', color: '#fda4af', icon: '✨' },
 ];
 
+export const CHARACTER_ARCHETYPES = [
+  { 
+    name: 'Neurotic Everyday Objects', 
+    description: 'Defined by their functions; dread being used up, broken, or ignored.', 
+    example: 'Spaghetti TED is a long strand of pasta terrified of boiling water.' 
+  },
+  { 
+    name: 'Deadpan Humans/Concepts', 
+    description: 'Treat impossible situations with mundane calm. Philosophical, socially awkward, obsessed with semantics.', 
+    example: 'Min overanalyzes grocery checkout subtext.' 
+  },
+  { 
+    name: 'World-Weary Augments', 
+    description: 'Augmented humans, androids, sleek evolved animals. Stoic; trying to fight dystopian corporate bureaucracy.', 
+    example: 'Subject 7 is a stoic cat with a cybernetic eye that hacks electronic food bowls.' 
+  },
+  { 
+    name: 'Morbid Polite Humanoids', 
+    description: 'Victorian children, talking gargoyles, melancholy ghosts. Politemelancholy; comfortable with macabre.', 
+    example: 'Mr. Belly is a sentient stomach that detaches at night to wander Victorian streets.' 
+  },
+  { 
+    name: 'Cynical Bureaucratic Drones', 
+    description: 'Overworked office drones, tired soldiers. Exhausted; defined by their futile relationship with "The System."', 
+    example: 'Bootcamp Bill is a weary conscript defined by absurd, ever-changing efficiency metrics.' 
+  }
+];
+
 export const INITIAL_COMICS: ComicProfile[] = [
   { 
     id: 'c1', 

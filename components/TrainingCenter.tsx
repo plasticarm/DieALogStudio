@@ -22,13 +22,23 @@ interface TrainingCenterProps {
 export const TrainingCenter: React.FC<TrainingCenterProps> = ({ 
   editingComic, onUpdateComic, onPreviewImage, globalColor, onUpdateGlobalColor, contrastColor, onAdvanceGuide
 }) => {
-  const [localComic, setLocalComic] = useState<ComicProfile>(() => JSON.parse(JSON.stringify(editingComic)));
+  const [localComic, setLocalComic] = useState<ComicProfile>(() => {
+    const comic = JSON.parse(JSON.stringify(editingComic));
+    // Populate styleDescription with artStyle if empty
+    if (!comic.styleDescription && comic.artStyle && !['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'].includes(comic.artStyle)) {
+      comic.styleDescription = comic.artStyle;
+    }
+    return comic;
+  });
   const [isGeneratingEnv, setIsGeneratingEnv] = useState<string | null>(null);
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
   const [isGeneratingAsset, setIsGeneratingAsset] = useState<string | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [croppingCharacterId, setCroppingCharacterId] = useState<string | null>(null);
   const [cropperImageUrl, setCropperImageUrl] = useState<string>('');
+  const [isDragging, setIsDragging] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newName, setNewName] = useState(editingComic.name);
 
   useEffect(() => {
     if (croppingCharacterId) {
@@ -42,12 +52,34 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
   }, [croppingCharacterId, localComic.characters]);
 
   useEffect(() => {
-    setLocalComic(JSON.parse(JSON.stringify(editingComic)));
+    const comic = JSON.parse(JSON.stringify(editingComic));
+    if (!comic.styleDescription && comic.artStyle && !['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview'].includes(comic.artStyle)) {
+      comic.styleDescription = comic.artStyle;
+    }
+    setLocalComic(comic);
   }, [editingComic.id]);
 
   const handleSaveProtocol = (updatedState: ComicProfile) => {
     setLocalComic(updatedState);
     onUpdateComic(updatedState);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    setIsDragging(id);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, type: 'char' | 'env' | 'style', id: string | null) => {
+    e.preventDefault();
+    setIsDragging(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      handleImageUpload(type, id, file);
+    }
   };
 
   const handleColorChange = (color: string) => {
@@ -312,249 +344,283 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
     });
   };
 
-  if (editingCharacterId) {
-    const char = localComic.characters.find(c => c.id === editingCharacterId);
-    if (!char) {
-      setEditingCharacterId(null);
-      return null;
+  const handleRename = () => {
+    if (newName.trim()) {
+      handleSaveProtocol({ ...localComic, name: newName.trim() });
+      setIsRenaming(false);
     }
+  };
 
-    return (
-      <div className="h-full flex flex-col p-10 overflow-y-auto bg-white">
-        <div className="flex justify-between items-center mb-12 border-b border-slate-100 pb-8">
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={() => setEditingCharacterId(null)}
-              className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-all"
-            >
-              <i className="fa-solid fa-arrow-left"></i>
-            </button>
-            <div>
-              <h2 className="text-4xl font-header tracking-tight uppercase text-slate-800">Character Studio</h2>
-              <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Refining: {char.name}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-12 gap-12">
-          <div className="col-span-12 lg:col-span-4 space-y-8">
-            <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 space-y-6">
-              <div className="flex flex-col items-center gap-4 mb-4">
-                <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
-                  {char.avatarUrl ? (
-                    <CachedImage src={char.avatarUrl} className="w-full h-full object-cover" />
-                  ) : char.imageUrl ? (
-                    <CachedImage src={char.imageUrl} className="w-full h-full object-cover opacity-50" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-100 text-4xl">👤</div>
-                  )}
-                </div>
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Character Avatar</span>
-              </div>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Identity</label>
-                <input 
-                  type="text" 
-                  value={char.name} 
-                  onChange={e => updateCharacter(char.id, { name: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded-xl p-4 font-black uppercase tracking-tight outline-none focus:ring-2 focus:ring-slate-200"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Visual DNA / Description</label>
-                <textarea 
-                  value={char.description} 
-                  onChange={e => updateCharacter(char.id, { description: e.target.value })}
-                  rows={6}
-                  className="w-full bg-white border border-slate-200 rounded-xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-slate-200"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="col-span-12 lg:col-span-8 space-y-12 pb-20">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Main Portrait */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Main Portrait</label>
-                  <div className="flex gap-2">
-                     <button 
-                      onClick={() => handleGenerateCharacterAsset(char.id, 'main')}
-                      disabled={!!isGeneratingAsset}
-                      className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
-                      title="Generate / Regenerate"
-                    >
-                      <i className={`fa-solid ${isGeneratingAsset === `${char.id}_main` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
-                    </button>
-                    <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
-                      <i className="fa-solid fa-upload text-[10px]"></i>
-                      <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleImageUpload('char', char.id, e.target.files[0])} />
-                    </label>
-                    {char.imageUrl && (
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => updateCharacter(char.id, { imageUrl: undefined })}
-                          className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-all"
-                        >
-                          <i className="fa-solid fa-trash-can text-[10px]"></i>
-                        </button>
-                        <button 
-                          onClick={() => downloadImage(char.imageUrl!, `${char.name}_portrait.png`)}
-                          className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all"
-                        >
-                          <i className="fa-solid fa-download text-[10px]"></i>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="aspect-square bg-slate-50 rounded-3xl border border-slate-100 overflow-hidden relative group shadow-inner">
-                  {char.imageUrl ? (
-                    <>
-                      <CachedImage src={char.imageUrl} className="w-full h-full object-cover cursor-zoom-in" onClick={() => onPreviewImage(char.imageUrl!)} />
-                      <button 
-                        onClick={() => setCroppingCharacterId(char.id)}
-                        className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-md text-slate-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-white"
-                      >
-                        <i className="fa-solid fa-crop-simple mr-2"></i>
-                        Crop Avatar
-                      </button>
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
-                      <i className="fa-solid fa-user text-4xl mb-2"></i>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Render</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Character Sheet */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Orthographic Sheet</label>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleGenerateCharacterAsset(char.id, 'sheet')}
-                      disabled={!!isGeneratingAsset || !char.imageUrl}
-                      className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
-                      title="Generate / Regenerate"
-                    >
-                      <i className={`fa-solid ${isGeneratingAsset === `${char.id}_sheet` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
-                    </button>
-                    <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
-                      <i className="fa-solid fa-upload text-[10px]"></i>
-                      <input type="file" className="hidden" onChange={e => {
-                        const reader = new FileReader();
-                        reader.onload = async (ev) => {
-                          const url = await downscaleImage(ev.target?.result as string, 1024, 0.8);
-                          const vaultedUrl = await imageStore.vaultify(url);
-                          updateCharacter(char.id, { characterSheetUrl: vaultedUrl });
-                        };
-                        if(e.target.files?.[0]) reader.readAsDataURL(e.target.files[0]);
-                      }} />
-                    </label>
-                    {char.characterSheetUrl && (
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => updateCharacter(char.id, { characterSheetUrl: undefined })}
-                          className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-all"
-                        >
-                          <i className="fa-solid fa-trash-can text-[10px]"></i>
-                        </button>
-                        <button 
-                          onClick={() => downloadImage(char.characterSheetUrl!, `${char.name}_sheet.png`)}
-                          className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all"
-                        >
-                          <i className="fa-solid fa-download text-[10px]"></i>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="aspect-square bg-slate-50 rounded-3xl border border-slate-100 overflow-hidden relative group shadow-inner">
-                  {char.characterSheetUrl ? (
-                    <CachedImage src={char.characterSheetUrl} className="w-full h-full object-cover cursor-zoom-in" onClick={() => onPreviewImage(char.characterSheetUrl!)} />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
-                      <i className="fa-solid fa-layer-group text-4xl mb-2"></i>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Render</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Expression Sheet */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Expression Sheet</label>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleGenerateCharacterAsset(char.id, 'expression')}
-                      disabled={!!isGeneratingAsset || !char.imageUrl}
-                      className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
-                      title="Generate / Regenerate"
-                    >
-                      <i className={`fa-solid ${isGeneratingAsset === `${char.id}_expression` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
-                    </button>
-                    <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
-                      <i className="fa-solid fa-upload text-[10px]"></i>
-                      <input type="file" className="hidden" onChange={e => {
-                        const reader = new FileReader();
-                        reader.onload = async (ev) => {
-                          const url = await downscaleImage(ev.target?.result as string, 1024, 0.8);
-                          const vaultedUrl = await imageStore.vaultify(url);
-                          updateCharacter(char.id, { expressionSheetUrl: vaultedUrl });
-                        };
-                        if(e.target.files?.[0]) reader.readAsDataURL(e.target.files[0]);
-                      }} />
-                    </label>
-                    {char.expressionSheetUrl && (
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => updateCharacter(char.id, { expressionSheetUrl: undefined })}
-                          className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-all"
-                        >
-                          <i className="fa-solid fa-trash-can text-[10px]"></i>
-                        </button>
-                        <button 
-                          onClick={() => downloadImage(char.expressionSheetUrl!, `${char.name}_expressions.png`)}
-                          className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all"
-                        >
-                          <i className="fa-solid fa-download text-[10px]"></i>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="aspect-square bg-slate-50 rounded-3xl border border-slate-100 overflow-hidden relative group shadow-inner">
-                  {char.expressionSheetUrl ? (
-                    <CachedImage src={char.expressionSheetUrl} className="w-full h-full object-cover cursor-zoom-in" onClick={() => onPreviewImage(char.expressionSheetUrl!)} />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
-                      <i className="fa-solid fa-face-smile text-4xl mb-2"></i>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Render</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const charToEdit = editingCharacterId ? localComic.characters.find(c => c.id === editingCharacterId) : null;
 
   return (
-    <div className="h-full flex flex-col p-10 overflow-y-auto">
-      <div className="flex justify-between items-end mb-12 border-b border-black/5 pb-8">
-        <div className="flex items-center gap-12">
-          <div>
+    <div className="h-full relative">
+      {editingCharacterId && charToEdit ? (
+        <div className="h-full flex flex-col p-10 overflow-y-auto bg-white">
+          {(() => {
+            const char = charToEdit;
+            return (
+              <>
+                <div className="flex justify-between items-center mb-12 border-b border-slate-100 pb-8">
+                  <div className="flex items-center gap-6">
+                    <button 
+                      onClick={() => setEditingCharacterId(null)}
+                      className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-all"
+                    >
+                      <i className="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <div>
+                      <h2 className="text-4xl font-header tracking-tight uppercase text-slate-800">Character Studio</h2>
+                      <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Refining: {char.name}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-12 gap-12">
+                  <div className="col-span-12 lg:col-span-4 space-y-8">
+                    <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 space-y-6">
+                      <div className="flex flex-col items-center gap-4 mb-4">
+                        <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
+                          {char.avatarUrl ? (
+                            <CachedImage src={char.avatarUrl} className="w-full h-full object-cover" />
+                          ) : char.imageUrl ? (
+                            <CachedImage src={char.imageUrl} className="w-full h-full object-cover opacity-50" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-100 text-4xl">👤</div>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-center gap-2">
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Character Avatar</span>
+                          {char.imageUrl && (
+                            <button 
+                              onClick={() => setCroppingCharacterId(char.id)}
+                              className="text-[8px] font-black uppercase text-slate-800 bg-slate-200 px-4 py-1.5 rounded-full hover:bg-slate-300 transition-all flex items-center gap-2"
+                            >
+                              <i className="fa-solid fa-crop"></i>
+                              Crop Avatar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Identity</label>
+                        <input 
+                          type="text" 
+                          value={char.name} 
+                          onChange={e => updateCharacter(char.id, { name: e.target.value })}
+                          className="w-full bg-white border border-slate-200 rounded-xl p-4 font-black uppercase tracking-tight outline-none focus:ring-2 focus:ring-slate-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Visual DNA / Description</label>
+                        <textarea 
+                          value={char.description} 
+                          onChange={e => updateCharacter(char.id, { description: e.target.value })}
+                          rows={6}
+                          className="w-full bg-white border border-slate-200 rounded-xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-slate-200"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12 lg:col-span-8 space-y-12 pb-20">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      {/* Main Portrait */}
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Main Portrait</label>
+                          <div className="flex gap-2">
+                             <button 
+                              onClick={() => handleGenerateCharacterAsset(char.id, 'main')}
+                              disabled={!!isGeneratingAsset}
+                              className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
+                              title="Generate / Regenerate"
+                            >
+                              <i className={`fa-solid ${isGeneratingAsset === `${char.id}_main` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
+                            </button>
+                            <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
+                              <i className="fa-solid fa-upload text-[10px]"></i>
+                              <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleImageUpload('char', char.id, e.target.files[0])} />
+                            </label>
+                            {char.imageUrl && (
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => updateCharacter(char.id, { imageUrl: undefined })}
+                                  className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-all"
+                                >
+                                  <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                </button>
+                                <button 
+                                  onClick={() => downloadImage(char.imageUrl!, `${char.name}_portrait.png`)}
+                                  className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all"
+                                >
+                                  <i className="fa-solid fa-download text-[10px]"></i>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div 
+                          onDragOver={(e) => handleDragOver(e, 'char-studio-portrait')}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, 'char', char.id)}
+                          className={`aspect-square rounded-3xl border overflow-hidden relative group shadow-inner transition-all ${
+                            isDragging === 'char-studio-portrait' ? 'border-brand-500 ring-4 ring-brand-100 bg-brand-50' : 'bg-slate-50 border-slate-100'
+                          }`}
+                        >
+                          {char.imageUrl ? (
+                            <>
+                              <CachedImage src={char.imageUrl} className="w-full h-full object-cover cursor-zoom-in" onClick={() => onPreviewImage(char.imageUrl!)} />
+                              <button 
+                                onClick={() => setCroppingCharacterId(char.id)}
+                                className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-md text-slate-800 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-white"
+                              >
+                                <i className="fa-solid fa-crop-simple mr-2"></i>
+                                Crop Avatar
+                              </button>
+                            </>
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
+                              <i className="fa-solid fa-user text-4xl mb-2"></i>
+                              <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Render</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Character Sheet */}
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Orthographic Sheet</label>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleGenerateCharacterAsset(char.id, 'sheet')}
+                              disabled={!!isGeneratingAsset || !char.imageUrl}
+                              className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
+                              title="Generate / Regenerate"
+                            >
+                              <i className={`fa-solid ${isGeneratingAsset === `${char.id}_sheet` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
+                            </button>
+                            <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
+                              <i className="fa-solid fa-upload text-[10px]"></i>
+                              <input type="file" className="hidden" onChange={e => {
+                                const reader = new FileReader();
+                                reader.onload = async (ev) => {
+                                  const url = await downscaleImage(ev.target?.result as string, 1024, 0.8);
+                                  const vaultedUrl = await imageStore.vaultify(url);
+                                  updateCharacter(char.id, { characterSheetUrl: vaultedUrl });
+                                };
+                                if(e.target.files?.[0]) reader.readAsDataURL(e.target.files[0]);
+                              }} />
+                            </label>
+                            {char.characterSheetUrl && (
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => updateCharacter(char.id, { characterSheetUrl: undefined })}
+                                  className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-all"
+                                >
+                                  <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                </button>
+                                <button 
+                                  onClick={() => downloadImage(char.characterSheetUrl!, `${char.name}_sheet.png`)}
+                                  className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all"
+                                >
+                                  <i className="fa-solid fa-download text-[10px]"></i>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="aspect-square bg-slate-50 rounded-3xl border border-slate-100 overflow-hidden relative group shadow-inner">
+                          {char.characterSheetUrl ? (
+                            <CachedImage src={char.characterSheetUrl} className="w-full h-full object-cover cursor-zoom-in" onClick={() => onPreviewImage(char.characterSheetUrl!)} />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
+                              <i className="fa-solid fa-layer-group text-4xl mb-2"></i>
+                              <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Render</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Expression Sheet */}
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Expression Sheet</label>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleGenerateCharacterAsset(char.id, 'expression')}
+                              disabled={!!isGeneratingAsset || !char.imageUrl}
+                              className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center hover:bg-slate-900 transition-all disabled:opacity-50"
+                              title="Generate / Regenerate"
+                            >
+                              <i className={`fa-solid ${isGeneratingAsset === `${char.id}_expression` ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} text-[10px]`}></i>
+                            </button>
+                            <label className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer">
+                              <i className="fa-solid fa-upload text-[10px]"></i>
+                              <input type="file" className="hidden" onChange={e => {
+                                const reader = new FileReader();
+                                reader.onload = async (ev) => {
+                                  const url = await downscaleImage(ev.target?.result as string, 1024, 0.8);
+                                  const vaultedUrl = await imageStore.vaultify(url);
+                                  updateCharacter(char.id, { expressionSheetUrl: vaultedUrl });
+                                };
+                                if(e.target.files?.[0]) reader.readAsDataURL(e.target.files[0]);
+                              }} />
+                            </label>
+                            {char.expressionSheetUrl && (
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => updateCharacter(char.id, { expressionSheetUrl: undefined })}
+                                  className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-all"
+                                >
+                                  <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                </button>
+                                <button 
+                                  onClick={() => downloadImage(char.expressionSheetUrl!, `${char.name}_expressions.png`)}
+                                  className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-all"
+                                >
+                                  <i className="fa-solid fa-download text-[10px]"></i>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="aspect-square bg-slate-50 rounded-3xl border border-slate-100 overflow-hidden relative group shadow-inner">
+                          {char.expressionSheetUrl ? (
+                            <CachedImage src={char.expressionSheetUrl} className="w-full h-full object-cover cursor-zoom-in" onClick={() => onPreviewImage(char.expressionSheetUrl!)} />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
+                              <i className="fa-solid fa-face-smile text-4xl mb-2"></i>
+                              <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Render</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      ) : (
+        <div className="h-full flex flex-col p-10 overflow-y-auto">
+          <div className="flex justify-between items-end mb-12 border-b border-black/5 pb-8">
+            <div className="flex items-center gap-12">
+              <div>
             <div className="flex items-center gap-4 mb-2">
                <h2 className={`text-5xl font-header tracking-tight uppercase ${contrastColor}`}>SERIES GENOME</h2>
             </div>
-            <p className={`${contrastColor} opacity-70 font-medium text-lg italic`}>Calibrating visual logic for <span className="font-black underline">{localComic.name}</span>.</p>
+            <p className={`${contrastColor} opacity-70 font-medium text-lg italic`}>
+              Calibrating visual logic for <span className="font-black underline">{localComic.name}</span>.
+              <button 
+                onClick={() => { setNewName(localComic.name); setIsRenaming(true); }}
+                className="ml-3 text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-3 py-1 rounded-lg hover:bg-slate-200 transition-all"
+              >
+                Rename
+              </button>
+            </p>
           </div>
           
           <div className="flex flex-col gap-2">
@@ -578,36 +644,13 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
           <div className="flex flex-col gap-2">
             <label className={`text-[10px] font-black uppercase tracking-widest ${contrastColor} opacity-50`}>Art Model</label>
             <select 
-              value={localComic.artStyle || 'gemini-3.1-flash-image-preview'} 
-              onChange={e => setLocalComic({ ...localComic, artStyle: e.target.value })}
+              value={localComic.artModel || 'gemini-3.1-flash-image-preview'} 
+              onChange={e => setLocalComic({ ...localComic, artModel: e.target.value as ArtModelType })}
               className={`bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs font-bold ${contrastColor} outline-none`}
             >
               <option value="gemini-3.1-flash-image-preview">💎 Pro Render</option>
               <option value="gemini-2.5-flash-image">⚡ Fast Render</option>
             </select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className={`text-[10px] font-black uppercase tracking-widest ${contrastColor} opacity-50`}>Production Fonts</label>
-            <div className="flex gap-2">
-              {[0, 1, 2].map(idx => (
-                <select 
-                  key={idx}
-                  value={localComic.selectedFonts?.[idx] || COMIC_FONTS[idx].name} 
-                  onChange={e => {
-                    const newFonts = [...(localComic.selectedFonts || [COMIC_FONTS[0].name, COMIC_FONTS[1].name, COMIC_FONTS[2].name])];
-                    newFonts[idx] = e.target.value;
-                    setLocalComic({ ...localComic, selectedFonts: newFonts });
-                  }}
-                  className={`bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs font-bold ${contrastColor} outline-none w-32`}
-                  style={{ fontFamily: COMIC_FONTS.find(f => f.name === (localComic.selectedFonts?.[idx] || COMIC_FONTS[idx].name))?.family }}
-                >
-                  {COMIC_FONTS.map(font => (
-                    <option key={font.name} value={font.name} style={{ fontFamily: font.family }}>{font.name}</option>
-                  ))}
-                </select>
-              ))}
-            </div>
           </div>
         </div>
         
@@ -647,8 +690,15 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                   </div>
                 ))}
                 {(localComic.styleReferenceImageUrls?.length || 0) < 4 && (
-                  <div className="relative aspect-square rounded-2xl border-4 border-dashed border-slate-100 flex items-center justify-center hover:border-slate-200 transition-colors">
-                    <i className="fa-solid fa-plus text-slate-200"></i>
+                  <div 
+                    onDragOver={(e) => handleDragOver(e, 'style-upload')}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, 'style', null)}
+                    className={`relative aspect-square rounded-2xl border-4 border-dashed flex items-center justify-center transition-all ${
+                      isDragging === 'style-upload' ? 'border-brand-500 bg-brand-50' : 'border-slate-100 hover:border-slate-200'
+                    }`}
+                  >
+                    <i className={`fa-solid fa-plus ${isDragging === 'style-upload' ? 'text-brand-500' : 'text-slate-200'}`}></i>
                     <input type="file" onChange={e => e.target.files?.[0] && handleImageUpload('style', null, e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer" />
                   </div>
                 )}
@@ -712,15 +762,57 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
             <div className="space-y-4">
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="text-[9px] font-black text-slate-400 uppercase mb-2">Comic / Dialogue</div>
-                <div className="font-comic text-2xl text-slate-800">The quick brown fox jumps over the lazy dog.</div>
+                <div className="text-2xl text-slate-800 mb-4" style={{ fontFamily: COMIC_FONTS.find(f => f.name === (localComic.selectedFonts?.[0] || COMIC_FONTS[0].name))?.family }}>The quick brown fox jumps over the lazy dog.</div>
+                <select 
+                  value={localComic.selectedFonts?.[0] || COMIC_FONTS[0].name} 
+                  onChange={e => {
+                    const newFonts = [...(localComic.selectedFonts || [COMIC_FONTS[0].name, COMIC_FONTS[1].name, COMIC_FONTS[2].name])];
+                    newFonts[0] = e.target.value;
+                    setLocalComic({ ...localComic, selectedFonts: newFonts });
+                  }}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none"
+                  style={{ fontFamily: COMIC_FONTS.find(f => f.name === (localComic.selectedFonts?.[0] || COMIC_FONTS[0].name))?.family }}
+                >
+                  {COMIC_FONTS.map(font => (
+                    <option key={font.name} value={font.name} style={{ fontFamily: font.family }}>{font.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="text-[9px] font-black text-slate-400 uppercase mb-2">Handwritten / Notes</div>
-                <div className="font-handwritten text-2xl text-slate-800">The quick brown fox jumps over the lazy dog.</div>
+                <div className="text-2xl text-slate-800 mb-4" style={{ fontFamily: COMIC_FONTS.find(f => f.name === (localComic.selectedFonts?.[1] || COMIC_FONTS[1].name))?.family }}>The quick brown fox jumps over the lazy dog.</div>
+                <select 
+                  value={localComic.selectedFonts?.[1] || COMIC_FONTS[1].name} 
+                  onChange={e => {
+                    const newFonts = [...(localComic.selectedFonts || [COMIC_FONTS[0].name, COMIC_FONTS[1].name, COMIC_FONTS[2].name])];
+                    newFonts[1] = e.target.value;
+                    setLocalComic({ ...localComic, selectedFonts: newFonts });
+                  }}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none"
+                  style={{ fontFamily: COMIC_FONTS.find(f => f.name === (localComic.selectedFonts?.[1] || COMIC_FONTS[1].name))?.family }}
+                >
+                  {COMIC_FONTS.map(font => (
+                    <option key={font.name} value={font.name} style={{ fontFamily: font.family }}>{font.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="text-[9px] font-black text-slate-400 uppercase mb-2">Modern / System</div>
-                <div className="font-sans font-bold text-lg text-slate-800">The quick brown fox jumps over the lazy dog.</div>
+                <div className="text-lg text-slate-800 mb-4" style={{ fontFamily: COMIC_FONTS.find(f => f.name === (localComic.selectedFonts?.[2] || COMIC_FONTS[2].name))?.family }}>The quick brown fox jumps over the lazy dog.</div>
+                <select 
+                  value={localComic.selectedFonts?.[2] || COMIC_FONTS[2].name} 
+                  onChange={e => {
+                    const newFonts = [...(localComic.selectedFonts || [COMIC_FONTS[0].name, COMIC_FONTS[1].name, COMIC_FONTS[2].name])];
+                    newFonts[2] = e.target.value;
+                    setLocalComic({ ...localComic, selectedFonts: newFonts });
+                  }}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none"
+                  style={{ fontFamily: COMIC_FONTS.find(f => f.name === (localComic.selectedFonts?.[2] || COMIC_FONTS[2].name))?.family }}
+                >
+                  {COMIC_FONTS.map(font => (
+                    <option key={font.name} value={font.name} style={{ fontFamily: font.family }}>{font.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
@@ -742,7 +834,14 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                     <i className="fa-solid fa-trash-can text-xs"></i>
                   </button>
                   <div className="flex flex-col gap-4 shrink-0">
-                    <div className="w-36 h-36 bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-lg group/avatar">
+                    <div 
+                      onDragOver={(e) => handleDragOver(e, char.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, 'char', char.id)}
+                      className={`w-36 h-36 bg-white border rounded-2xl overflow-hidden relative shadow-lg group/avatar transition-all ${
+                        isDragging === char.id ? 'border-brand-500 ring-4 ring-brand-100' : 'border-slate-200'
+                      }`}
+                    >
                       {char.avatarUrl ? (
                         <CachedImage src={char.avatarUrl} className="w-full h-full object-cover" />
                       ) : char.imageUrl ? (
@@ -755,14 +854,6 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                           Upload
                           <input type="file" onChange={(e) => e.target.files?.[0] && handleImageUpload('char', char.id, e.target.files[0])} className="hidden" />
                         </label>
-                        {char.imageUrl && (
-                          <button 
-                            onClick={() => setCroppingCharacterId(char.id)}
-                            className="text-[8px] font-black uppercase text-white bg-slate-800 px-3 py-1 rounded-full hover:bg-slate-900 transition-all"
-                          >
-                            Crop
-                          </button>
-                        )}
                       </div>
                     </div>
                     {/* Character Assets Preview Column */}
@@ -820,9 +911,21 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                   >
                     <i className="fa-solid fa-trash-can text-xs"></i>
                   </button>
-                  <div className="w-36 h-36 shrink-0 bg-white border border-slate-200 rounded-2xl overflow-hidden relative shadow-lg">
+                  <div 
+                    onDragOver={(e) => handleDragOver(e, `env-${env.id}`)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, 'env', env.id)}
+                    className={`w-36 h-36 shrink-0 bg-white border rounded-2xl overflow-hidden relative shadow-lg transition-all ${
+                      isDragging === `env-${env.id}` ? 'border-brand-500 ring-4 ring-brand-100' : 'border-slate-200'
+                    }`}
+                  >
                     {env.imageUrl ? <CachedImage src={env.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-100 text-4xl">🏞️</div>}
-                    <input type="file" onChange={(e) => e.target.files?.[0] && handleImageUpload('env', env.id, e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <label className="bg-white text-slate-800 px-4 py-1.5 rounded-full font-black uppercase text-[8px] tracking-widest cursor-pointer hover:bg-slate-50 transition-all">
+                        Upload
+                        <input type="file" onChange={(e) => e.target.files?.[0] && handleImageUpload('env', env.id, e.target.files[0])} className="hidden" />
+                      </label>
+                    </div>
                   </div>
                   <div className="flex-1 space-y-4">
                     <input type="text" value={env.name} onChange={e => {
@@ -843,6 +946,8 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
           </section>
         </div>
       </div>
+    </div>
+  )}
 
       {croppingCharacterId && cropperImageUrl && (
         <AvatarCropper 
@@ -855,6 +960,40 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
             setCropperImageUrl('');
           }}
         />
+      )}
+
+      {isRenaming && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-6">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
+            <h3 className="text-2xl font-header uppercase tracking-tight text-slate-800 mb-2">Rename Series</h3>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-8">Update the production title</p>
+            
+            <input 
+              autoFocus
+              type="text" 
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-lg font-black uppercase tracking-tight outline-none focus:ring-4 focus:ring-slate-100 transition-all mb-8"
+              placeholder="Series Name"
+            />
+            
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setIsRenaming(false)}
+                className="flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleRename}
+                className="flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest bg-slate-800 text-white hover:bg-slate-900 shadow-lg transition-all"
+              >
+                Save Name
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

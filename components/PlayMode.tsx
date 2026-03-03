@@ -1020,7 +1020,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
                             disabled={isSavingLocal}
                             className="px-16 py-5 bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-amber-800 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 text-sm"
                           >
-                            {isSavingLocal ? 'Generating...' : 'Submit to Judge'}
+                            {isSavingLocal ? 'Submitting...' : 'Submit to Judge'}
                           </button>
                         </div>
                       )}

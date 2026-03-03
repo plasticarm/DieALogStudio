@@ -52,10 +52,12 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
   const [interactionType, setInteractionType] = useState<'none' | 'drawing' | 'moving' | 'resizing' | 'painting'>('none');
   const [interactionStart, setInteractionStart] = useState<{ x: number, y: number, fieldX: number, fieldY: number, fieldW: number, fieldH: number } | null>(null);
   const [drawCurrent, setDrawCurrent] = useState<{ x: number, y: number } | null>(null);
-  const [toolMode, setToolMode] = useState<'select' | 'text'>('select');
+  const [toolMode, setToolMode] = useState<'select' | 'text' | 'eraser'>('select');
+  const [removeSpeechBubbles, setRemoveSpeechBubbles] = useState(false);
+  const [showCharacterRef, setShowCharacterRef] = useState(false);
 
   const [isManualCleaning, setIsManualCleaning] = useState(false);
-  const [cleaningTool, setCleaningTool] = useState<'brush' | 'polygon' | 'eyedropper'>('brush');
+  const [cleaningTool, setCleaningTool] = useState<'brush' | 'polygon' | 'eyedropper' | 'eraser'>('brush');
   const [cleaningColor, setCleaningColor] = useState<string>('#FFFFFF');
   const [brushSize, setBrushSize] = useState(30);
   const [polygonPoints, setPolygonPoints] = useState<{ x: number, y: number }[]>([]);
@@ -219,8 +221,8 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       setPolygonPoints([]);
 
       // Automatically save to history
-      const newId = `strip_${Date.now()}`;
-      const newArId = `DIAL-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      const newId = currentStripId || `strip_${Date.now()}`;
+      const newArId = currentArTargetId || `DIAL-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
       setCurrentStripId(newId);
       setCurrentArTargetId(newArId);
 
@@ -292,7 +294,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
 
     setIsProcessing(true); setStatusMessage('Extracting clean plate...');
     try {
-      const rawImg = await removeTextFromComic(finishedImage, model);
+      const rawImg = await removeTextFromComic(finishedImage, model, { removeSpeechBubbles });
       const img = await downscaleImage(rawImg, 1024, 0.8);
       setExportImage(img); 
       setActiveTab('export');
@@ -313,6 +315,8 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     setPrompt(s.prompt);
     setPanelCount(s.panelCount);
     setTextFields(s.textFields || []);
+    setCurrentStripId(s.id);
+    setCurrentArTargetId(s.arTargetId);
     setActiveTab('finished');
   };
 
@@ -412,7 +416,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         pickColor(e);
         return;
       }
-      if (cleaningTool === 'brush') {
+      if (cleaningTool === 'brush' || cleaningTool === 'eraser') {
         saveCleaningState();
         setInteractionType('painting');
         paintAt(coords.x, coords.y);
@@ -428,6 +432,14 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       setInteractionType('drawing');
       setInteractionStart({ x: coords.x, y: coords.y, fieldX: 0, fieldY: 0, fieldW: 0, fieldH: 0 });
       setDrawCurrent({ x: coords.x, y: coords.y });
+    } else if (toolMode === 'eraser') {
+      if (!isManualCleaning) {
+        setIsManualCleaning(true);
+        setCleaningTool('eraser');
+      }
+      saveCleaningState();
+      setInteractionType('painting');
+      paintAt(coords.x, coords.y);
     } else {
       setSelectedFieldId(null);
     }
@@ -439,10 +451,17 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.fillStyle = cleaningColor;
+    if (cleaningTool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = cleaningColor;
+    }
+    
     ctx.beginPath();
     ctx.arc(x * canvas.width / 100, y * canvas.height / 100, brushSize * (canvas.width / 1000), 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
   };
 
   const handleFieldInteractionStart = (e: React.MouseEvent, field: TextField, type: 'moving' | 'resizing') => {
@@ -508,11 +527,10 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         const newId = `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
         const newField: TextField = {
           id: newId, text: 'New Dialogue', x, y, width, height,
-          font: activeComic.selectedFonts?.[0] || 'Amatic SC', fontSize: 24, alignment: 'center', characterName: 'Unknown'
+          font: activeComic.selectedFonts?.[0] || 'Amatic SC', fontSize: 12, alignment: 'center', characterName: 'Unknown'
         };
         setTextFields(prev => [...prev, newField]);
         setSelectedFieldId(newId);
-        setToolMode('select');
       }
     }
     setInteractionType('none');
@@ -528,6 +546,27 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     if (!selectedFieldId) return;
     setTextFields(prev => prev.filter(f => f.id !== selectedFieldId));
     setSelectedFieldId(null);
+  };
+
+  const handleCopyPrompt = () => {
+    if (!script) return;
+    const panelsDesc = script.map(p => {
+      const dialogueText = (p.dialogue || []).map(d => `${d.character}: ${d.text}`).join(' | ');
+      return `Panel ${p.panelNumber}: ${p.visualDescription}. Dialogue: ${dialogueText}`;
+    }).join('\n');
+    
+    const promptText = `A horizontal comic strip with ${script.length} panels.
+Series: ${activeComic.name}
+Aesthetic: ${activeComic.artStyle}
+Action: ${panelsDesc}
+Note: Highly cinematic, clear panel borders, gutters, professional comic book layout. Explicitly include speech bubbles and dialogue as described in the action. Ensure the text is legible and correctly attributed to the characters.`;
+
+    navigator.clipboard.writeText(promptText).then(() => {
+      setStatusMessage('Prompt copied to clipboard!');
+      setTimeout(() => setStatusMessage(''), 3000);
+    }).catch(err => {
+      console.error('Failed to copy: ', err);
+    });
   };
 
   const handleFlattenExport = async () => {
@@ -637,6 +676,13 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
                  className="bg-transparent font-bold text-sm outline-none text-slate-800 focus:text-slate-900 border-b border-transparent focus:border-slate-200 flex-1"
                  placeholder="Untitled Project"
                />
+               <button 
+                 onClick={() => setShowCharacterRef(true)}
+                 className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2 shrink-0"
+               >
+                 <i className="fa-solid fa-users"></i>
+                 Characters
+               </button>
                {filteredHistory.length > 0 && (
                  <select
                    onChange={(e) => {
@@ -736,9 +782,18 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
            </div>
 
            {/* Tabs for Sidebar content */}
-           <div className="flex border-b border-slate-100 shrink-0">
+           <div className="flex border-b border-slate-100 shrink-0 items-center pr-4">
               <button onClick={() => setActiveTab('finished')} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest transition-colors ${activeTab !== 'history' ? 'bg-slate-50 text-slate-800 border-b-2 border-slate-800' : 'text-slate-400'}`}>Current Script</button>
               <button onClick={() => setActiveTab('history')} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest transition-colors ${activeTab === 'history' ? 'bg-slate-50 text-slate-800 border-b-2 border-slate-800' : 'text-slate-400'}`}>History</button>
+              {activeTab !== 'history' && script && (
+                <button 
+                  onClick={handleCopyPrompt}
+                  className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-slate-800 hover:border-slate-800 transition-all flex items-center justify-center ml-2"
+                  title="Copy Full AI Prompt"
+                >
+                  <i className="fa-solid fa-copy text-[10px]"></i>
+                </button>
+              )}
            </div>
            
            <div className="p-4 space-y-4">
@@ -814,6 +869,16 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
                     <i className="fa-solid fa-hand-dots"></i>
                     Manual Cleaning
                   </button>
+                  <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200">
+                    <input 
+                      type="checkbox" 
+                      id="removeSpeechBubbles"
+                      checked={removeSpeechBubbles}
+                      onChange={(e) => setRemoveSpeechBubbles(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-600"
+                    />
+                    <label htmlFor="removeSpeechBubbles" className="text-[9px] font-black uppercase text-slate-500 cursor-pointer">Remove Bubbles</label>
+                  </div>
                   <button 
                     data-guide="studio-clean"
                     onClick={handleGenerateExport} 
@@ -837,6 +902,13 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
                     title="Brush Tool"
                   >
                     <i className="fa-solid fa-paintbrush"></i>
+                  </button>
+                  <button 
+                    onClick={() => setCleaningTool('eraser')}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${cleaningTool === 'eraser' ? 'bg-white text-slate-800 shadow-md' : 'text-slate-400 hover:bg-white/10'}`}
+                    title="Eraser Tool"
+                  >
+                    <i className="fa-solid fa-eraser"></i>
                   </button>
                   <button 
                     onClick={() => setCleaningTool('polygon')}
@@ -936,6 +1008,13 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
                     title="Add New Textbox (T)"
                   >
                     <i className="fa-solid fa-font"></i>
+                  </button>
+                  <button 
+                    onClick={() => setToolMode('eraser')} 
+                    className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${toolMode === 'eraser' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                    title="Eraser Tool (E)"
+                  >
+                    <i className="fa-solid fa-eraser"></i>
                   </button>
                   <div className="w-[1px] h-6 bg-slate-200 mx-2"></div>
                   <button 
@@ -1194,6 +1273,49 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         </div>
       </div>
       <canvas ref={canvasRef} className="hidden" />
+      {showCharacterRef && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-2xl font-header uppercase tracking-tight text-slate-800">Character Reference</h3>
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Production DNA for {activeComic.name}</p>
+              </div>
+              <button 
+                onClick={() => setShowCharacterRef(false)}
+                className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all flex items-center justify-center"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8 space-y-6">
+              {activeComic.characters?.length ? (
+                activeComic.characters.map(char => (
+                  <div key={char.id} className="flex gap-6 items-start bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md shrink-0 border-2 border-white">
+                      {char.avatarUrl ? (
+                        <CachedImage src={char.avatarUrl} className="w-full h-full object-cover" />
+                      ) : char.imageUrl ? (
+                        <CachedImage src={char.imageUrl} className="w-full h-full object-cover opacity-50" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-400 text-2xl">👤</div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-black uppercase tracking-tight text-slate-800 mb-1">{char.name}</h4>
+                      <p className="text-[11px] text-slate-500 leading-relaxed italic">{char.description || 'No DNA description provided.'}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No characters defined for this series.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

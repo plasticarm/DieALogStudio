@@ -41,6 +41,7 @@ export interface ComicProfile {
   id: string;
   name: string;
   artStyle: string;
+  artModel?: ArtModelType;
   styleDescription?: string;
   characters: Character[];
   environments: Environment[];

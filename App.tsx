@@ -88,6 +88,7 @@ export default function App() {
   const [resolvedPreviewImage, setResolvedPreviewImage] = useState<string | null>(null);
   const [readModePages, setReadModePages] = useState<{ pages: SavedComicStrip[], mode: 'finished' | 'clean' } | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [localBackupSession, setLocalBackupSession] = useState<AppSession | null>(null);
 
   // New Series Naming State
   const [isNamingNewSeries, setIsNamingNewSeries] = useState(false);
@@ -206,9 +207,48 @@ export default function App() {
     // Cloud-First Loading: Check if there's a newer version in Firebase
     if (import.meta.env.VITE_FIREBASE_API_KEY) {
       firebaseService.loadSession(activeId).then(cloudSession => {
-        if (cloudSession && cloudSession.lastModified > (parsedSessions.find(s => s.id === activeId)?.lastModified || 0)) {
-          console.log("Found newer session in cloud, updating local state...");
-          setSessions(prev => prev.map(s => s.id === activeId ? cloudSession : s));
+        const localSession = parsedSessions.find(s => s.id === activeId);
+        
+        // Data Integrity Check: Ensure cloud session is not empty or corrupted
+        const isDataValid = (session: AppSession | null) => {
+          if (!session || !session.data) {
+            console.warn("Cloud session or data missing");
+            return false;
+          }
+          const { comics, history, books } = session.data;
+          const valid = Array.isArray(comics) && Array.isArray(history) && Array.isArray(books);
+          if (!valid) {
+            console.warn("Cloud session data structure invalid:", { 
+              hasComics: Array.isArray(comics), 
+              hasHistory: Array.isArray(history), 
+              hasBooks: Array.isArray(books) 
+            });
+          }
+          return valid;
+        };
+
+        if (cloudSession && isDataValid(cloudSession) && cloudSession.lastModified >= (localSession?.lastModified || 0)) {
+          console.log("Found newer or equal session in cloud, updating local state...");
+          // Store local version as backup if it has more history or books than the cloud version
+          if (localSession && (
+            (localSession.data.history?.length || 0) > (cloudSession.data.history?.length || 0) ||
+            (localSession.data.books?.length || 0) > (cloudSession.data.books?.length || 0)
+          )) {
+            console.log("Local session appears to have more data than cloud. Saving backup for recovery.");
+            setLocalBackupSession(localSession);
+          }
+          setSessions(prev => {
+            const updated = prev.map(s => s.id === activeId ? cloudSession : s);
+            // Also update localStorage so we don't keep reloading from cloud on every refresh
+            try {
+              localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(updated));
+            } catch (e) {
+              console.error("Failed to save cloud session to localStorage:", e);
+            }
+            return updated;
+          });
+        } else if (cloudSession && !isDataValid(cloudSession)) {
+          console.error("Cloud session data is invalid, skipping sync.");
         }
       }).catch(err => console.error("Failed to load cloud session:", err));
     }
@@ -447,6 +487,7 @@ export default function App() {
     }
 
     const currentHistory = activeSession.data.history || [];
+    const currentRatings = activeSession.data.ratings || [];
     
     // Filter history for THIS series
     const seriesHistory = currentHistory.filter(h => h.comicProfileId === strip.comicProfileId);
@@ -461,8 +502,82 @@ export default function App() {
       // Limit history to 10 items PER SERIES to prevent QuotaExceededError
       updatedSeriesHistory = [vaultifiedStrip, ...seriesHistory].slice(0, 10);
     }
-    handleUpdateSessionData({ history: [...updatedSeriesHistory, ...otherHistory] });
+
+    // Also update any ratings that reference this strip to keep them in sync
+    const updatedRatings = currentRatings.map(r => {
+      if (r.stripId === vaultifiedStrip.id) {
+        return {
+          ...r,
+          name: vaultifiedStrip.name,
+          imageUrl: vaultifiedStrip.exportImageUrl || vaultifiedStrip.finishedImageUrl,
+          textFields: vaultifiedStrip.textFields
+        };
+      }
+      return r;
+    });
+
+    handleUpdateSessionData({ 
+      history: [...updatedSeriesHistory, ...otherHistory],
+      ratings: updatedRatings
+    });
   }, [activeSession, handleUpdateSessionData]);
+
+  const handleRestoreFromLocal = () => {
+    if (!localBackupSession || !currentUser) return;
+    if (window.confirm("Are you sure you want to restore your local data? This will overwrite the current cloud version with your local backup.")) {
+      const updatedSessions = sessions.map(s => s.id === localBackupSession.id ? { ...localBackupSession, lastModified: Date.now() } : s);
+      setSessions(updatedSessions);
+      setLocalBackupSession(null);
+      // Force a save to cloud
+      const sessionToSave = updatedSessions.find(s => s.id === localBackupSession.id);
+      if (sessionToSave) {
+        handleUpdateSessionData(sessionToSave.data);
+      }
+      alert("Local data restored. It will be synced to the cloud shortly.");
+    }
+  };
+
+  const handleDeepScan = () => {
+    if (!currentUser) return;
+    const allKeys = Object.keys(localStorage);
+    const sessionKeys = allKeys.filter(k => k.startsWith('sessions_'));
+    
+    let foundSessions: AppSession[] = [];
+    sessionKeys.forEach(key => {
+      try {
+        const data = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(data)) {
+          foundSessions = [...foundSessions, ...data];
+        }
+      } catch (e) {}
+    });
+
+    if (foundSessions.length === 0) {
+      alert("No local session data found in this browser.");
+      return;
+    }
+
+    // Filter out sessions that are already in our current state or are empty
+    const currentIds = new Set(sessions.map(s => s.id));
+    const potentialRestores = foundSessions.filter(s => 
+      s.data.history?.length > 0 || s.data.comics?.length > 0
+    );
+
+    if (potentialRestores.length === 0) {
+      alert("Found local sessions, but they appear to be empty.");
+      return;
+    }
+
+    // For now, let's just pick the one with the most history items as the "Best" candidate
+    const bestCandidate = potentialRestores.reduce((prev, current) => 
+      (prev.data.history?.length || 0) > (current.data.history?.length || 0) ? prev : current
+    );
+
+    if (window.confirm(`Deep Scan found a local session named "${bestCandidate.name}" with ${bestCandidate.data.history?.length || 0} history items. Would you like to restore it?`)) {
+      setLocalBackupSession(bestCandidate);
+      alert("Local session loaded into recovery buffer. Click 'Restore Local Data' in your Profile to finalize.");
+    }
+  };
 
   const handleConfirmCreateSeries = () => {
     if (!activeSession) return;
@@ -681,6 +796,97 @@ export default function App() {
     handleUpdateSessionData({ history: updatedHistory });
   };
 
+  const syncSessionToCloud = useCallback(async (session: AppSession) => {
+    if (!currentUser || !import.meta.env.VITE_FIREBASE_API_KEY) return session;
+    
+    const { data } = session;
+    const userId = currentUser.id;
+    
+    // Helper to sync an image to cloud
+    const syncImage = async (url: string | undefined, pathPrefix: string) => {
+      if (!url) return url;
+      
+      // If it's already a cloud URL (http/https), return it
+      if (url.startsWith('http')) return url;
+
+      // If it's a data URL, upload it directly
+      if (url.startsWith('data:')) {
+        try {
+          return await imageStore.cloudify(url, userId, pathPrefix);
+        } catch (e) {
+          console.error("Failed to upload data URL:", e);
+          return await imageStore.vaultify(url);
+        }
+      }
+
+      // If it's a vault reference, resolve and upload
+      if (url.startsWith('vault:')) {
+        const dataUrl = await imageStore.getImage(url);
+        if (!dataUrl) return url;
+        return await imageStore.cloudify(dataUrl, userId, pathPrefix);
+      }
+
+      return url;
+    };
+
+    // 1. Sync Comics
+    const updatedComics = await Promise.all((data.comics || []).map(async (comic) => {
+      const characters = await Promise.all((comic.characters || []).map(async (char) => ({
+        ...char,
+        imageUrl: await syncImage(char.imageUrl, `comics/${comic.id}/characters`),
+        avatarUrl: await syncImage(char.avatarUrl, `comics/${comic.id}/avatars`),
+        characterSheetUrl: await syncImage(char.characterSheetUrl, `comics/${comic.id}/sheets`),
+        expressionSheetUrl: await syncImage(char.expressionSheetUrl, `comics/${comic.id}/expressions`)
+      })));
+
+      const environments = await Promise.all((comic.environments || []).map(async (env) => ({
+        ...env,
+        imageUrl: await syncImage(env.imageUrl, `comics/${comic.id}/environments`)
+      })));
+
+      const styleReferenceImageUrl = await syncImage(comic.styleReferenceImageUrl, `comics/${comic.id}/styles`);
+      const styleReferenceImageUrls = await Promise.all((comic.styleReferenceImageUrls || []).map(url => syncImage(url, `comics/${comic.id}/styles`)));
+      const libraryVideoUrl = await syncImage(comic.libraryVideoUrl, `comics/${comic.id}/videos`);
+
+      return { ...comic, characters, environments, styleReferenceImageUrl, styleReferenceImageUrls, libraryVideoUrl };
+    }));
+
+    // 2. Sync History
+    const updatedHistory = await Promise.all((data.history || []).map(async (strip) => {
+      const finishedImageUrl = await syncImage(strip.finishedImageUrl, `history/${strip.id}`);
+      const exportImageUrl = await syncImage(strip.exportImageUrl, `history/${strip.id}/export`);
+      const imageHistory = await Promise.all((strip.imageHistory || []).map(url => syncImage(url, `history/${strip.id}/steps`)));
+      return { ...strip, finishedImageUrl, exportImageUrl, imageHistory };
+    }));
+
+    // 3. Sync Books
+    const updatedBooks = await Promise.all((data.books || []).map(async (book) => ({
+      ...book,
+      coverImageUrl: await syncImage(book.coverImageUrl, `books/${book.id}`)
+    })));
+
+    // 4. Sync Ratings
+    const updatedRatings = await Promise.all((data.ratings || []).map(async (rating) => ({
+      ...rating,
+      imageUrl: await syncImage(rating.imageUrl, `ratings/${rating.id}`)
+    })));
+
+    const updatedProjectState: ProjectState = {
+      ...data,
+      comics: updatedComics,
+      history: updatedHistory,
+      books: updatedBooks,
+      ratings: updatedRatings,
+      timestamp: Date.now()
+    };
+
+    return {
+      ...session,
+      data: updatedProjectState,
+      lastModified: Date.now()
+    };
+  }, [currentUser]);
+
   const handleSyncToFirebase = async () => {
     if (!activeSession || !currentUser || isSyncingToCloud) return;
     
@@ -691,79 +897,13 @@ export default function App() {
 
     setIsSyncingToCloud(true);
     try {
-      const { data } = activeSession;
-      const userId = currentUser.id;
+      const updatedSession = await syncSessionToCloud(activeSession);
       
-      // Helper to sync an image to cloud
-      const syncImage = async (url: string | undefined, pathPrefix: string) => {
-        if (!url || !url.startsWith('vault:')) return url;
-        const dataUrl = await imageStore.getImage(url);
-        if (!dataUrl) return url;
-        return await imageStore.cloudify(dataUrl, userId, pathPrefix);
-      };
-
-      // 1. Sync Comics (Characters, Environments, Style References)
-      const updatedComics = await Promise.all((data.comics || []).map(async (comic) => {
-        const characters = await Promise.all((comic.characters || []).map(async (char) => ({
-          ...char,
-          imageUrl: await syncImage(char.imageUrl, `comics/${comic.id}/characters`),
-          avatarUrl: await syncImage(char.avatarUrl, `comics/${comic.id}/avatars`),
-          characterSheetUrl: await syncImage(char.characterSheetUrl, `comics/${comic.id}/sheets`),
-          expressionSheetUrl: await syncImage(char.expressionSheetUrl, `comics/${comic.id}/expressions`)
-        })));
-
-        const environments = await Promise.all((comic.environments || []).map(async (env) => ({
-          ...env,
-          imageUrl: await syncImage(env.imageUrl, `comics/${comic.id}/environments`)
-        })));
-
-        const styleReferenceImageUrl = await syncImage(comic.styleReferenceImageUrl, `comics/${comic.id}/styles`);
-        const styleReferenceImageUrls = await Promise.all((comic.styleReferenceImageUrls || []).map(url => syncImage(url, `comics/${comic.id}/styles`)));
-        const libraryVideoUrl = await syncImage(comic.libraryVideoUrl, `comics/${comic.id}/videos`);
-
-        return { ...comic, characters, environments, styleReferenceImageUrl, styleReferenceImageUrls, libraryVideoUrl };
-      }));
-
-      // 2. Sync History (finishedImageUrl, exportImageUrl, imageHistory)
-      const updatedHistory = await Promise.all((data.history || []).map(async (strip) => {
-        const finishedImageUrl = await syncImage(strip.finishedImageUrl, `history/${strip.id}`);
-        const exportImageUrl = await syncImage(strip.exportImageUrl, `history/${strip.id}/export`);
-        const imageHistory = await Promise.all((strip.imageHistory || []).map(url => syncImage(url, `history/${strip.id}/steps`)));
-        return { ...strip, finishedImageUrl, exportImageUrl, imageHistory };
-      }));
-
-      // 3. Sync Books (coverImageUrl)
-      const updatedBooks = await Promise.all((data.books || []).map(async (book) => ({
-        ...book,
-        coverImageUrl: await syncImage(book.coverImageUrl, `books/${book.id}`)
-      })));
-
-      // 4. Sync Ratings (imageUrl)
-      const updatedRatings = await Promise.all((data.ratings || []).map(async (rating) => ({
-        ...rating,
-        imageUrl: await syncImage(rating.imageUrl, `ratings/${rating.id}`)
-      })));
-
-      const updatedProjectState: ProjectState = {
-        ...data,
-        comics: updatedComics,
-        history: updatedHistory,
-        books: updatedBooks,
-        ratings: updatedRatings,
-        timestamp: Date.now()
-      };
-
-      const updatedSession: AppSession = {
-        ...activeSession,
-        data: updatedProjectState,
-        lastModified: Date.now()
-      };
-
       // Save to Firestore
       await firebaseService.saveSession(updatedSession);
       
       // Update local state
-      handleUpdateSessionData(updatedProjectState);
+      handleUpdateSessionData(updatedSession.data);
       setLastCloudSync(Date.now());
       
       alert("Successfully synced all assets and data to Firebase Cloud!");
@@ -780,20 +920,27 @@ export default function App() {
     if (!activeSession || !currentUser || !import.meta.env.VITE_FIREBASE_API_KEY) return;
     
     // Don't auto-sync if we just did a manual sync
-    if (Date.now() - lastCloudSync < 10000) return;
+    if (Date.now() - lastCloudSync < 15000) return;
 
     const timer = setTimeout(async () => {
       try {
-        await firebaseService.saveSession(activeSession);
-        console.log("Auto-synced session to cloud");
+        // Before auto-syncing, we should also perform the image migration to keep document size small
+        const updatedSession = await syncSessionToCloud(activeSession);
+        await firebaseService.saveSession(updatedSession);
+        
+        // CRITICAL: Update local state with the cloud URLs to prevent re-uploading 
+        // and to ensure the UI uses the optimized cloud assets.
+        handleUpdateSessionData(updatedSession.data);
+        
+        console.log("Auto-synced session to cloud and reconciled local state");
         setLastCloudSync(Date.now());
       } catch (e) {
         console.error("Auto-sync failed:", e);
       }
-    }, 5000); // 5 second debounce
+    }, 10000); // 10 second debounce for auto-sync
 
     return () => clearTimeout(timer);
-  }, [activeSession, currentUser, lastCloudSync]);
+  }, [activeSession, currentUser, lastCloudSync, syncSessionToCloud]);
 
   if (!currentUser) return <AuthModal onAuth={handleAuth} />;
   
@@ -958,7 +1105,7 @@ export default function App() {
                 activeSeriesId={activeSeriesId}
                 onOpenBook={(id) => {
                   handleUpdateSessionData({ activeSeriesId: id, currentGuideStep: Math.max(currentGuideStep, 1) });
-                  setCurrentTab('generate');
+                  setCurrentTab('train');
                 }}
                 onCreateComic={() => setIsNamingNewSeries(true)}
                 onDeleteComic={handleDeleteComic}
@@ -1115,6 +1262,9 @@ export default function App() {
           onUpdate={handleAuth} 
           onLogout={handleLogout} 
           onClose={() => setIsProfileOpen(false)} 
+          hasLocalBackup={!!localBackupSession}
+          onRestoreFromLocal={handleRestoreFromLocal}
+          onDeepScan={handleDeepScan}
         />
       )}
 

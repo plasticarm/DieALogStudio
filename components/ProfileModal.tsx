@@ -6,9 +6,14 @@ interface ProfileModalProps {
   onUpdate: (user: User) => void;
   onLogout: () => void;
   onClose: () => void;
+  hasLocalBackup?: boolean;
+  onRestoreFromLocal?: () => void;
+  onDeepScan?: () => void;
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onUpdate, onLogout, onClose }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ 
+  user, onUpdate, onLogout, onClose, hasLocalBackup, onRestoreFromLocal, onDeepScan 
+}) => {
   const [localUser, setLocalUser] = useState<User>({ ...user });
   const [showKeys, setShowKeys] = useState(false);
 
@@ -120,6 +125,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ user, onUpdate, onLo
           </div>
 
           <div className="pt-4 flex flex-col gap-3">
+            {hasLocalBackup && onRestoreFromLocal && (
+              <button 
+                onClick={onRestoreFromLocal}
+                className="w-full bg-amber-50 text-amber-700 border border-amber-200 py-4 rounded-xl font-black uppercase text-[11px] tracking-widest hover:bg-amber-100 transition-all flex items-center justify-center gap-2 mb-2"
+              >
+                <i className="fa-solid fa-clock-rotate-left"></i>
+                Restore Local Data
+              </button>
+            )}
+            {!hasLocalBackup && onDeepScan && (
+              <button 
+                onClick={onDeepScan}
+                className="w-full bg-slate-50 text-slate-500 border border-slate-200 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2 mb-2"
+              >
+                <i className="fa-solid fa-magnifying-glass"></i>
+                Scan Local Vault
+              </button>
+            )}
             <button 
               onClick={handleSave}
               className="w-full bg-slate-800 text-white py-4 rounded-xl font-black uppercase text-[11px] tracking-widest hover:bg-slate-900 transition-all shadow-xl active:scale-95"
