@@ -119,6 +119,7 @@ export interface RatedComic {
   timestamp: number;
   name: string;
   textFields?: TextField[];
+  playerId?: string;
 }
 
 export interface ProjectState {

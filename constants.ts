@@ -251,14 +251,14 @@ export const INITIAL_COMICS: ComicProfile[] = [
   },
   { 
     id: 'c20', 
-    name: 'Meat Cute', 
+    name: 'Death Suits You', 
     backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
     artStyle: 'Horror-comedy, bright butcher reds, grotesque', 
     environment: 'Steakhouse kitchen', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'mc1', name:'T-Bone', description:'Steak with googly eyes'}, {id:'mc2', name:'The Cleaver', description:'Sentient knife'}] 
+    characters: [] 
   },
   { 
     id: 'c21', 

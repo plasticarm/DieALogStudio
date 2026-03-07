@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RatedComic, SavedComicStrip, ComicProfile, TextField } from '../types';
+import { RatedComic, SavedComicStrip, ComicProfile, TextField, ComicBook, User } from '../types';
+import { io, Socket } from 'socket.io-client';
+import { QRCodeSVG } from 'qrcode.react';
 import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
 import { downscaleImage } from '../utils/imageUtils';
@@ -142,16 +144,194 @@ const EditableBubble: React.FC<{
 };
 
 interface PlayModeProps {
+  user: User;
   ratings: RatedComic[];
   history: SavedComicStrip[];
   comics: ComicProfile[];
+  books: ComicBook[];
   binderPages: string[];
   onExit: () => void;
   onAddSubmission: (submission: RatedComic) => void;
   onEdit?: () => void;
 }
 
-export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, binderPages, onExit, onAddSubmission, onEdit }) => {
+export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comics, books, binderPages, onExit, onAddSubmission, onEdit }) => {
+  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [room, setRoom] = useState<any>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [copyFeedback, setCopyFeedback] = useState(false);
+
+  // Initialize Socket.io
+  useEffect(() => {
+    const newSocket = io();
+    setSocket(newSocket);
+
+    newSocket.on('room-update', (updatedRoom) => {
+      setRoom(updatedRoom);
+      
+      const me = updatedRoom.players.find((p: any) => p.id === newSocket.id);
+      if (me && me.role) {
+        setRole(me.role);
+      }
+
+      // Sync submissions
+      if (updatedRoom.submissions) {
+        setSubmittedComics(updatedRoom.submissions);
+        if (updatedRoom.submissions.length === 0) {
+          setHasSubmitted(false);
+          setUsedHints(new Set());
+        }
+      }
+
+      setWinner(updatedRoom.winner || null);
+
+      if (updatedRoom.previewImage !== undefined) {
+        setPreviewImage(updatedRoom.previewImage);
+      }
+
+      if (updatedRoom.gameState === 'playing' && (updatedRoom.activeStripId || updatedRoom.activeStrip)) {
+        const strip = updatedRoom.activeStrip || history.find(h => h.id === updatedRoom.activeStripId);
+        if (strip) {
+          setActiveStrip(strip);
+          const profile = comics.find(c => c.id === strip.comicProfileId);
+          const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
+          setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
+          setSelectedComic({
+            id: `temp_${strip.id}`,
+            comicProfileId: strip.comicProfileId,
+            stripId: strip.id,
+            imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
+            rating: 0,
+            timestamp: Date.now(),
+            name: strip.name
+          });
+        }
+      } else if (updatedRoom.gameState === 'playing' && !updatedRoom.activeStripId && !updatedRoom.activeStrip) {
+        setSelectedComic(null);
+        setActiveStrip(null);
+        setLocalTextFields([]);
+      }
+    });
+
+    // Check for room code in URL
+    const params = new URLSearchParams(window.location.search);
+    const urlRoomCode = params.get('game');
+    if (urlRoomCode) {
+      setRoomCode(urlRoomCode);
+      newSocket.emit('join-room', { roomCode: urlRoomCode, user });
+    }
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [user, history, comics]);
+
+  const handleCreateGame = () => {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setRoomCode(code);
+    socket?.emit('join-room', { roomCode: code, user });
+    // Update URL without reload
+    const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+  };
+
+  const handleJoinGame = () => {
+    if (!joinCodeInput) return;
+    const code = joinCodeInput.toUpperCase();
+    setRoomCode(code);
+    socket?.emit('join-room', { roomCode: code, user });
+    const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+  };
+
+  const handleStartGame = () => {
+    if (!roomCode || room?.host !== socket?.id) return;
+    
+    const updatedPlayers = room.players.map((p: any) => ({
+      ...p,
+      role: p.id === socket.id ? 'judge' : 'writer'
+    }));
+
+    socket?.emit('update-game-state', { 
+      roomCode, 
+      newState: { 
+        gameState: 'playing',
+        players: updatedPlayers,
+        timeLimit,
+        pointsToWin,
+        scores: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 0 }), {}),
+        branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 30 }), {}),
+        winningComics: []
+      } 
+    });
+  };
+
+  const handleCopyLink = () => {
+    const link = `${window.location.origin}${window.location.pathname}?game=${roomCode}`;
+    navigator.clipboard.writeText(link);
+    setCopyFeedback(true);
+    setTimeout(() => setCopyFeedback(false), 2000);
+  };
+
+  const [isSharing, setIsSharing] = useState(false);
+
+  const handleShare = async () => {
+    if (!winner) return;
+    
+    const shareText = "Check out the comic I created for DiE-A-Log";
+    const shareUrl = window.location.origin;
+
+    // Try Web Share API first (best for mobile/apps)
+    if (navigator.share) {
+      try {
+        // If the image is base64, try to convert to file for sharing
+        let files: File[] = [];
+        if (winner.imageUrl.startsWith('data:')) {
+          const response = await fetch(winner.imageUrl);
+          const blob = await response.blob();
+          const file = new File([blob], 'comic.png', { type: 'image/png' });
+          files = [file];
+        }
+
+        const shareData: ShareData = {
+          title: 'DiE-A-Log Comic',
+          text: shareText,
+          url: shareUrl,
+        };
+
+        // Only add files if supported
+        if (files.length > 0 && navigator.canShare && navigator.canShare({ files })) {
+          shareData.files = files;
+        }
+
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        console.log('Share failed:', err);
+      }
+    }
+
+    // Fallback: Show custom share menu or just open X/FB
+    setIsSharing(true);
+  };
+
+  const shareToSocial = (platform: 'x' | 'facebook') => {
+    const text = "Check out the comic I created for DiE-A-Log";
+    const url = window.location.origin;
+    
+    let shareUrl = '';
+    if (platform === 'x') {
+      shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    } else if (platform === 'facebook') {
+      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+    }
+    
+    window.open(shareUrl, '_blank');
+    setIsSharing(false);
+  };
+
   const [role, setRole] = useState<'select' | 'judge' | 'writer'>('select');
   const [judgeImage, setJudgeImage] = useState<string>('');
   const [writerImage, setWriterImage] = useState<string>('');
@@ -177,6 +357,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
   const [isSavingLocal, setIsSavingLocal] = useState(false);
   const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
   const [isEnlarged, setIsEnlarged] = useState(false);
+  const [preGameState, setPreGameState] = useState<'none' | 'cover' | 'go'>('none');
 
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(GENRES.map(g => g.id));
 
@@ -254,6 +435,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
 
   // Timer States
   const [timeLimit, setTimeLimit] = useState(2); // Default 2 minutes
+  const [pointsToWin, setPointsToWin] = useState(3); // Default 3 points
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   // Video Rendering States
@@ -304,21 +486,29 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (role === 'writer' && activeStrip && !hasSubmitted && timeLeft !== null && timeLeft > 0) {
+    if (room?.gameState === 'playing' && activeStrip && !hasSubmitted && timeLeft !== null && timeLeft > 0 && preGameState === 'none') {
       timer = setInterval(() => {
         setTimeLeft(prev => (prev !== null && prev > 0) ? prev - 1 : 0);
       }, 1000);
-    } else if (timeLeft === 0 && !hasSubmitted && !isSavingLocal) {
-      handleSaveAndSubmit();
+    } else if (timeLeft === 0 && !hasSubmitted && !isSavingLocal && preGameState === 'none') {
+      // Set a flag or change timeLeft to prevent re-triggering if submission fails
+      setTimeLeft(-1);
+      if (role === 'writer') {
+        handleSaveAndSubmit();
+      } else if (role === 'judge' && room?.host === socket?.id) {
+        // If time runs out and judge is host, force transition to judging if needed
+        // Actually, the judge just waits for submissions. 
+        // If time is up, everyone should be forced to submit.
+      }
     }
     return () => clearInterval(timer);
-  }, [role, activeStrip, hasSubmitted, timeLeft, isSavingLocal]);
+  }, [room?.gameState, activeStrip, hasSubmitted, timeLeft, isSavingLocal, role, room?.host, socket?.id]);
 
   useEffect(() => {
-    if (role === 'writer' && activeStrip && !hasSubmitted && timeLeft === null) {
-      setTimeLeft(timeLimit * 60);
+    if (room?.gameState === 'playing' && activeStrip && !hasSubmitted && (timeLeft === null || timeLeft === -1)) {
+      setTimeLeft((room.timeLimit || timeLimit) * 60);
     }
-  }, [role, activeStrip, hasSubmitted, timeLimit, timeLeft]);
+  }, [room?.gameState, activeStrip, hasSubmitted, room?.timeLimit, timeLimit, timeLeft]);
 
   useEffect(() => {
     if (previewImage) {
@@ -367,6 +557,30 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
         timestamp: Date.now(),
         name: strip.name
       });
+
+      // Start pre-game sequence
+      setPreGameState('cover');
+      setTimeLeft(timeLimit * 60);
+
+      // Sync to room if host
+      if (room?.host === socket?.id && roomCode) {
+        socket?.emit('update-game-state', {
+          roomCode,
+          newState: { 
+            gameState: 'playing',
+            activeStripId: strip.id,
+            activeStrip: strip,
+            timeLimit: timeLimit
+          }
+        });
+      }
+
+      setTimeout(() => {
+        setPreGameState('go');
+        setTimeout(() => {
+          setPreGameState('none');
+        }, 1000);
+      }, 3000);
     }
   };
 
@@ -411,6 +625,20 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
         .sort(() => 0.5 - Math.random())
         .slice(0, 4); // Get up to 4 archived comics for the same strip
       setSubmittedComics(others);
+
+      // Sync to room if judge
+      if (role === 'judge' && roomCode) {
+        socket?.emit('update-game-state', {
+          roomCode,
+          newState: { 
+            gameState: 'playing',
+            activeStripId: strip?.id,
+            activeStrip: strip,
+            selectedComic: randomComic,
+            previewImage: null
+          }
+        });
+      }
     }
   };
 
@@ -425,16 +653,57 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
     }
   }, [role, selectedComic, activeStrip, filteredBinderPages.length, writerDeck.length]);
 
+  const handlePreviewImage = (url: string | null) => {
+    setPreviewImage(url);
+    if (role === 'judge' && roomCode) {
+      socket?.emit('update-game-state', {
+        roomCode,
+        newState: { previewImage: url }
+      });
+    }
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    
+    // Check if all writers have submitted
+    const writersCount = room.players.filter((p: any) => p.role === 'writer').length;
+    if (submittedComics.length < writersCount) {
+      alert(`Wait for all ${writersCount} writers to submit! (${submittedComics.length}/${writersCount} submitted)`);
+      return;
+    }
+
     const comicId = e.dataTransfer.getData('comicId');
     const comic = submittedComics.find(c => c.id === comicId);
-    if (comic) {
+    if (comic && roomCode && room) {
       setWinner(comic);
+      
+      const newScores = { ...room.scores };
+      const newBranches = { ...room.branches };
+      const winnerPlayerId = comic.playerId;
+      if (winnerPlayerId) {
+        newScores[winnerPlayerId] = (newScores[winnerPlayerId] || 0) + 1;
+        newBranches[winnerPlayerId] = (newBranches[winnerPlayerId] || 0) + 5;
+      }
+
+      const isGameOver = winnerPlayerId && newScores[winnerPlayerId] >= (room.pointsToWin || pointsToWin);
+      const newWinningComics = [...(room.winningComics || []), { ...comic, winnerId: winnerPlayerId }];
+
+      socket?.emit('update-game-state', {
+        roomCode,
+        newState: { 
+          winner: comic, 
+          gameState: isGameOver ? 'game-over' : 'playing', // Stay in playing but with a winner
+          scores: newScores,
+          branches: newBranches,
+          winningComics: newWinningComics,
+          previewImage: null
+        }
+      });
     }
   };
 
@@ -450,18 +719,22 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
     if (!activeStrip || isSavingLocal || !selectedComic) return;
     setIsSavingLocal(true);
     
+    // Stop the timer loop immediately to prevent multiple alerts
+    setHasSubmitted(true);
+    
     try {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        setIsSavingLocal(false);
-        return;
+        throw new Error("Could not get canvas context");
       }
 
       const img = new Image();
       img.crossOrigin = "anonymous";
       
       let imageUrl = activeStrip.exportImageUrl || activeStrip.finishedImageUrl;
+      const originalImageUrl = imageUrl; // Keep for fallback
+
       if (imageUrl.startsWith('vault:')) {
         const resolved = await imageStore.getImage(imageUrl);
         if (resolved) imageUrl = resolved;
@@ -469,112 +742,133 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
       
       img.src = imageUrl;
 
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-
-      localTextFields.forEach(tf => {
-        const x = (tf.x / 100) * canvas.width;
-        const y = (tf.y / 100) * canvas.height;
-        const w = (tf.width / 100) * canvas.width;
-        const h = (tf.height / 100) * canvas.height;
-
-        let cleanText = tf.text;
-        const nameMatch = cleanText.match(/^[^:]+:\s*/);
-        if (nameMatch) {
-          cleanText = cleanText.substring(nameMatch[0].length);
-        }
-
-        const fontName = tf.font || 'Inter';
-        const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
-        
-        let fontSize = 40 * (canvas.height / 1000);
-        ctx.font = `${fontSize}px "${fontFamily}"`;
-        
-        const wrapText = (text: string, maxWidth: number) => {
-          const words = text.split(' ');
-          const lines = [];
-          if (words.length === 0) return [];
-          let currentLine = words[0];
-
-          for (let i = 1; i < words.length; i++) {
-            const word = words[i];
-            const width = ctx.measureText(currentLine + " " + word).width;
-            if (width < maxWidth) {
-              currentLine += " " + word;
-            } else {
-              lines.push(currentLine);
-              currentLine = word;
-            }
-          }
-          lines.push(currentLine);
-          return lines;
-        };
-
-        while (fontSize > 8) {
-          ctx.font = `${fontSize}px "${fontName}"`;
-          const lines = wrapText(cleanText, w * 0.9);
-          const totalHeight = lines.length * fontSize * 1.2;
-          if (totalHeight < h * 0.9) break;
-          fontSize -= 1;
-        }
-
-        ctx.fillStyle = '#000000';
-        ctx.textAlign = tf.alignment as CanvasTextAlign || 'center';
-        ctx.textBaseline = 'middle';
-
-        const lines = wrapText(cleanText, w * 0.9);
-        const lineHeight = fontSize * 1.2;
-        const startY = y + h / 2 - ((lines.length - 1) * lineHeight) / 2;
-
-        lines.forEach((line, i) => {
-          const lineX = tf.alignment === 'left' ? x + w * 0.05 : tf.alignment === 'right' ? x + w * 0.95 : x + w / 2;
-          ctx.fillText(line, lineX, startY + i * lineHeight);
+      try {
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error("Failed to load image for flattening. This might be a CORS issue."));
+          // Timeout after 10 seconds
+          setTimeout(() => reject(new Error("Image load timeout")), 10000);
         });
-      });
 
-      const finalDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      const downscaled = await downscaleImage(finalDataUrl, 1200);
-      const vaultedUrl = await imageStore.vaultify(downscaled);
-      
-      const newSubmission: RatedComic = {
-        id: `sub_${Date.now()}`,
-        stripId: activeStrip.id,
-        comicProfileId: activeStrip.comicProfileId,
-        name: `Submission ${submittedComics.length + 1}`,
-        imageUrl: vaultedUrl,
-        rating: 0,
-        timestamp: Date.now(),
-        textFields: localTextFields
-      };
-      
-      onAddSubmission(newSubmission);
-      
-      let finalSubmissions = [...submittedComics, newSubmission];
-      
-      // If fewer than 4 players, populate with archived comic data for the same strip
-      if (finalSubmissions.length < 4) {
-        const archived = ratings
-          .filter(r => !finalSubmissions.some(fs => fs.id === r.id) && r.stripId === activeStrip.id)
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 4 - finalSubmissions.length);
-        finalSubmissions = [...finalSubmissions, ...archived];
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        localTextFields.forEach(tf => {
+          const x = (tf.x / 100) * canvas.width;
+          const y = (tf.y / 100) * canvas.height;
+          const w = (tf.width / 100) * canvas.width;
+          const h = (tf.height / 100) * canvas.height;
+
+          let cleanText = tf.text;
+          const nameMatch = cleanText.match(/^[^:]+:\s*/);
+          if (nameMatch) {
+            cleanText = cleanText.substring(nameMatch[0].length);
+          }
+
+          const fontName = tf.font || 'Inter';
+          const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
+          
+          let fontSize = 40 * (canvas.height / 1000);
+          ctx.font = `${fontSize}px "${fontFamily}"`;
+          
+          const wrapText = (text: string, maxWidth: number) => {
+            const words = text.split(' ');
+            const lines = [];
+            if (words.length === 0) return [];
+            let currentLine = words[0];
+
+            for (let i = 1; i < words.length; i++) {
+              const word = words[i];
+              const width = ctx.measureText(currentLine + " " + word).width;
+              if (width < maxWidth) {
+                currentLine += " " + word;
+              } else {
+                lines.push(currentLine);
+                currentLine = word;
+              }
+            }
+            lines.push(currentLine);
+            return lines;
+          };
+
+          while (fontSize > 8) {
+            ctx.font = `${fontSize}px "${fontFamily}"`;
+            const lines = wrapText(cleanText, w * 0.9);
+            const totalHeight = lines.length * fontSize * 1.2;
+            if (totalHeight < h * 0.9) break;
+            fontSize -= 1;
+          }
+
+          ctx.fillStyle = '#000000';
+          ctx.textAlign = tf.alignment as CanvasTextAlign || 'center';
+          ctx.textBaseline = 'middle';
+
+          const lines = wrapText(cleanText, w * 0.9);
+          const lineHeight = fontSize * 1.2;
+          const startY = y + h / 2 - ((lines.length - 1) * lineHeight) / 2;
+
+          lines.forEach((line, i) => {
+            const lineX = tf.alignment === 'left' ? x + w * 0.05 : tf.alignment === 'right' ? x + w * 0.95 : x + w / 2;
+            ctx.fillText(line, lineX, startY + i * lineHeight);
+          });
+        });
+
+        const finalDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const downscaled = await downscaleImage(finalDataUrl, 1200);
+        const vaultedUrl = await imageStore.vaultify(downscaled);
+        
+        submitToJudge(vaultedUrl);
+      } catch (flattenError) {
+        console.warn("Flattening failed, submitting original image instead:", flattenError);
+        // Fallback to original image if flattening fails (e.g. CORS)
+        submitToJudge(originalImageUrl);
       }
-      
-      setSubmittedComics(finalSubmissions);
-      setHasSubmitted(true);
-      setRole('judge');
     } catch (error) {
-      console.error("Failed to generate final image:", error);
-      alert("Failed to generate image.");
+      console.error("Failed to process submission:", error);
+      alert("Failed to process submission. Please try again.");
+      setHasSubmitted(false); // Allow retry if it was a high-level failure
     } finally {
       setIsSavingLocal(false);
     }
+  };
+
+  const submitToJudge = async (imageUrl: string) => {
+    if (!activeStrip) return;
+
+    const newSubmission: RatedComic = {
+      id: `sub_${Date.now()}`,
+      stripId: activeStrip.id,
+      comicProfileId: activeStrip.comicProfileId,
+      name: `Submission ${submittedComics.length + 1}`,
+      imageUrl: imageUrl,
+      rating: 0,
+      timestamp: Date.now(),
+      textFields: localTextFields,
+      playerId: socket?.id || user.id
+    };
+    
+    await onAddSubmission(newSubmission);
+    
+    // Sync to server
+    if (roomCode) {
+      socket?.emit('submit-comic', { roomCode, submission: newSubmission });
+    }
+
+    let finalSubmissions = [...submittedComics, newSubmission];
+    
+    // If fewer than 4 players, populate with archived comic data for the same strip
+    if (finalSubmissions.length < 4) {
+      const archived = ratings
+        .filter(r => !finalSubmissions.some(fs => fs.id === r.id) && r.stripId === activeStrip.id)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 4 - finalSubmissions.length);
+      finalSubmissions = [...finalSubmissions, ...archived];
+    }
+    
+    setSubmittedComics(finalSubmissions);
+    setHasSubmitted(true);
+    setRole('judge');
   };
 
   const resetRoundState = () => {
@@ -588,70 +882,338 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
     setRenderedVideoUrl(null);
     setIsEnlarged(false);
     setTimeLeft(null);
+    setPreGameState('none');
   };
 
-  if (role === 'select') {
+  if (!roomCode) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
-        <button onClick={onExit} className="absolute top-8 left-8 text-slate-500 hover:text-slate-800 font-black uppercase tracking-widest text-xs z-10">
-          <i className="fa-solid fa-arrow-left mr-2"></i> Back
+        <button 
+          onClick={() => {
+            const newUrl = `${window.location.origin}${window.location.pathname}`;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+            onExit();
+          }} 
+          className="absolute top-8 left-8 text-slate-500 hover:text-slate-800 font-black uppercase tracking-widest text-xs z-10"
+        >
+          <i className="fa-solid fa-arrow-left mr-2"></i> Exit Play Mode
         </button>
-        <div className="relative z-10 flex flex-col items-center mt-[-5%]">
-          <h1 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-12">Select Your Role</h1>
-          <div className="flex gap-8">
-            <button 
-              onClick={() => setRole('judge')}
-              className="w-64 h-64 bg-slate-900 rounded-3xl shadow-xl border border-slate-800 flex flex-col items-center justify-end gap-4 hover:scale-105 hover:shadow-2xl hover:border-amber-500/50 transition-all group relative overflow-hidden"
-            >
-              {judgeImage && (
-                <div className="absolute inset-0 w-full h-full flex items-center justify-center p-4">
-                  <img src={judgeImage} alt="Judge" className="max-w-full max-h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity" />
-                </div>
-              )}
-              <div className="relative z-10 pb-6 flex flex-col items-center">
-                <i className="fa-solid fa-gavel text-3xl text-white mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"></i>
-                <span className="text-2xl font-black uppercase tracking-widest text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">Judge</span>
-              </div>
-            </button>
-            <button 
-              onClick={() => setRole('writer')}
-              className="w-64 h-64 bg-slate-900 rounded-3xl shadow-xl border border-slate-800 flex flex-col items-center justify-end gap-4 hover:scale-105 hover:shadow-2xl hover:border-amber-500/50 transition-all group relative overflow-hidden"
-            >
-              {writerImage && (
-                <div className="absolute inset-0 w-full h-full flex items-center justify-center p-4">
-                  <img src={writerImage} alt="Writer" className="max-w-full max-h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity" />
-                </div>
-              )}
-              <div className="relative z-10 pb-6 flex flex-col items-center">
-                <i className="fa-solid fa-pen-nib text-3xl text-white mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"></i>
-                <span className="text-2xl font-black uppercase tracking-widest text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">Writer</span>
-              </div>
-            </button>
+        
+        <div className="relative z-10 flex flex-col items-center max-w-md w-full px-6">
+          <div className="w-24 h-24 bg-amber-600 rounded-[2rem] flex items-center justify-center text-white text-4xl shadow-2xl mb-8 animate-bounce">
+            <i className="fa-solid fa-gamepad"></i>
           </div>
+          <h1 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-2">DiE-A-Log</h1>
+          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-12">Multiplayer Studio</p>
+          
+          <div className="w-full space-y-4">
+            <button 
+              onClick={handleCreateGame}
+              className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
+            >
+              <i className="fa-solid fa-plus"></i>
+              Start New Game
+            </button>
+            
+            <div className="relative py-4 flex items-center gap-4">
+              <div className="h-px bg-slate-200 flex-1"></div>
+              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">OR</span>
+              <div className="h-px bg-slate-200 flex-1"></div>
+            </div>
 
-          <div className="mt-12 bg-white/80 backdrop-blur p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center gap-4">
-            <label className="text-xs font-black uppercase tracking-widest text-slate-500">Round Time Limit (Minutes)</label>
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setTimeLimit(Math.max(1, timeLimit - 1))}
-                className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-all"
-              >
-                <i className="fa-solid fa-minus"></i>
-              </button>
+            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
               <input 
-                type="number" 
-                min="1"
-                value={timeLimit}
-                onChange={(e) => setTimeLimit(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-20 text-center bg-transparent text-2xl font-black text-slate-800 outline-none"
+                type="text" 
+                placeholder="ENTER GAME CODE" 
+                value={joinCodeInput}
+                onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-center font-black text-xl tracking-[0.3em] outline-none focus:ring-4 focus:ring-amber-600/5 transition-all"
               />
               <button 
-                onClick={() => setTimeLimit(timeLimit + 1)}
-                className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-all"
+                onClick={handleJoinGame}
+                disabled={!joinCodeInput}
+                className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:bg-amber-700 transition-all disabled:opacity-50 disabled:hover:scale-100"
               >
-                <i className="fa-solid fa-plus"></i>
+                Join Game
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (room?.gameState === 'lobby') {
+    const isHost = room.host === socket?.id;
+    const shareLink = `${window.location.origin}${window.location.pathname}?game=${roomCode}`;
+
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
+        
+        <div className="relative z-10 w-full max-w-4xl px-8 flex flex-col lg:flex-row gap-12 items-center">
+          {/* Left Side: Game Info & QR */}
+          <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left">
+            <div className="inline-flex items-center gap-3 px-4 py-2 bg-amber-100 text-amber-700 rounded-full mb-6">
+              <i className="fa-solid fa-tower-broadcast animate-pulse"></i>
+              <span className="text-[10px] font-black uppercase tracking-widest">Lobby Active</span>
+            </div>
+            <h1 className="text-6xl font-header uppercase tracking-widest text-slate-800 mb-2">Game Lobby</h1>
+            <p className="text-slate-500 mb-12 max-w-md">Share the code or QR below with your friends to start the comic battle.</p>
+            
+            <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center gap-6 w-full max-w-sm">
+              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                <QRCodeSVG value={shareLink} size={180} level="H" includeMargin={true} />
+              </div>
+              <div className="w-full space-y-3">
+                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Game Code</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl font-black text-slate-800 tracking-[0.2em]">{roomCode}</span>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(roomCode!);
+                        setCopyFeedback(true);
+                        setTimeout(() => setCopyFeedback(false), 2000);
+                      }}
+                      className="text-slate-300 hover:text-amber-600 transition-colors"
+                    >
+                      <i className="fa-solid fa-copy"></i>
+                    </button>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleCopyLink}
+                  className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${
+                    copyFeedback ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <i className={`fa-solid ${copyFeedback ? 'fa-check' : 'fa-link'}`}></i>
+                  {copyFeedback ? 'Link Copied!' : 'Copy Share Link'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side: Players & Start */}
+          <div className="w-full lg:w-96 flex flex-col gap-8">
+            <div className="bg-white/80 backdrop-blur p-8 rounded-[3rem] border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[400px]">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Players ({room.players.length})</h3>
+                <div className="flex -space-x-2">
+                  {room.players.map((p: any) => (
+                    <div key={p.id} className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-slate-100">
+                      {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-[10px] text-slate-300"></i>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+                {room.players.map((p: any) => (
+                  <div key={p.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-50 border border-slate-100">
+                        {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-xs text-slate-300"></i>}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black text-slate-800 uppercase tracking-tight">{p.name}</span>
+                        {p.id === room.host && <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Host</span>}
+                      </div>
+                    </div>
+                    {p.id === socket?.id && <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 pt-8 border-t border-slate-100 space-y-6">
+                {isHost && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Round Time (Minutes)</label>
+                      <div className="flex items-center gap-4">
+                        <button onClick={() => setTimeLimit(Math.max(1, timeLimit - 1))} className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-colors">
+                          <i className="fa-solid fa-minus text-xs"></i>
+                        </button>
+                        <div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl py-2 text-center font-black text-slate-800">{timeLimit}m</div>
+                        <button onClick={() => setTimeLimit(Math.min(10, timeLimit + 1))} className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-colors">
+                          <i className="fa-solid fa-plus text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Points to Win</label>
+                      <div className="flex items-center gap-4">
+                        <button onClick={() => setPointsToWin(Math.max(1, pointsToWin - 1))} className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-colors">
+                          <i className="fa-solid fa-minus text-xs"></i>
+                        </button>
+                        <div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl py-2 text-center font-black text-slate-800">{pointsToWin}</div>
+                        <button onClick={() => setPointsToWin(Math.min(10, pointsToWin + 1))} className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-colors">
+                          <i className="fa-solid fa-plus text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isHost ? (
+                  <button 
+                    onClick={handleStartGame}
+                    disabled={room.players.length < 1}
+                    className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+                  >
+                    Start Game Protocol
+                  </button>
+                ) : (
+                  <div className="text-center py-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <i className="fa-solid fa-circle-notch fa-spin text-slate-300"></i>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Waiting for host...</p>
+                    </div>
+                    <div className="flex justify-center gap-4 text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                      <span>{room.timeLimit || timeLimit}m Rounds</span>
+                      <span>•</span>
+                      <span>First to {room.pointsToWin || pointsToWin}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => {
+                socket?.disconnect();
+                setRoomCode(null);
+                setRoom(null);
+                const newUrl = `${window.location.origin}${window.location.pathname}`;
+                window.history.pushState({ path: newUrl }, '', newUrl);
+              }}
+              className="text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] transition-all"
+            >
+              Leave Lobby
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (room?.gameState === 'game-over') {
+    const sortedPlayers = [...room.players].sort((a, b) => (room.scores[b.id] || 0) - (room.scores[a.id] || 0));
+    const overallWinner = sortedPlayers[0];
+    const userScore = room.scores[socket?.id || ''] || 0;
+    const isUserWinner = overallWinner.id === socket?.id;
+
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-900 relative overflow-hidden p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 via-slate-900 to-black opacity-50"></div>
+        
+        <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
+          <div className="mb-12 text-center animate-in fade-in slide-in-from-top-8 duration-700">
+            <div className="w-24 h-24 bg-amber-600 rounded-[2rem] flex items-center justify-center text-white text-4xl shadow-2xl mb-6 mx-auto">
+              <i className="fa-solid fa-trophy"></i>
+            </div>
+            <h1 className="text-6xl font-header uppercase tracking-widest text-white mb-2">Game Over</h1>
+            <p className="text-amber-500 font-black uppercase tracking-[0.2em] text-xs">Final Standings</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full mb-16">
+            {/* Winner Spotlight */}
+            <div className="lg:col-span-2 bg-white/5 backdrop-blur-xl rounded-[3rem] p-10 border border-white/10 flex flex-col items-center animate-in fade-in slide-in-from-left-8 duration-700 delay-200">
+              <div className="flex items-center gap-6 mb-10 w-full">
+                <div className="w-20 h-20 rounded-full border-4 border-amber-500 overflow-hidden shadow-2xl">
+                  {overallWinner.picture ? <img src={overallWinner.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-2xl text-white/20"></i>}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-1">Grand Champion</span>
+                  <h2 className="text-4xl font-header uppercase tracking-widest text-white">{overallWinner.name}</h2>
+                </div>
+                <div className="ml-auto bg-amber-600 text-white px-6 py-3 rounded-2xl font-black text-2xl shadow-xl">
+                  {room.scores[overallWinner.id]} pts
+                </div>
+              </div>
+
+              <div className="w-full">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-6">Winning Comics</h3>
+                <div className="flex flex-wrap gap-6 justify-center">
+                  {(room.winningComics || []).filter((c: any) => c.winnerId === overallWinner.id).map((comic: any, idx: number) => (
+                    <div key={idx} className="w-48 aspect-square rounded-2xl overflow-hidden border-4 border-white/10 shadow-2xl hover:scale-105 transition-transform cursor-pointer" onClick={() => handlePreviewImage(comic.imageUrl)}>
+                      <CachedImage src={comic.imageUrl} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Leaderboard */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] p-10 border border-white/10 animate-in fade-in slide-in-from-right-8 duration-700 delay-400">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-8">Leaderboard</h3>
+              <div className="space-y-4">
+                {sortedPlayers.map((p, idx) => (
+                  <div key={p.id} className={`flex items-center justify-between p-4 rounded-2xl border ${p.id === socket?.id ? 'bg-amber-600/20 border-amber-500/30' : 'bg-white/5 border-white/5'}`}>
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs font-black text-white/20 w-4">#{idx + 1}</span>
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/10">
+                        {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-xs text-white/20"></i>}
+                      </div>
+                      <span className="text-xs font-black text-white uppercase tracking-tight">{p.name}</span>
+                    </div>
+                    <span className="text-lg font-black text-white">{room.scores[p.id] || 0}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-600">
+            <button 
+              onClick={() => {
+                if (room.host === socket?.id) {
+                  handleStartGame();
+                }
+              }}
+              disabled={room.host !== socket?.id}
+              className="px-12 py-5 bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-amber-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+            >
+              {room.host === socket?.id ? 'Play Again' : 'Waiting for Host...'}
+            </button>
+            <button 
+              onClick={() => {
+                socket?.disconnect();
+                onExit();
+              }}
+              className="px-12 py-5 bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-white/20 transition-all hover:scale-105 active:scale-95"
+            >
+              Return to Studio
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (role === 'writer' && room?.gameState === 'playing' && (room?.branches?.[socket?.id || ''] ?? 30) <= 0) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-8 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
+        
+        <div className="relative z-10 flex flex-col items-center animate-in fade-in zoom-in duration-700">
+          <div className="w-48 h-48 bg-amber-900 rounded-[3rem] flex flex-col items-center justify-center text-amber-500 shadow-2xl mb-12 border-4 border-amber-800/50">
+            <i className="fa-solid fa-tree text-6xl mb-2"></i>
+            <span className="font-header text-3xl tracking-tighter">LOG</span>
+          </div>
+          <h1 className="text-7xl font-header uppercase tracking-[0.2em] text-white mb-4">DiE A LOG</h1>
+          <p className="text-amber-500 font-black uppercase tracking-[0.3em] text-[10px] mb-12">You ran out of branches.</p>
+          
+          <div className="bg-white/5 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 text-center max-w-sm">
+            <p className="text-xs text-slate-400 uppercase tracking-widest leading-relaxed">
+              Your creative life force has withered. You can no longer edit or use hints this round.
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-3 text-amber-500/50">
+              <i className="fa-solid fa-circle-notch fa-spin"></i>
+              <span className="text-[10px] font-black uppercase tracking-widest">Waiting for round to end...</span>
             </div>
           </div>
         </div>
@@ -687,12 +1249,55 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
           )}
         </div>
 
+        {room?.scores && (
+          <div className="absolute top-6 right-6 z-50 flex flex-col items-end gap-2">
+            <div className="bg-white/80 backdrop-blur px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+              <div className="flex -space-x-2">
+                {room.players.map((p: any) => (
+                  <div key={p.id} className={`w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-slate-100 ${room.scores[p.id] > 0 ? 'ring-2 ring-amber-500 ring-offset-1' : ''}`}>
+                    {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-[10px] text-slate-300"></i>}
+                  </div>
+                ))}
+              </div>
+              <div className="h-4 w-px bg-slate-200"></div>
+              <div className="flex gap-4">
+                {room.players.map((p: any) => (
+                  <div key={p.id} className="flex flex-col items-center">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{p.name.split(' ')[0]}</span>
+                      <div className="flex items-center gap-0.5 text-[8px] font-black text-emerald-600">
+                        <i className="fa-solid fa-leaf scale-75"></i>
+                        {room.branches?.[p.id] ?? 30}
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-slate-800">{room.scores[p.id] || 0}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="h-4 w-px bg-slate-200"></div>
+              <div className="flex flex-col items-center">
+                <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Goal</span>
+                <span className="text-xs font-black text-amber-700">{room.pointsToWin}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
       {role !== 'select' && !selectedComic && (
         <div className="flex-1 flex flex-col items-center justify-center p-8">
-          <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
-            <h2 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-6">
-              Ready to {role === 'judge' ? 'Judge' : 'Write'}
-            </h2>
+          {role === 'writer' && !activeStrip ? (
+            <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
+               <div className="w-24 h-24 bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-400 text-4xl mb-8 animate-pulse">
+                 <i className="fa-solid fa-hourglass-half"></i>
+               </div>
+               <h2 className="text-4xl font-header uppercase tracking-widest text-slate-800 mb-4">Waiting for Judge</h2>
+               <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">The judge is selecting the next comic strip...</p>
+            </div>
+          ) : (
+            <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
+              <h2 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-6">
+                Ready to {role === 'judge' ? 'Judge' : 'Write'}
+              </h2>
             
             {role === 'judge' && (
               <div className="mb-8 w-full max-w-3xl">
@@ -740,7 +1345,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
                 onClick={handlePickComic}
                 className="px-12 py-5 bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-xl shadow-xl hover:bg-amber-800 transition-all hover:scale-105"
               >
-                Pick a Comic
+                Select Comic
               </button>
             ) : (
               <div className="bg-rose-50 text-rose-600 p-6 rounded-2xl border border-rose-100">
@@ -754,18 +1359,35 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
               </div>
             )}
           </div>
+        )}
         </div>
       )}
 
-      {role === 'judge' && selectedComic && (
-        <div className="flex-1 flex flex-col p-8">
+      {room?.gameState === 'playing' && timeLeft !== null && !hasSubmitted && (
+        <div className={`fixed z-[60] px-6 py-3 rounded-2xl shadow-xl border-2 flex items-center gap-3 transition-all duration-500 ${
+          preGameState === 'cover' 
+            ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-150 bg-white border-slate-200 text-slate-800' 
+            : 'top-6 left-1/2 -translate-x-1/2 bg-white border-slate-100 text-slate-800'
+        } ${timeLeft < 30 && preGameState === 'none' ? 'bg-rose-600 border-rose-400 text-white animate-pulse' : ''}`}>
+          <i className={`fa-solid fa-clock ${timeLeft < 30 && preGameState === 'none' ? 'text-white' : 'text-amber-600'}`}></i>
+          <span className="font-black text-xl tabular-nums">
+            {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+          </span>
+        </div>
+      )}
+
+      {selectedComic && (role === 'judge' || hasSubmitted) && (
+        <div className="flex-1 flex flex-col p-8 overflow-y-auto">
           <div className="w-full max-w-4xl mx-auto mb-12">
-            <h2 className="text-center text-2xl font-header uppercase tracking-widest text-slate-800 mb-6">Winning Comic</h2>
+            <h2 className="text-center text-2xl font-header uppercase tracking-widest text-slate-800 mb-6">
+              {winner ? 'Winning Comic' : 'Winner Selection'}
+            </h2>
+            
             <div 
               onDragOver={handleDragOver}
               onDrop={handleDrop}
-              className={`w-64 h-64 mx-auto rounded-[2rem] border-4 border-dashed flex items-center justify-center transition-all ${winner ? 'border-amber-500 bg-amber-50 cursor-zoom-in' : 'border-slate-300 bg-slate-100'}`}
-              onClick={() => winner && setPreviewImage(winner.imageUrl)}
+              className={`w-64 h-64 mx-auto rounded-[2rem] border-4 border-dashed flex items-center justify-center transition-all ${winner ? 'border-amber-500 bg-amber-50 cursor-zoom-in' : 'border-slate-300 bg-slate-100'} ${role !== 'judge' ? 'pointer-events-none' : ''}`}
+              onClick={() => winner && handlePreviewImage(winner.imageUrl)}
             >
               {winner ? (
                 <div className="relative w-full h-full p-2">
@@ -777,99 +1399,216 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
               ) : (
                 <div className="text-center opacity-30">
                   <i className="fa-solid fa-star text-6xl mb-4"></i>
-                  <p className="text-xs font-black uppercase tracking-widest">Drag Winner Here</p>
+                  <p className="text-xs font-black uppercase tracking-widest">
+                    {role === 'judge' ? 'Drag Winner Here' : 'Waiting for Judge'}
+                  </p>
+                  {role === 'judge' && (
+                    <p className="text-[8px] mt-2 font-black uppercase tracking-widest text-slate-400">
+                      {submittedComics.length}/{room.players.filter((p: any) => p.role === 'writer').length} Submissions
+                    </p>
+                  )}
                 </div>
               )}
             </div>
+
             {winner && (
               <div className="mt-8 flex flex-col items-center gap-6">
-                <button 
-                  onClick={() => {
-                    resetRoundState();
-                    setRole('writer');
-                  }}
-                  className="px-12 py-4 bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-amber-800 transition-all hover:scale-105 active:scale-95 z-50"
-                >
-                  <i className="fa-solid fa-forward mr-2"></i> Start Next Round
-                </button>
-
-                <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur p-6 rounded-3xl border border-amber-200 shadow-sm w-full max-w-2xl">
-                  <div className="flex items-center gap-4 mb-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cinematic Render</span>
-                    <div className="flex bg-slate-200 rounded-full p-1">
+                {winner.playerId === socket?.id ? (
+                  <div className="flex flex-col items-center gap-6 w-full">
+                    <div className="bg-emerald-50 text-emerald-700 px-8 py-4 rounded-2xl border border-emerald-100 flex items-center gap-3 animate-bounce">
+                      <i className="fa-solid fa-trophy text-2xl"></i>
+                      <span className="font-black uppercase tracking-widest text-sm">You Won the Round!</span>
+                    </div>
+                    
+                    <div className="flex gap-4">
                       <button 
-                        onClick={() => setSelectedVeoModel('veo-3.1-fast-generate-preview')}
-                        className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${selectedVeoModel === 'veo-3.1-fast-generate-preview' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        onClick={() => {
+                          if (roomCode) {
+                            const updatedPlayers = room.players.map((p: any) => ({
+                              ...p,
+                              role: p.id === socket?.id ? 'judge' : 'writer'
+                            }));
+                            
+                            socket?.emit('update-game-state', {
+                              roomCode,
+                              newState: { 
+                                gameState: 'playing',
+                                submissions: [], 
+                                winner: null,
+                                activeStripId: null,
+                                activeStrip: null,
+                                players: updatedPlayers,
+                                previewImage: null
+                              }
+                            });
+                          }
+                          resetRoundState();
+                        }}
+                        className="px-12 py-4 bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-amber-800 transition-all hover:scale-105 active:scale-95 z-50"
                       >
-                        Veo 3
+                        <i className="fa-solid fa-forward mr-2"></i> Next Round You are the Judge
                       </button>
+
                       <button 
-                        onClick={() => setSelectedVeoModel('veo-3.1-generate-preview')}
-                        className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${selectedVeoModel === 'veo-3.1-generate-preview' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        onClick={handleShare}
+                        className="px-12 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-slate-800 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
                       >
-                        Veo 3 Pro
+                        <i className="fa-solid fa-share-nodes"></i>
+                        Share Comic
                       </button>
                     </div>
                   </div>
-                  
-                  {renderedVideoUrl ? (
-                    <div className="flex flex-col items-center gap-4 w-full">
-                      <video 
-                        src={renderedVideoUrl} 
-                        controls 
-                        autoPlay 
-                        loop 
-                        className="w-full aspect-video rounded-2xl shadow-2xl border-4 border-white bg-black"
-                      />
-                      <div className="flex gap-4">
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center justify-center gap-3 text-slate-400 font-black uppercase tracking-widest text-xs">
+                      <i className="fa-solid fa-circle-notch fa-spin"></i>
+                      Waiting for winner to start next round...
+                    </div>
+                    {winner.name && (
+                      <span className="text-slate-800 font-black uppercase tracking-widest text-sm">
+                        Winner: {winner.name}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {isSharing && winner && winner.playerId === socket?.id && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSharing(false)}></div>
+                    <div className="relative bg-white rounded-[3rem] p-10 shadow-2xl border border-slate-100 w-full max-w-sm flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-300">
+                      <div className="text-center">
+                        <h3 className="text-2xl font-header uppercase tracking-widest text-slate-800 mb-2">Share Your Masterpiece</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select a platform</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 w-full">
+                        <button 
+                          onClick={() => shareToSocial('x')}
+                          className="flex flex-col items-center gap-3 p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-slate-100 transition-all group"
+                        >
+                          <div className="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                            <i className="fa-brands fa-x-twitter"></i>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">X / Twitter</span>
+                        </button>
+                        
+                        <button 
+                          onClick={() => shareToSocial('facebook')}
+                          className="flex flex-col items-center gap-3 p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-slate-100 transition-all group"
+                        >
+                          <div className="w-12 h-12 bg-[#1877F2] text-white rounded-2xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                            <i className="fa-brands fa-facebook-f"></i>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Facebook</span>
+                        </button>
+
                         <button 
                           onClick={() => {
                             const a = document.createElement('a');
-                            a.href = renderedVideoUrl;
-                            a.download = `cinematic_${winner.name.replace(/\s+/g, '_')}.mp4`;
+                            a.href = winner.imageUrl;
+                            a.download = `comic_${winner.name.replace(/\s+/g, '_')}.png`;
                             a.click();
+                            setIsSharing(false);
                           }}
-                          className="px-6 py-2 bg-slate-800 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-900 transition-all"
+                          className="flex flex-col items-center gap-3 p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-slate-100 transition-all group col-span-2"
                         >
-                          <i className="fa-solid fa-download mr-2"></i> Download Video
+                          <div className="w-12 h-12 bg-amber-600 text-white rounded-2xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                            <i className="fa-solid fa-download"></i>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Download & Share to Instagram</span>
+                        </button>
+                      </div>
+                      
+                      <button 
+                        onClick={() => setIsSharing(false)}
+                        className="text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cinematic Render Section - Only for Winner */}
+                {winner.playerId === socket?.id && (
+                  <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur p-6 rounded-3xl border border-amber-200 shadow-sm w-full max-w-2xl">
+                    <div className="flex items-center gap-4 mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cinematic Render</span>
+                      <div className="flex bg-slate-200 rounded-full p-1">
+                        <button 
+                          onClick={() => setSelectedVeoModel('veo-3.1-fast-generate-preview')}
+                          className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${selectedVeoModel === 'veo-3.1-fast-generate-preview' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          Veo 3
                         </button>
                         <button 
-                          onClick={() => setRenderedVideoUrl(null)}
-                          className="px-6 py-2 bg-slate-200 text-slate-600 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-300 transition-all"
+                          onClick={() => setSelectedVeoModel('veo-3.1-generate-preview')}
+                          className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${selectedVeoModel === 'veo-3.1-generate-preview' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                          Discard
+                          Veo 3 Pro
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <button 
-                      onClick={handleRenderVideo}
-                      disabled={isRenderingVideo}
-                      className={`px-10 py-4 bg-white text-amber-700 border-2 border-amber-700 rounded-2xl font-black uppercase tracking-widest text-xs shadow-sm hover:bg-amber-50 transition-all hover:scale-105 flex items-center gap-3 disabled:opacity-50 disabled:hover:scale-100 ${isRenderingVideo ? 'animate-pulse' : ''}`}
-                    >
-                      {isRenderingVideo ? (
-                        <>
-                          <i className="fa-solid fa-circle-notch animate-spin"></i>
-                          Rendering...
-                        </>
-                      ) : (
-                        <>
-                          <i className="fa-solid fa-clapperboard"></i>
-                          Render Cinematic Video
-                        </>
-                      )}
-                    </button>
-                  )}
-                  
-                  {isRenderingVideo && (
-                    <div className="mt-4 text-center w-full">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-1">{videoProgress}</p>
-                      <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-600 animate-progress-indeterminate"></div>
+                    
+                    {renderedVideoUrl ? (
+                      <div className="flex flex-col items-center gap-4 w-full">
+                        <video 
+                          src={renderedVideoUrl} 
+                          controls 
+                          autoPlay 
+                          loop 
+                          className="w-full aspect-video rounded-2xl shadow-2xl border-4 border-white bg-black"
+                        />
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={() => {
+                              const a = document.createElement('a');
+                              a.href = renderedVideoUrl;
+                              a.download = `cinematic_${winner.name.replace(/\s+/g, '_')}.mp4`;
+                              a.click();
+                            }}
+                            className="px-6 py-2 bg-slate-800 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-900 transition-all"
+                          >
+                            <i className="fa-solid fa-download mr-2"></i> Download Video
+                          </button>
+                          <button 
+                            onClick={() => setRenderedVideoUrl(null)}
+                            className="px-6 py-2 bg-slate-200 text-slate-600 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-300 transition-all"
+                          >
+                            Discard
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    ) : (
+                      <button 
+                        onClick={handleRenderVideo}
+                        disabled={isRenderingVideo}
+                        className={`px-10 py-4 bg-white text-amber-700 border-2 border-amber-700 rounded-2xl font-black uppercase tracking-widest text-xs shadow-sm hover:bg-amber-50 transition-all hover:scale-105 flex items-center gap-3 disabled:opacity-50 disabled:hover:scale-100 ${isRenderingVideo ? 'animate-pulse' : ''}`}
+                      >
+                        {isRenderingVideo ? (
+                          <>
+                            <i className="fa-solid fa-circle-notch animate-spin"></i>
+                            Rendering...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fa-solid fa-clapperboard"></i>
+                            Render Cinematic Video
+                          </>
+                        )}
+                      </button>
+                    )}
+                    
+                    {isRenderingVideo && (
+                      <div className="mt-4 text-center w-full">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-1">{videoProgress}</p>
+                        <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-600 animate-progress-indeterminate"></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -880,15 +1619,15 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
               {submittedComics.map((comic, idx) => (
                 <div 
                   key={comic.id}
-                  draggable
+                  draggable={role === 'judge' && !winner}
                   onDragStart={(e) => handleDragStart(e, comic)}
-                  className="relative group cursor-grab active:cursor-grabbing"
+                  className={`relative group ${role === 'judge' && !winner ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 >
                   <div className="w-48 aspect-square rounded-2xl overflow-hidden shadow-lg border-4 border-white transition-transform group-hover:scale-105">
                     <CachedImage src={comic.imageUrl} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <button 
-                        onClick={() => setPreviewImage(comic.imageUrl)}
+                        onClick={() => handlePreviewImage(comic.imageUrl)}
                         className="w-12 h-12 bg-white text-slate-800 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
                       >
                         <i className="fa-solid fa-magnifying-glass"></i>
@@ -908,18 +1647,31 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
         </div>
       )}
 
-      {role === 'writer' && selectedComic && (
-        <div className="flex-1 flex flex-col p-8 items-center justify-center overflow-y-auto">
-          {timeLeft !== null && !hasSubmitted && (
-            <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded-2xl shadow-xl border-2 flex items-center gap-3 transition-all ${timeLeft < 30 ? 'bg-rose-600 border-rose-400 text-white animate-pulse' : 'bg-white border-slate-100 text-slate-800'}`}>
-              <i className={`fa-solid fa-clock ${timeLeft < 30 ? 'text-white' : 'text-amber-600'}`}></i>
-              <span className="font-black text-xl tabular-nums">
-                {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-              </span>
+      {role === 'writer' && selectedComic && !hasSubmitted && (
+        <div className="flex-1 flex flex-col p-8 items-center justify-center overflow-y-auto relative">
+          {preGameState === 'cover' && activeStrip && (
+            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
+              <h2 className="text-4xl font-header uppercase tracking-widest text-slate-800 mb-8">Get Ready!</h2>
+              <div className="w-full max-w-2xl aspect-[3/4] rounded-[3rem] overflow-hidden shadow-2xl border-[12px] border-white bg-white">
+                {(() => {
+                  const book = books.find(b => b.id === activeStrip.comicProfileId);
+                  const coverUrl = book?.coverImageUrl || activeStrip.finishedImageUrl;
+                  return <CachedImage src={coverUrl} className="w-full h-full object-cover" />;
+                })()}
+              </div>
             </div>
           )}
-          {!hasSubmitted ? (
-            <div className="max-w-6xl w-full bg-white rounded-[3rem] shadow-2xl p-12 flex flex-col items-center">
+
+          {preGameState === 'go' && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+              <div className="bg-amber-600 text-white font-header text-9xl uppercase tracking-tighter px-20 py-10 rounded-[4rem] shadow-2xl animate-in zoom-in duration-300">
+                Go!
+              </div>
+            </div>
+          )}
+
+          {preGameState === 'none' && !hasSubmitted ? (
+            <div className="max-w-6xl w-full bg-white rounded-[3rem] shadow-2xl p-12 flex flex-col items-center animate-in fade-in duration-500">
               <h2 className="text-3xl font-header uppercase tracking-widest text-slate-800 mb-4">Your Assignment</h2>
               <p className="text-slate-500 mb-10">Edit this comic and submit it to the judge. Click the comic to enlarge.</p>
               
@@ -983,6 +1735,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        if (room?.branches?.[socket?.id || ''] <= 0) return;
                                         if (tf.dialogueId && activeStrip.script) {
                                           const dialogue = activeStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
                                           if (dialogue) {
@@ -990,11 +1743,15 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
                                             const prefix = match ? match[0] : '';
                                             handleUpdateText(tf.id, prefix + dialogue.text);
                                             setUsedHints(prev => new Set(prev).add(tf.id));
+                                            socket?.emit('use-hint', { roomCode });
                                           }
                                         }
                                       }}
+                                      disabled={room?.branches?.[socket?.id || ''] <= 0}
                                       className={`text-[9px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 ${
-                                        isHintUsed ? 'bg-slate-600 text-slate-400' : 'bg-amber-600 text-white hover:bg-amber-500'
+                                        isHintUsed ? 'bg-slate-600 text-slate-400' : 
+                                        room?.branches?.[socket?.id || ''] <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' :
+                                        'bg-amber-600 text-white hover:bg-amber-500'
                                       }`}
                                     >
                                       <i className="fa-solid fa-lightbulb"></i> Hint
@@ -1066,6 +1823,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
                                       </div>
                                       <button 
                                         onClick={() => {
+                                          if (room?.branches?.[socket?.id || ''] <= 0) return;
                                           if (tf.dialogueId && activeStrip.script) {
                                             const dialogue = activeStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
                                             if (dialogue) {
@@ -1073,6 +1831,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
                                               const prefix = match ? match[0] : '';
                                               handleUpdateText(tf.id, prefix + dialogue.text);
                                               setUsedHints(prev => new Set(prev).add(tf.id));
+                                              socket?.emit('use-hint', { roomCode });
                                             } else {
                                               alert("Dialogue ID not found in script.");
                                             }
@@ -1080,12 +1839,14 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
                                             alert("No Dialogue ID associated with this field.");
                                           }
                                         }}
+                                        disabled={room?.branches?.[socket?.id || ''] <= 0}
                                         className={`text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
                                           isHintUsed 
                                             ? 'bg-slate-200 text-slate-500' 
-                                            : 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
+                                            : room?.branches?.[socket?.id || ''] <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
+                                            'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
                                         }`}
-                                        title="Fill with original script text"
+                                        title={room?.branches?.[socket?.id || ''] <= 0 ? "Out of branches" : "Fill with original script text"}
                                       >
                                         <i className="fa-solid fa-lightbulb text-[7px]"></i>
                                         Hint
@@ -1125,10 +1886,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ ratings, history, comics, bi
       )}
 
       {previewImage && (
-        <div className="fixed inset-0 z-[2000] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => setPreviewImage(null)}>
+        <div className="fixed inset-0 z-[2000] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => handlePreviewImage(null)}>
           <div className="relative max-w-8xl max-h-full">
             <img src={resolvedPreviewImage || null} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.4)] border-[12px] border-white animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
-            <button className="absolute -top-6 -right-6 bg-slate-800 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-110 transition-all shadow-2xl" onClick={() => setPreviewImage(null)}>
+            <button className="absolute -top-6 -right-6 bg-slate-800 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-110 transition-all shadow-2xl" onClick={() => handlePreviewImage(null)}>
               <i className="fa-solid fa-xmark"></i>
             </button>
           </div>

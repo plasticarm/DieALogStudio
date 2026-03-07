@@ -408,6 +408,63 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     }
   };
 
+  const handleUploadImage = async (file: File) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    setStatusMessage('Uploading comic...');
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const img = await downscaleImage(dataUrl, 1024, 0.8);
+      const vaultedImg = await imageStore.vaultify(img);
+      
+      setFinishedImage(vaultedImg);
+      setImageHistory(prev => [vaultedImg, ...prev].slice(0, 10));
+      setExportImage(null);
+      setTextFields([]);
+      setActiveTab('finished');
+      
+      // Create a default script or empty script for uploaded comics
+      const emptyScript: GeneratedPanelScript[] = [
+        { panelNumber: 1, visualDescription: 'Uploaded Comic', dialogue: [] }
+      ];
+      setScript(emptyScript);
+
+      const newId = `strip_up_${Date.now()}`;
+      const newArId = `DIAL-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+      setCurrentStripId(newId);
+      setCurrentArTargetId(newArId);
+
+      const newStrip: SavedComicStrip = {
+        id: newId, 
+        arTargetId: newArId,
+        name: file.name.replace(/\.[^/.]+$/, "") || 'Uploaded Comic', 
+        comicProfileId: activeComic.id, 
+        prompt: 'Manual Upload', 
+        script: emptyScript,
+        finishedImageUrl: vaultedImg, 
+        timestamp: Date.now(), 
+        panelCount: 1,
+        textFields: []
+      };
+      onSaveHistory(newStrip);
+      setStatusMessage('Comic uploaded successfully!');
+      setTimeout(() => setStatusMessage(''), 2000);
+    } catch (e: any) {
+      console.error(e);
+      setError('Failed to upload image.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const [isDragging, setIsDragging] = useState(false);
+
   const handleContainerMouseDown = (e: React.MouseEvent) => {
     const coords = getRelativeCoords(e);
 
@@ -1256,15 +1313,51 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                   )}
                   
                   {!finishedImage && !isProcessing && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center pointer-events-none">
-                      <i className="fa-solid fa-palette text-[140px] opacity-5 mb-10"></i>
+                    <div 
+                      className={`absolute inset-0 flex flex-col items-center justify-center p-10 text-center transition-all ${isDragging ? 'bg-emerald-500/10 scale-95' : ''}`}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file && file.type.startsWith('image/')) {
+                          handleUploadImage(file);
+                        }
+                      }}
+                    >
+                      <i className={`fa-solid fa-palette text-[140px] mb-10 transition-all ${isDragging ? 'text-emerald-500 opacity-40 scale-110' : 'opacity-5'}`}></i>
                       <p className="text-2xl font-black uppercase tracking-[0.5em] opacity-20 mb-8">Studio Ready</p>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleGenerateFullComic(false); }} 
-                        className="px-14 py-4 bg-slate-800 text-white rounded-full pointer-events-auto shadow-[0_20px_40px_rgba(0,0,0,0.2)] hover:scale-105 transition-all font-black uppercase tracking-widest text-xs border border-slate-700"
-                      >
-                        Begin Production
-                      </button>
+                      
+                      <div className="flex flex-col gap-4 pointer-events-auto">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleGenerateFullComic(false); }} 
+                          className="px-14 py-4 bg-slate-800 text-white rounded-full shadow-[0_20px_40px_rgba(0,0,0,0.2)] hover:scale-105 transition-all font-black uppercase tracking-widest text-xs border border-slate-700"
+                        >
+                          Begin Production
+                        </button>
+                        
+                        <div className="flex items-center gap-4">
+                          <div className="h-px bg-slate-200 flex-1"></div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">or</span>
+                          <div className="h-px bg-slate-200 flex-1"></div>
+                        </div>
+
+                        <label className="px-10 py-3 bg-white text-slate-600 rounded-full border border-slate-200 shadow-sm hover:bg-slate-50 transition-all font-black uppercase tracking-widest text-[10px] cursor-pointer flex items-center justify-center gap-2">
+                          <i className="fa-solid fa-upload"></i>
+                          Upload Existing Comic
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleUploadImage(file);
+                            }}
+                          />
+                        </label>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-2">Drag and drop image here</p>
+                      </div>
                     </div>
                   )}
                 </div>

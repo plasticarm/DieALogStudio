@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenSessions: () => void;
   isSaving: boolean;
   isSyncingToCloud?: boolean;
+  isSynced?: boolean;
   onManualSync?: () => void;
   onSyncToCloud?: () => void;
   guideEnabled?: boolean;
@@ -23,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSessions, 
   isSaving, 
   isSyncingToCloud,
+  isSynced,
   onManualSync,
   onSyncToCloud,
   guideEnabled,
@@ -50,7 +52,14 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-50 h-16 glass px-8 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-4">
-        {onBackToModeSelect && (
+        {onPlay ? (
+          <button
+            onClick={onPlay}
+            className="px-4 py-2 bg-amber-600 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg hover:bg-amber-700 transition-all hover:scale-105 flex items-center gap-2 mr-2"
+          >
+            <i className="fa-solid fa-gamepad"></i> Play
+          </button>
+        ) : onBackToModeSelect ? (
           <button 
             onClick={onBackToModeSelect}
             className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-black/5 rounded-xl transition-all mr-2"
@@ -58,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <i className="fa-solid fa-arrow-left"></i>
           </button>
-        )}
+        ) : null}
         <div className="flex items-center gap-3 group cursor-pointer" onClick={() => window.location.reload()}>
           <div className="w-12 h-12 flex items-center justify-center group-hover:scale-110 transition-all">
             <img 
@@ -72,15 +81,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[8px] text-slate-400 font-black uppercase tracking-[0.3em] group-hover:text-slate-600 transition-colors">Comic Studio</span>
           </div>
         </div>
-
-        {onPlay && (
-          <button
-            onClick={onPlay}
-            className="ml-8 px-4 py-2 bg-amber-600 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg hover:bg-amber-700 transition-all hover:scale-105 flex items-center gap-2"
-          >
-            <i className="fa-solid fa-gamepad"></i> Play
-          </button>
-        )}
       </div>
 
       <div className="flex-1 flex justify-center px-10">
@@ -119,9 +119,9 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button 
             onClick={onSyncToCloud}
-            disabled={isSyncingToCloud}
+            disabled={isSyncingToCloud || isSynced}
             className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-all ${
-              isSyncingToCloud ? 'bg-indigo-50' : 'hover:bg-indigo-50'
+              isSyncingToCloud ? 'bg-indigo-50' : isSynced ? 'bg-emerald-50' : 'hover:bg-indigo-50'
             }`}
             title="Sync all assets to Firebase Cloud"
           >
@@ -129,6 +129,11 @@ export const Header: React.FC<HeaderProps> = ({
               <>
                 <i className="fa-solid fa-circle-notch fa-spin text-[10px] text-indigo-600"></i>
                 <span className="text-[9px] font-black text-indigo-700 uppercase tracking-widest">Syncing to Cloud...</span>
+              </>
+            ) : isSynced ? (
+              <>
+                <i className="fa-solid fa-check text-[10px] text-emerald-600"></i>
+                <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Synced</span>
               </>
             ) : (
               <>

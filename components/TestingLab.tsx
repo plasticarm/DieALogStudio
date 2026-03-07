@@ -85,7 +85,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
     setIsSavingLocal(true);
     
     // Save the text fields first
-    onUpdateHistoryItem({
+    await onUpdateHistoryItem({
       ...selectedStrip,
       textFields: localTextFields
     });
@@ -158,7 +158,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         };
 
         while (fontSize > 8) {
-          ctx.font = `${fontSize}px "${fontName}"`;
+          ctx.font = `${fontSize}px "${fontFamily}"`;
           const lines = wrapText(cleanText, w * 0.9);
           const totalHeight = lines.length * fontSize * 1.2;
           if (totalHeight < h * 0.9) break;
@@ -192,7 +192,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         name: selectedStrip.name
       };
 
-      onAddRating(newRating);
+      await onAddRating(newRating);
       alert("Successfully submitted to Play Mode!");
     } catch (err) {
       console.error("Failed to generate composite for rating:", err);
@@ -269,7 +269,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
 
       // Adjust font size to fit
       while (fontSize > 8) {
-        ctx.font = `${fontSize}px "${fontName}"`;
+        ctx.font = `${fontSize}px "${fontFamily}"`;
         const lines = wrapText(cleanText, w * 0.9);
         const totalHeight = lines.length * fontSize * 1.2;
         if (totalHeight < h * 0.9) break;

@@ -79,6 +79,7 @@ export default function App() {
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncingToCloud, setIsSyncingToCloud] = useState(false);
+  const [isSynced, setIsSynced] = useState(false);
   const [lastCloudSync, setLastCloudSync] = useState<number>(0);
   
   const [isManagingCover, setIsManagingCover] = useState(false);
@@ -94,7 +95,31 @@ export default function App() {
   const [isNamingNewSeries, setIsNamingNewSeries] = useState(false);
   const [newSeriesName, setNewSeriesName] = useState('');
 
+  useEffect(() => {
+    const savedUser = localStorage.getItem('die-a-log-user');
+    if (savedUser) {
+      setCurrentUser(JSON.parse(savedUser));
+    } else {
+      const defaultUser: User = {
+        id: Math.random().toString(36).substring(2, 11),
+        name: `Player ${Math.floor(Math.random() * 9000) + 1000}`,
+        picture: `https://picsum.photos/seed/${Math.random()}/200`,
+        guideEnabled: true,
+        apiKeys: {}
+      };
+      setCurrentUser(defaultUser);
+      localStorage.setItem('die-a-log-user', JSON.stringify(defaultUser));
+    }
+  }, []);
+
   // Preview Image Resolution
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('game')) {
+      setAppMode('play');
+    }
+  }, []);
+
   useEffect(() => {
     if (previewImage) {
       if (previewImage.startsWith('vault:')) {
@@ -906,7 +931,8 @@ export default function App() {
       handleUpdateSessionData(updatedSession.data);
       setLastCloudSync(Date.now());
       
-      alert("Successfully synced all assets and data to Firebase Cloud!");
+      setIsSynced(true);
+      setTimeout(() => setIsSynced(false), 3000);
     } catch (error: any) {
       console.error("Firebase Sync Failed:", error);
       alert(`Cloud Sync Failed: ${error.message}`);
@@ -984,15 +1010,17 @@ export default function App() {
     );
   }
 
-  if (appMode === 'play') {
+  if (appMode === 'play' && currentUser) {
     // Collect all unique pages from all binders.
     const binderPages = Array.from(new Set((activeSession?.data.books || []).flatMap(b => b.pages)));
     
     return (
       <PlayMode 
+        user={currentUser}
         ratings={ratings} 
         history={history} 
         comics={comics} 
+        books={activeSession.data.books || []}
         binderPages={binderPages}
         onExit={() => setAppMode('select')} 
         onAddSubmission={(submission) => {
@@ -1042,6 +1070,7 @@ export default function App() {
         onOpenSessions={() => setIsSessionsOpen(true)}
         isSaving={isSaving}
         isSyncingToCloud={isSyncingToCloud}
+        isSynced={isSynced}
         onManualSync={handleManualSync}
         onSyncToCloud={handleSyncToFirebase}
         guideEnabled={currentUser.guideEnabled}
@@ -1259,6 +1288,7 @@ export default function App() {
       {isProfileOpen && (
         <ProfileModal 
           user={currentUser} 
+          comics={activeSession.data.comics || []}
           onUpdate={handleAuth} 
           onLogout={handleLogout} 
           onClose={() => setIsProfileOpen(false)} 

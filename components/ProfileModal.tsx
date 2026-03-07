@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User, ComicProfile } from '../types';
+import { imageStore } from '../services/imageStore';
 
 interface ProfileModalProps {
   user: User;
+  comics: ComicProfile[];
   onUpdate: (user: User) => void;
   onLogout: () => void;
   onClose: () => void;
@@ -12,10 +14,25 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ 
-  user, onUpdate, onLogout, onClose, hasLocalBackup, onRestoreFromLocal, onDeepScan 
+  user, comics, onUpdate, onLogout, onClose, hasLocalBackup, onRestoreFromLocal, onDeepScan 
 }) => {
   const [localUser, setLocalUser] = useState<User>({ ...user });
   const [showKeys, setShowKeys] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
+  const allAvatars = React.useMemo(() => {
+    const avatars: { url: string; name: string; series: string }[] = [];
+    comics.forEach(comic => {
+      comic.characters.forEach(char => {
+        if (char.avatarUrl) {
+          avatars.push({ url: char.avatarUrl, name: char.name, series: comic.name });
+        } else if (char.imageUrl) {
+          avatars.push({ url: char.imageUrl, name: char.name, series: comic.name });
+        }
+      });
+    });
+    return avatars;
+  }, [comics]);
 
   const handleSave = () => {
     onUpdate(localUser);
@@ -46,19 +63,78 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         <div className="space-y-8">
           <div className="flex flex-col items-center gap-4">
             <div className="relative group">
-              <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-slate-100 group-hover:border-slate-300 transition-all shadow-lg bg-slate-50 flex items-center justify-center">
+              <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-slate-100 group-hover:border-slate-300 transition-all shadow-lg bg-slate-50 flex items-center justify-center relative">
                 {localUser.picture ? (
                   <img src={localUser.picture} className="w-full h-full object-cover" />
                 ) : (
                   <i className="fa-solid fa-user text-4xl text-slate-200"></i>
                 )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                  <i className="fa-solid fa-camera text-white text-xs"></i>
+                  <span className="text-[8px] font-black text-white uppercase tracking-widest">Update</span>
+                </div>
               </div>
-              <input type="file" onChange={handleAvatarUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-              <div className="absolute -bottom-2 -right-2 bg-slate-800 w-8 h-8 rounded-full flex items-center justify-center shadow-lg pointer-events-none">
-                <i className="fa-solid fa-camera text-[10px] text-white"></i>
+              <input type="file" onChange={handleAvatarUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+            </div>
+            
+            <button 
+              onClick={() => setShowAvatarPicker(true)}
+              className="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 tracking-widest transition-all flex items-center gap-2"
+            >
+              <i className="fa-solid fa-wand-magic-sparkles"></i>
+              Choose from Characters
+            </button>
+          </div>
+
+          {showAvatarPicker && (
+            <div className="fixed inset-0 z-[1200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowAvatarPicker(false)}>
+              <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-slate-800 font-header text-xl uppercase tracking-widest">Select Avatar</h3>
+                  <button onClick={() => setShowAvatarPicker(false)} className="text-slate-400 hover:text-slate-800 transition-all">
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                  {allAvatars.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <i className="fa-solid fa-ghost text-4xl text-slate-100 mb-4 block"></i>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">No character avatars found</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3 pb-4">
+                      {allAvatars.map((avatar, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setLocalUser({ ...localUser, picture: avatar.url });
+                            setShowAvatarPicker(false);
+                          }}
+                          className="group relative aspect-square rounded-2xl overflow-hidden bg-slate-50 border-2 border-transparent hover:border-indigo-500 transition-all"
+                        >
+                          <img src={avatar.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
+                            <span className="text-[7px] font-black text-white uppercase truncate">{avatar.name}</span>
+                            <span className="text-[5px] font-bold text-white/70 uppercase truncate">{avatar.series}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  <button 
+                    onClick={() => setShowAvatarPicker(false)}
+                    className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="space-y-4">
             <div>
