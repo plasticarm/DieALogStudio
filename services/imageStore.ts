@@ -8,25 +8,46 @@ export class ImageStore {
   private dbName = 'DieALogVault';
   private storeName = 'image_cache';
   private db: IDBDatabase | null = null;
+  private memoryCache: Map<string, string> = new Map();
+  private isFallbackMode = false;
 
-  private async init(): Promise<IDBDatabase> {
+  private async init(): Promise<IDBDatabase | null> {
     if (this.db) return this.db;
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, 2);
-      
-      request.onupgradeneeded = (event: any) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          db.createObjectStore(this.storeName);
+    if (this.isFallbackMode) return null;
+
+    return new Promise((resolve) => {
+      try {
+        if (!window.indexedDB) {
+          console.warn("IndexedDB not supported, falling back to memory cache.");
+          this.isFallbackMode = true;
+          resolve(null);
+          return;
         }
-      };
 
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve(this.db!);
-      };
+        const request = indexedDB.open(this.dbName, 2);
+        
+        request.onupgradeneeded = (event: any) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(this.storeName)) {
+            db.createObjectStore(this.storeName);
+          }
+        };
 
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          this.db = request.result;
+          resolve(this.db!);
+        };
+
+        request.onerror = (event: any) => {
+          console.error("IndexedDB error:", event.target.error);
+          this.isFallbackMode = true;
+          resolve(null);
+        };
+      } catch (e) {
+        console.error("Failed to initialize IndexedDB:", e);
+        this.isFallbackMode = true;
+        resolve(null);
+      }
     });
   }
 
@@ -35,16 +56,29 @@ export class ImageStore {
    * Returns a cache key that can be used to retrieve it later.
    */
   async storeImage(dataUrl: string, id?: string): Promise<string> {
-    const db = await this.init();
     const key = id || `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const db = await this.init();
     
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.put(dataUrl, key);
-      
-      request.onsuccess = () => resolve(key);
-      request.onerror = () => reject(request.error);
+    if (!db || this.isFallbackMode) {
+      this.memoryCache.set(key, dataUrl);
+      return key;
+    }
+    
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction(this.storeName, 'readwrite');
+        const store = transaction.objectStore(this.storeName);
+        const request = store.put(dataUrl, key);
+        
+        request.onsuccess = () => resolve(key);
+        request.onerror = () => {
+          this.memoryCache.set(key, dataUrl);
+          resolve(key);
+        };
+      } catch (e) {
+        this.memoryCache.set(key, dataUrl);
+        resolve(key);
+      }
     });
   }
 
@@ -57,14 +91,24 @@ export class ImageStore {
     if (!key.startsWith('vault:')) return key;
     const actualKey = key.replace('vault:', '');
     
+    if (this.memoryCache.has(actualKey)) {
+      return this.memoryCache.get(actualKey) || null;
+    }
+
     const db = await this.init();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, 'readonly');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.get(actualKey);
-      
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
+    if (!db || this.isFallbackMode) return null;
+
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction(this.storeName, 'readonly');
+        const store = transaction.objectStore(this.storeName);
+        const request = store.get(actualKey);
+        
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => resolve(null);
+      } catch (e) {
+        resolve(null);
+      }
     });
   }
 
@@ -112,14 +156,22 @@ export class ImageStore {
     if (!key || !key.startsWith('vault:')) return;
     const actualKey = key.replace('vault:', '');
     
+    this.memoryCache.delete(actualKey);
+
     const db = await this.init();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.delete(actualKey);
-      
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+    if (!db || this.isFallbackMode) return;
+
+    return new Promise((resolve) => {
+      try {
+        const transaction = db.transaction(this.storeName, 'readwrite');
+        const store = transaction.objectStore(this.storeName);
+        const request = store.delete(actualKey);
+        
+        request.onsuccess = () => resolve();
+        request.onerror = () => resolve();
+      } catch (e) {
+        resolve();
+      }
     });
   }
 }
