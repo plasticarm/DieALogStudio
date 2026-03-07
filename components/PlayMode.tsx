@@ -215,6 +215,15 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       }
     });
 
+    newSocket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setRoom(null);
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err);
+    });
+
     // Check for room code in URL
     const params = new URLSearchParams(window.location.search);
     const urlRoomCode = params.get('game');
@@ -944,6 +953,43 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     );
   }
 
+  if (roomCode && !room) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-xs animate-pulse">Connecting to Game Server...</p>
+          <p className="text-[10px] text-slate-300 mt-4 font-black uppercase tracking-widest">Room: {roomCode}</p>
+          <button 
+            onClick={() => {
+              socket?.disconnect();
+              setRoomCode(null);
+              setRoom(null);
+              const newUrl = `${window.location.origin}${window.location.pathname}`;
+              window.history.pushState({ path: newUrl }, '', newUrl);
+            }}
+            className="mt-12 text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] transition-all"
+          >
+            Cancel Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (room && !room.players.find((p: any) => p.id === socket?.id)) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-xs animate-pulse">Joining Room...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (room?.gameState === 'lobby') {
     const isHost = room.host === socket?.id;
     const shareLink = `${window.location.origin}${window.location.pathname}?game=${roomCode}`;
@@ -1215,6 +1261,53 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
               <i className="fa-solid fa-circle-notch fa-spin"></i>
               <span className="text-[10px] font-black uppercase tracking-widest">Waiting for round to end...</span>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (room?.gameState === 'playing' && role === 'select') {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-8 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
+        <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center">
+          <div className="w-24 h-24 bg-amber-600 rounded-[2rem] flex items-center justify-center text-white text-4xl shadow-2xl mb-8">
+            <i className="fa-solid fa-user-tag"></i>
+          </div>
+          <h2 className="text-4xl font-header uppercase tracking-widest mb-4">Select Your Role</h2>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mb-12">The game is already in progress. Pick a role to join.</p>
+          
+          <div className="grid grid-cols-1 gap-4 w-full">
+            <button 
+              onClick={() => {
+                setRole('writer');
+                if (roomCode) {
+                  const updatedPlayers = room.players.map((p: any) => p.id === socket?.id ? { ...p, role: 'writer' } : p);
+                  socket?.emit('update-game-state', { roomCode, newState: { players: updatedPlayers } });
+                }
+              }}
+              className="bg-white/10 hover:bg-white/20 border border-white/10 p-8 rounded-3xl flex flex-col items-center gap-4 transition-all hover:scale-105"
+            >
+              <i className="fa-solid fa-pen-nib text-4xl text-amber-500"></i>
+              <span className="text-xl font-black uppercase tracking-widest">Writer</span>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Create comics from the script</p>
+            </button>
+            
+            <button 
+              onClick={() => {
+                setRole('judge');
+                if (roomCode) {
+                  const updatedPlayers = room.players.map((p: any) => p.id === socket?.id ? { ...p, role: 'judge' } : p);
+                  socket?.emit('update-game-state', { roomCode, newState: { players: updatedPlayers } });
+                }
+              }}
+              className="bg-white/10 hover:bg-white/20 border border-white/10 p-8 rounded-3xl flex flex-col items-center gap-4 transition-all hover:scale-105"
+            >
+              <i className="fa-solid fa-gavel text-4xl text-amber-500"></i>
+              <span className="text-xl font-black uppercase tracking-widest">Judge</span>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Select the best comic each round</p>
+            </button>
           </div>
         </div>
       </div>
