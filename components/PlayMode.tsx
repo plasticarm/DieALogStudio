@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RatedComic, SavedComicStrip, ComicProfile, TextField, ComicBook, User } from '../types';
-import { io, Socket } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
 import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
@@ -159,19 +158,51 @@ interface PlayModeProps {
 export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comics, books, binderPages, onExit, onAddSubmission, onEdit }) => {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [room, setRoom] = useState<any>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'unavailable'>('connecting');
 
-  // Initialize Socket.io
+  const ConnectionBadge: React.FC<{ status: string }> = ({ status }) => {
+    const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
+      connected: { color: 'bg-emerald-500', icon: 'fa-circle-check', label: 'Live' },
+      connecting: { color: 'bg-amber-500 animate-pulse', icon: 'fa-circle-notch fa-spin', label: 'Connecting' },
+      disconnected: { color: 'bg-rose-500', icon: 'fa-circle-xmark', label: 'Offline' },
+      unavailable: { color: 'bg-slate-500', icon: 'fa-triangle-exclamation', label: 'Unavailable' },
+    };
+
+    const config = statusConfig[status] || statusConfig.connecting;
+
+    return (
+      <div className="fixed bottom-6 left-6 z-[100] flex items-center gap-2 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-lg border border-slate-100 transition-all hover:scale-105">
+        <div className={`w-2 h-2 rounded-full ${config.color}`} />
+        <i className={`fa-solid ${config.icon} text-[10px] text-slate-400`} />
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+          {config.label}
+        </span>
+      </div>
+    );
+  };
+
+  // Initialize Pusher
   useEffect(() => {
-    const newSocket = io({
-      transports: ['polling', 'websocket']
-    });
-    setSocket(newSocket);
+    if (!roomCode) return;
 
-    newSocket.on('room-update', (updatedRoom) => {
+    const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+    });
+
+    // Track Connection States
+    pusher.connection.bind('state_change', (states: any) => {
+      if (states.current === 'connected') setConnectionStatus('connected');
+      else if (states.current === 'connecting') setConnectionStatus('connecting');
+      else if (states.current === 'unavailable' || states.current === 'failed') setConnectionStatus('unavailable');
+      else setConnectionStatus('disconnected');
+    });
+
+    const channel = pusher.subscribe(`presence-room-${roomCode}`);
+
+    channel.bind('room-update', (updatedRoom: any) => {
       setRoom(updatedRoom);
       
       const me = updatedRoom.players.find((p: any) => p.id === user.id);
@@ -218,27 +249,35 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       }
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
-      setRoom(null);
+    channel.bind('new-submission', (data: any) => {
+      setSubmittedComics(prev => [...prev, data.submission]);
     });
 
-    newSocket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err);
+    channel.bind('branch-deduction', (data: any) => {
+      setRoom((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          branches: {
+            ...prev.branches,
+            [data.playerId]: data.newBranchCount
+          }
+        };
+      });
     });
 
     // Check for room code in URL
     const params = new URLSearchParams(window.location.search);
     const urlRoomCode = params.get('game');
-    if (urlRoomCode) {
+    if (urlRoomCode && !roomCode) {
       setRoomCode(urlRoomCode);
-      newSocket.emit('join-room', { roomCode: urlRoomCode, user });
     }
 
     return () => {
-      newSocket.disconnect();
+      pusher.unsubscribe(`presence-room-${roomCode}`);
+      pusher.disconnect();
     };
-  }, [user, history, comics]);
+  }, [user, history, comics, roomCode]);
 
   const handleCreateGame = async () => {
     try {
@@ -252,9 +291,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       setRoomCode(roomData.roomCode);
       setRoom(roomData);
 
-      // Join the socket room
-      socket?.emit('join-room', { roomCode: roomData.roomCode, user });
-
       // Update URL without reload
       const newUrl = `${window.location.origin}${window.location.pathname}?game=${roomData.roomCode}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
@@ -263,16 +299,31 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   };
   
-  const handleJoinGame = () => {
+  const handleJoinGame = async () => {
     if (!joinCodeInput) return;
     const code = joinCodeInput.toUpperCase();
-    setRoomCode(code);
-    socket?.emit('join-room', { roomCode: code, user });
-    const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
-    window.history.pushState({ path: newUrl }, '', newUrl);
+    
+    try {
+      const response = await fetch('/api/game/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode: code, user }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to join room");
+      
+      const roomData = await response.json();
+      setRoomCode(code);
+      setRoom(roomData);
+      const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    } catch (error) {
+      console.error("Join failed:", error);
+      alert("Could not join room. Check the code.");
+    }
   };
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     if (!roomCode || room?.host !== user?.id) return;
     
     const updatedPlayers = room.players.map((p: any) => ({
@@ -280,18 +331,26 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       role: p.id === user.id ? 'judge' : 'writer'
     }));
 
-    socket?.emit('update-game-state', { 
-      roomCode, 
-      newState: { 
-        gameState: 'playing',
-        players: updatedPlayers,
-        timeLimit,
-        pointsToWin,
-        scores: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 0 }), {}),
-        branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 30 }), {}),
-        winningComics: []
-      } 
-    });
+    try {
+      await fetch('/api/game/update-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          roomCode, 
+          newState: { 
+            gameState: 'playing',
+            players: updatedPlayers,
+            timeLimit,
+            pointsToWin,
+            scores: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 0 }), {}),
+            branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 30 }), {}),
+            winningComics: []
+          } 
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to start game:", error);
+    }
   };
 
   const handleCopyLink = () => {
@@ -620,14 +679,18 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
       // Sync to room if host
       if (room?.host === user?.id && roomCode) {
-        socket?.emit('update-game-state', {
-          roomCode,
-          newState: { 
-            gameState: 'playing',
-            activeStripId: strip.id,
-            activeStrip: strip,
-            timeLimit: timeLimit
-          }
+        fetch('/api/game/update-state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomCode,
+            newState: { 
+              gameState: 'playing',
+              activeStripId: strip.id,
+              activeStrip: strip,
+              timeLimit: timeLimit
+            }
+          })
         });
       }
 
@@ -684,15 +747,19 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
       // Sync to room if judge
       if (role === 'judge' && roomCode) {
-        socket?.emit('update-game-state', {
-          roomCode,
-          newState: { 
-            gameState: 'playing',
-            activeStripId: strip?.id,
-            activeStrip: strip,
-            selectedComic: randomComic,
-            previewImage: null
-          }
+        fetch('/api/game/update-state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomCode,
+            newState: { 
+              gameState: 'playing',
+              activeStripId: strip?.id,
+              activeStrip: strip,
+              selectedComic: randomComic,
+              previewImage: null
+            }
+          })
         });
       }
     }
@@ -712,9 +779,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const handlePreviewImage = (url: string | null) => {
     setPreviewImage(url);
     if (role === 'judge' && roomCode) {
-      socket?.emit('update-game-state', {
-        roomCode,
-        newState: { previewImage: url }
+      fetch('/api/game/update-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomCode,
+          newState: { previewImage: url }
+        })
       });
     }
   };
@@ -749,16 +820,20 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       const isGameOver = winnerPlayerId && newScores[winnerPlayerId] >= (room.pointsToWin || pointsToWin);
       const newWinningComics = [...(room.winningComics || []), { ...comic, winnerId: winnerPlayerId }];
 
-      socket?.emit('update-game-state', {
-        roomCode,
-        newState: { 
-          winner: comic, 
-          gameState: isGameOver ? 'game-over' : 'playing', // Stay in playing but with a winner
-          scores: newScores,
-          branches: newBranches,
-          winningComics: newWinningComics,
-          previewImage: null
-        }
+      fetch('/api/game/update-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomCode,
+          newState: { 
+            winner: comic, 
+            gameState: isGameOver ? 'game-over' : 'playing', // Stay in playing but with a winner
+            scores: newScores,
+            branches: newBranches,
+            winningComics: newWinningComics,
+            previewImage: null
+          }
+        })
       });
     }
   };
@@ -954,55 +1029,57 @@ const submitToJudge = async (imageUrl: string) => {
     setPreGameState('none');
   };
 
-  const ConnectionBadge: React.FC<{ status: string }> = ({ status }) => {
-  const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
-    connected: { color: 'bg-emerald-500', icon: 'fa-circle-check', label: 'Live' },
-    connecting: { color: 'bg-amber-500 animate-pulse', icon: 'fa-circle-notch fa-spin', label: 'Connecting' },
-    disconnected: { color: 'bg-rose-500', icon: 'fa-circle-xmark', label: 'Offline' },
-    unavailable: { color: 'bg-slate-500', icon: 'fa-triangle-exclamation', label: 'Unavailable' },
-  };
+  useEffect(() => {
+    if (!roomCode) return;
 
-  const config = statusConfig[status] || statusConfig.connecting;
+    const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+    });
 
-  return (
-    <div className="fixed bottom-6 left-6 z-[100] flex items-center gap-2 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-lg border border-slate-100 transition-all hover:scale-105">
-      <div className={`w-2 h-2 rounded-full ${config.color}`} />
-      <i className={`fa-solid ${config.icon} text-[10px] text-slate-400`} />
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-        {config.label}
-      </span>
-    </div>
-  );
-};
-// Inside your PlayMode component
-const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'unavailable'>('connecting');
+    // Track Connection States
+    pusher.connection.bind('state_change', (states: any) => {
+      if (states.current === 'connected') setConnectionStatus('connected');
+      else if (states.current === 'connecting') setConnectionStatus('connecting');
+      else if (states.current === 'unavailable' || states.current === 'failed') setConnectionStatus('unavailable');
+      else setConnectionStatus('disconnected');
+    });
 
-useEffect(() => {
-  if (!roomCode) return;
+    const channel = pusher.subscribe(`presence-room-${roomCode}`);
 
-  const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
-    cluster: import.meta.env.VITE_PUSHER_CLUSTER,
-    authEndpoint: '/api/pusher/auth',
-  });
+    channel.bind('room-update', (data: any) => {
+      setRoom(data);
+      if (data.activeStrip) {
+        setActiveStrip(data.activeStrip);
+        setLocalTextFields(data.activeStrip.textFields || []);
+      }
+      if (data.submissions) setSubmittedComics(data.submissions);
+      if (data.winner) setWinner(data.winner);
+      if (data.previewImage !== undefined) setPreviewImage(data.previewImage);
+    });
 
-  // Track Connection States
-  pusher.connection.bind('state_change', (states: any) => {
-    // states.current can be: 'initialized', 'connecting', 'connected', 'unavailable', 'failed', 'disconnected'
-    if (states.current === 'connected') setConnectionStatus('connected');
-    else if (states.current === 'connecting') setConnectionStatus('connecting');
-    else if (states.current === 'unavailable' || states.current === 'failed') setConnectionStatus('unavailable');
-    else setConnectionStatus('disconnected');
-  });
+    channel.bind('new-submission', (data: any) => {
+      setSubmittedComics(prev => [...prev, data.submission]);
+    });
 
-  const channel = pusher.subscribe(`presence-room-${roomCode}`);
+    channel.bind('branch-deduction', (data: any) => {
+      // The room-update will handle the full state, but we can update locally for snappiness
+      setRoom((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          branches: {
+            ...prev.branches,
+            [data.playerId]: data.newBranchCount
+          }
+        };
+      });
+    });
 
-  // ... rest of your channel.bind logic ...
-
-  return () => {
-    pusher.unsubscribe(`presence-room-${roomCode}`);
-    pusher.disconnect();
-  };
-}, [roomCode]);
+    return () => {
+      pusher.unsubscribe(`presence-room-${roomCode}`);
+      pusher.disconnect();
+    };
+  }, [roomCode]);
 
   if (!roomCode) {
     return (
@@ -1075,7 +1152,6 @@ useEffect(() => {
           <p className="text-[10px] text-slate-300 mt-4 font-black uppercase tracking-widest">Room: {roomCode}</p>
           <button 
             onClick={() => {
-              socket?.disconnect();
               setRoomCode(null);
               setRoom(null);
               const newUrl = `${window.location.origin}${window.location.pathname}`;
@@ -1244,7 +1320,6 @@ useEffect(() => {
             
             <button 
               onClick={() => {
-                socket?.disconnect();
                 setRoomCode(null);
                 setRoom(null);
                 const newUrl = `${window.location.origin}${window.location.pathname}`;
@@ -1342,7 +1417,6 @@ useEffect(() => {
             </button>
             <button 
               onClick={() => {
-                socket?.disconnect();
                 onExit();
               }}
               className="px-12 py-5 bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-white/20 transition-all hover:scale-105 active:scale-95"
@@ -1401,7 +1475,11 @@ useEffect(() => {
                 setRole('writer');
                 if (roomCode) {
                   const updatedPlayers = room.players.map((p: any) => p.id === user?.id ? { ...p, role: 'writer' } : p);
-                  socket?.emit('update-game-state', { roomCode, newState: { players: updatedPlayers } });
+                  fetch('/api/game/update-state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ roomCode, newState: { players: updatedPlayers } })
+                  });
                 }
               }}
               className="bg-white/10 hover:bg-white/20 border border-white/10 p-8 rounded-3xl flex flex-col items-center gap-4 transition-all hover:scale-105"
@@ -1416,7 +1494,11 @@ useEffect(() => {
                 setRole('judge');
                 if (roomCode) {
                   const updatedPlayers = room.players.map((p: any) => p.id === user?.id ? { ...p, role: 'judge' } : p);
-                  socket?.emit('update-game-state', { roomCode, newState: { players: updatedPlayers } });
+                  fetch('/api/game/update-state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ roomCode, newState: { players: updatedPlayers } })
+                  });
                 }
               }}
               className="bg-white/10 hover:bg-white/20 border border-white/10 p-8 rounded-3xl flex flex-col items-center gap-4 transition-all hover:scale-105"
@@ -1642,17 +1724,21 @@ useEffect(() => {
                               role: p.id === user?.id ? 'judge' : 'writer'
                             }));
                             
-                            socket?.emit('update-game-state', {
-                              roomCode,
-                              newState: { 
-                                gameState: 'playing',
-                                submissions: [], 
-                                winner: null,
-                                activeStripId: null,
-                                activeStrip: null,
-                                players: updatedPlayers,
-                                previewImage: null
-                              }
+                            fetch('/api/game/update-state', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                roomCode,
+                                newState: { 
+                                  gameState: 'playing',
+                                  submissions: [], 
+                                  winner: null,
+                                  activeStripId: null,
+                                  activeStrip: null,
+                                  players: updatedPlayers,
+                                  previewImage: null
+                                }
+                              })
                             });
                           }
                           resetRoundState();
@@ -1956,7 +2042,11 @@ useEffect(() => {
                                             const prefix = match ? match[0] : '';
                                             handleUpdateText(tf.id, prefix + dialogue.text);
                                             setUsedHints(prev => new Set(prev).add(tf.id));
-                                            socket?.emit('use-hint', { roomCode });
+                                            fetch('/api/game/use-hint', {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ roomCode, playerId: user.id })
+                                            });
                                           }
                                         }
                                       }}
@@ -2044,7 +2134,11 @@ useEffect(() => {
                                               const prefix = match ? match[0] : '';
                                               handleUpdateText(tf.id, prefix + dialogue.text);
                                               setUsedHints(prev => new Set(prev).add(tf.id));
-                                              socket?.emit('use-hint', { roomCode });
+                                              fetch('/api/game/use-hint', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ roomCode, playerId: user.id })
+                                              });
                                             } else {
                                               alert("Dialogue ID not found in script.");
                                             }

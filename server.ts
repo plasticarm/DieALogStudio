@@ -1,6 +1,5 @@
 import express from "express";
 import { createServer } from "http";
-import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -32,15 +31,6 @@ async function startServer() {
   
   // Game state storage (in-memory for now)
   const rooms = new Map<string, any>();
-  const socketToUser = new Map<string, { userId: string, roomCode: string }>();
-
-  const io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    },
-    transports: ['websocket', 'polling']
-  });
 
   const PORT = 3000;
 
@@ -98,7 +88,7 @@ async function startServer() {
     const { hostUser } = req.body;
 
     const initialRoomState = {
-      code: roomCode,
+      roomCode,
       host: hostUser.id,
       players: [{ ...hostUser, role: 'host' }],
       gameState: 'lobby',
@@ -113,7 +103,72 @@ async function startServer() {
     };
 
     rooms.set(roomCode, initialRoomState);
+    
+    if (pusher) {
+      await pusher.trigger(`presence-room-${roomCode}`, 'room-update', initialRoomState);
+    }
+    
     res.json(initialRoomState);
+  });
+
+  app.post('/api/game/join', async (req, res) => {
+    const { roomCode, user } = req.body;
+    let room = rooms.get(roomCode);
+    
+    if (!room) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+
+    const player = {
+      id: user.id,
+      name: user.name,
+      picture: user.picture,
+      role: room.host === user.id ? 'host' : null
+    };
+
+    // Check if player already in room by user.id
+    const existingPlayerIdx = room.players.findIndex((p: any) => p.id === user.id);
+    if (existingPlayerIdx === -1) {
+      room.players.push(player);
+      if (room.scores && !room.scores[user.id]) {
+        room.scores[user.id] = 0;
+      }
+      if (room.branches && !room.branches[user.id]) {
+        room.branches[user.id] = 30;
+      }
+    } else {
+      room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
+    }
+
+    if (pusher) {
+      await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
+    }
+
+    res.json(room);
+  });
+
+  app.post('/api/game/leave', async (req, res) => {
+    const { roomCode, userId } = req.body;
+    const room = rooms.get(roomCode);
+    
+    if (room) {
+      const playerIdx = room.players.findIndex((p: any) => p.id === userId);
+      if (playerIdx !== -1) {
+        room.players.splice(playerIdx, 1);
+        if (room.players.length === 0) {
+          rooms.delete(roomCode);
+        } else {
+          if (room.host === userId) {
+            room.host = room.players[0].id;
+            room.players[0].role = 'host';
+          }
+          if (pusher) {
+            await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
+          }
+        }
+      }
+    }
+    res.json({ success: true });
   });
 
   app.post('/api/game/submit', async (req, res) => {
@@ -122,144 +177,39 @@ async function startServer() {
     if (room) {
       room.submissions.push(submission);
       if (pusher) {
-        await pusher.trigger(`room-${roomCode}`, 'new-submission', { submission });
-        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+        await pusher.trigger(`presence-room-${roomCode}`, 'new-submission', { submission });
+        await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
       }
     }
     res.json({ success: true });
   });
 
   app.post('/api/game/use-hint', async (req, res) => {
-    const { roomCode, playerId, cost } = req.body;
+    const { roomCode, playerId } = req.body;
     const room = rooms.get(roomCode);
     if (room && room.branches) {
-      room.branches[playerId] = cost;
+      const currentBranches = room.branches[playerId] ?? 30;
+      const newBranchCount = Math.max(0, currentBranches - 1);
+      room.branches[playerId] = newBranchCount;
+      
       if (pusher) {
-        await pusher.trigger(`room-${roomCode}`, 'branch-deduction', { playerId, newBranchCount: cost });
-        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+        await pusher.trigger(`presence-room-${roomCode}`, 'branch-deduction', { playerId, newBranchCount });
+        await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
       }
     }
     res.json({ success: true });
   });
 
-  app.post('/api/update-game', async (req, res) => {
+  app.post('/api/game/update-state', async (req, res) => {
     const { roomCode, newState } = req.body;
     const room = rooms.get(roomCode);
     if (room) {
       Object.assign(room, newState);
       if (pusher) {
-        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+        await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
       }
     }
     res.json({ success: true });
-  });
-
-  io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
-
-    socket.on("join-room", ({ roomCode, user }) => {
-      socket.join(roomCode);
-      
-      if (!rooms.has(roomCode)) {
-        rooms.set(roomCode, {
-          code: roomCode,
-          host: user.id,
-          players: [],
-          gameState: 'lobby', // lobby, role-select, playing, judging, results
-          activeStripId: null,
-          submissions: [],
-          winner: null,
-          scores: {},
-          branches: {},
-          winningComics: [],
-          timeLimit: 2,
-          pointsToWin: 3
-        });
-      }
-
-      const room = rooms.get(roomCode);
-      const player = {
-        id: user.id,
-        socketId: socket.id,
-        name: user.name,
-        picture: user.picture,
-        role: room.host === user.id ? 'host' : null
-      };
-      
-      socketToUser.set(socket.id, { userId: user.id, roomCode });
-
-      // Check if player already in room by user.id
-      const existingPlayerIdx = room.players.findIndex((p: any) => p.id === user.id);
-      if (existingPlayerIdx === -1) {
-        room.players.push(player);
-        if (room.scores && !room.scores[user.id]) {
-          room.scores[user.id] = 0;
-        }
-        if (room.branches && !room.branches[user.id]) {
-          room.branches[user.id] = 30;
-        }
-      } else {
-        // Update socket ID and other info
-        room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
-      }
-
-      io.to(roomCode).emit("room-update", room);
-      console.log(`User ${user.name} joined room ${roomCode}`);
-    });
-
-    socket.on("update-game-state", ({ roomCode, newState }) => {
-      const room = rooms.get(roomCode);
-      if (room) {
-        Object.assign(room, newState);
-        io.to(roomCode).emit("room-update", room);
-      }
-    });
-
-    socket.on("submit-comic", ({ roomCode, submission }) => {
-      const room = rooms.get(roomCode);
-      if (room) {
-        room.submissions.push(submission);
-        io.to(roomCode).emit("room-update", room);
-      }
-    });
-
-    socket.on("use-hint", ({ roomCode }) => {
-      const userInfo = socketToUser.get(socket.id);
-      if (!userInfo) return;
-      const { userId } = userInfo;
-      const room = rooms.get(roomCode);
-      if (room && room.branches && room.branches[userId] > 0) {
-        room.branches[userId] -= 1;
-        io.to(roomCode).emit("room-update", room);
-      }
-    });
-
-    socket.on("disconnect", () => {
-      console.log("User disconnected:", socket.id);
-      const userInfo = socketToUser.get(socket.id);
-      if (userInfo) {
-        const { userId, roomCode } = userInfo;
-        const room = rooms.get(roomCode);
-        if (room) {
-          const playerIdx = room.players.findIndex((p: any) => p.id === userId);
-          if (playerIdx !== -1) {
-            // Optional: Don't remove immediately to allow reconnection
-            // For now, we'll keep the original logic of removing them
-            room.players.splice(playerIdx, 1);
-            if (room.players.length === 0) {
-              rooms.delete(roomCode);
-            } else {
-              if (room.host === userId) {
-                room.host = room.players[0].id;
-                room.players[0].role = 'host';
-              }
-              io.to(roomCode).emit("room-update", room);
-            }
-          }
-        }
-        socketToUser.delete(socket.id);
-      }
-    });
   });
 
   // Vite middleware for development
