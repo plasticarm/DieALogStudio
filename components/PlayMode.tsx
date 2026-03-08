@@ -7,6 +7,7 @@ import { imageStore } from '../services/imageStore';
 import { downscaleImage } from '../utils/imageUtils';
 import { generateVeoVideo } from '../services/gemini';
 import { COMIC_FONTS, GENRES } from '../constants';
+import Pusher from 'pusher-js';
 
 const getFontFamily = (fontName: string) => {
   const font = COMIC_FONTS.find(f => f.name === fontName);
@@ -237,15 +238,26 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     };
   }, [user, history, comics]);
 
-  const handleCreateGame = () => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setRoomCode(code);
-    socket?.emit('join-room', { roomCode: code, user });
-    // Update URL without reload
-    const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
-    window.history.pushState({ path: newUrl }, '', newUrl);
-  };
+  const handleCreateGame = async () => {
+    try {
+      const response = await fetch('/api/game/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostUser: user }),
+      });
 
+      const roomData = await response.json();
+      setRoomCode(roomData.roomCode);
+      setRoom(roomData);
+
+      // Update URL without reload
+      const newUrl = `${window.location.origin}${window.location.pathname}?game=${roomData.roomCode}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    } catch (error) {
+      console.error("Room creation failed:", error);
+    }
+  };
+  
   const handleJoinGame = () => {
     if (!joinCodeInput) return;
     const code = joinCodeInput.toUpperCase();
@@ -441,6 +453,39 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       lastJudgePool.current = [];
     }
   }, [filteredRatings, judgeDeck.length]);
+
+  useEffect(() => {
+    if (!roomCode) return;
+
+    const pusherKey = import.meta.env.VITE_PUSHER_KEY;
+    const pusherCluster = import.meta.env.VITE_PUSHER_CLUSTER;
+
+    if (!pusherKey || !pusherCluster) {
+      console.warn("Pusher environment variables (VITE_PUSHER_KEY, VITE_PUSHER_CLUSTER) are missing. Real-time features will be disabled.");
+      return;
+    }
+
+    const pusher = new Pusher(pusherKey, {
+      cluster: pusherCluster,
+    });
+
+  const channel = pusher.subscribe(`room-${roomCode}`);
+
+  // Listen for the specific submission event
+  channel.bind('new-submission', ({ submission }) => {
+    setSubmittedComics(prev => [...prev, submission]);
+  });
+
+  // Listen for overall game state changes (starts, role swaps, etc.)
+  channel.bind('room-update', (updatedRoom) => {
+    setRoom(updatedRoom);
+  });
+
+  return () => {
+    pusher.unsubscribe(`room-${roomCode}`);
+    pusher.disconnect();
+  };
+}, [roomCode]);
 
   // Timer States
   const [timeLimit, setTimeLimit] = useState(2); // Default 2 minutes
@@ -842,31 +887,38 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   };
 
-  const submitToJudge = async (imageUrl: string) => {
-    if (!activeStrip) return;
+const submitToJudge = async (imageUrl: string) => {
+  if (!activeStrip || !roomCode) return;
 
-    const newSubmission: RatedComic = {
-      id: `sub_${Date.now()}`,
-      stripId: activeStrip.id,
-      comicProfileId: activeStrip.comicProfileId,
-      name: `Submission ${submittedComics.length + 1}`,
-      imageUrl: imageUrl,
-      rating: 0,
-      timestamp: Date.now(),
-      textFields: localTextFields,
-      playerId: socket?.id || user.id
-    };
-    
-    await onAddSubmission(newSubmission);
-    
-    // Sync to server
-    if (roomCode) {
-      socket?.emit('submit-comic', { roomCode, submission: newSubmission });
-    }
+  const newSubmission: RatedComic = {
+    id: `sub_${Date.now()}`,
+    stripId: activeStrip.id,
+    comicProfileId: activeStrip.comicProfileId,
+    name: `Submission ${submittedComics.length + 1}`,
+    imageUrl: imageUrl,
+    rating: 0,
+    timestamp: Date.now(),
+    textFields: localTextFields,
+    playerId: user.id // Using user.id since socket.id is less reliable in serverless
+  };
 
+  try {
+    // 1. Update Pusher via our Vercel API Route
+    const response = await fetch('/api/game/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomCode,
+        submission: newSubmission
+      }),
+    });
+
+    if (!response.ok) throw new Error('Failed to notify judge');
+
+    // 2. Local State Updates
     let finalSubmissions = [...submittedComics, newSubmission];
     
-    // If fewer than 4 players, populate with archived comic data for the same strip
+    // Fill with archived data if needed (as per your original logic)
     if (finalSubmissions.length < 4) {
       const archived = ratings
         .filter(r => !finalSubmissions.some(fs => fs.id === r.id) && r.stripId === activeStrip.id)
@@ -878,6 +930,12 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     setSubmittedComics(finalSubmissions);
     setHasSubmitted(true);
     setRole('judge');
+
+    } catch (error) {
+      console.error("Submission Error:", error);
+      alert("Could not reach the game relay. Check your connection.");
+      setHasSubmitted(false);
+    }
   };
 
   const resetRoundState = () => {

@@ -4,12 +4,29 @@ import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
+import Pusher from "pusher";
+import { generateRoomCode } from "./utils/roomUtils";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+let pusher: Pusher | null = null;
+
+if (process.env.PUSHER_APP_ID && process.env.PUSHER_APP_KEY && process.env.PUSHER_APP_SECRET && process.env.PUSHER_APP_CLUSTER) {
+  pusher = new Pusher({
+    appId: process.env.PUSHER_APP_ID,
+    key: process.env.PUSHER_APP_KEY,
+    secret: process.env.PUSHER_APP_SECRET,
+    cluster: process.env.PUSHER_APP_CLUSTER,
+    useTLS: true,
+  });
+} else {
+  console.warn("Pusher environment variables are missing. Real-time features will be limited to Socket.io.");
+}
+
 async function startServer() {
   const app = express();
+  app.use(express.json());
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: {
@@ -19,6 +36,62 @@ async function startServer() {
   });
 
   const PORT = 3000;
+
+  // API Routes for Pusher
+  app.post('/api/game/create', async (req, res) => {
+    const roomCode = generateRoomCode();
+    const { hostUser } = req.body;
+
+    const initialRoomState = {
+      roomCode,
+      host: hostUser.id,
+      gameState: 'lobby',
+      players: [{ ...hostUser, role: 'host' }],
+      scores: { [hostUser.id]: 0 },
+      branches: { [hostUser.id]: 30 },
+    };
+
+    rooms.set(roomCode, initialRoomState);
+    res.json(initialRoomState);
+  });
+
+  app.post('/api/game/submit', async (req, res) => {
+    const { roomCode, submission } = req.body;
+    const room = rooms.get(roomCode);
+    if (room) {
+      room.submissions.push(submission);
+      if (pusher) {
+        await pusher.trigger(`room-${roomCode}`, 'new-submission', { submission });
+        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+      }
+    }
+    res.json({ success: true });
+  });
+
+  app.post('/api/game/use-hint', async (req, res) => {
+    const { roomCode, playerId, cost } = req.body;
+    const room = rooms.get(roomCode);
+    if (room && room.branches) {
+      room.branches[playerId] = cost;
+      if (pusher) {
+        await pusher.trigger(`room-${roomCode}`, 'branch-deduction', { playerId, newBranchCount: cost });
+        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+      }
+    }
+    res.json({ success: true });
+  });
+
+  app.post('/api/update-game', async (req, res) => {
+    const { roomCode, newState } = req.body;
+    const room = rooms.get(roomCode);
+    if (room) {
+      Object.assign(room, newState);
+      if (pusher) {
+        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+      }
+    }
+    res.json({ success: true });
+  });
 
   // Game state storage (in-memory for now)
   const rooms = new Map<string, any>();
