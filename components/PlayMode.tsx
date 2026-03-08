@@ -455,37 +455,34 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   }, [filteredRatings, judgeDeck.length]);
 
   useEffect(() => {
-    if (!roomCode) return;
+  if (!roomCode || !user) return;
 
-    const pusherKey = import.meta.env.VITE_PUSHER_KEY;
-    const pusherCluster = import.meta.env.VITE_PUSHER_CLUSTER;
-
-    if (!pusherKey || !pusherCluster) {
-      console.warn("Pusher environment variables (VITE_PUSHER_KEY, VITE_PUSHER_CLUSTER) are missing. Real-time features will be disabled.");
-      return;
+  const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+    cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+    // Point to your new Vercel API route
+    authEndpoint: '/api/pusher/auth',
+    auth: {
+      params: {
+        user_id: user.id,
+        user_name: user.name
+      }
     }
-
-    const pusher = new Pusher(pusherKey, {
-      cluster: pusherCluster,
-    });
-
-  const channel = pusher.subscribe(`room-${roomCode}`);
-
-  // Listen for the specific submission event
-  channel.bind('new-submission', ({ submission }) => {
-    setSubmittedComics(prev => [...prev, submission]);
   });
 
-  // Listen for overall game state changes (starts, role swaps, etc.)
-  channel.bind('room-update', (updatedRoom) => {
-    setRoom(updatedRoom);
+  const channel = pusher.subscribe(`presence-room-${roomCode}`);
+
+  // This event triggers once the auth is successful
+  channel.bind('pusher:subscription_succeeded', () => {
+    console.log("Successfully connected to the game room!");
   });
+
+  // Handle other game events here...
 
   return () => {
-    pusher.unsubscribe(`room-${roomCode}`);
+    pusher.unsubscribe(`presence-room-${roomCode}`);
     pusher.disconnect();
   };
-}, [roomCode]);
+}, [roomCode, user.id]);
 
   // Timer States
   const [timeLimit, setTimeLimit] = useState(2); // Default 2 minutes
