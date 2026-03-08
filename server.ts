@@ -95,6 +95,7 @@ async function startServer() {
 
   // Game state storage (in-memory for now)
   const rooms = new Map<string, any>();
+  const socketToUser = new Map<string, { userId: string, roomCode: string }>();
 
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
@@ -105,7 +106,7 @@ async function startServer() {
       if (!rooms.has(roomCode)) {
         rooms.set(roomCode, {
           code: roomCode,
-          host: socket.id,
+          host: user.id,
           players: [],
           gameState: 'lobby', // lobby, role-select, playing, judging, results
           activeStripId: null,
@@ -121,24 +122,28 @@ async function startServer() {
 
       const room = rooms.get(roomCode);
       const player = {
-        id: socket.id,
+        id: user.id,
+        socketId: socket.id,
         name: user.name,
         picture: user.picture,
-        role: null
+        role: room.host === user.id ? 'host' : null
       };
       
-      // Check if player already in room
-      const existingPlayerIdx = room.players.findIndex((p: any) => p.id === socket.id);
+      socketToUser.set(socket.id, { userId: user.id, roomCode });
+
+      // Check if player already in room by user.id
+      const existingPlayerIdx = room.players.findIndex((p: any) => p.id === user.id);
       if (existingPlayerIdx === -1) {
         room.players.push(player);
-        if (room.scores && !room.scores[socket.id]) {
-          room.scores[socket.id] = 0;
+        if (room.scores && !room.scores[user.id]) {
+          room.scores[user.id] = 0;
         }
-        if (room.branches && !room.branches[socket.id]) {
-          room.branches[socket.id] = 30;
+        if (room.branches && !room.branches[user.id]) {
+          room.branches[user.id] = 30;
         }
       } else {
-        room.players[existingPlayerIdx] = player;
+        // Update socket ID and other info
+        room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
       }
 
       io.to(roomCode).emit("room-update", room);
@@ -162,30 +167,41 @@ async function startServer() {
     });
 
     socket.on("use-hint", ({ roomCode }) => {
+      const userInfo = socketToUser.get(socket.id);
+      if (!userInfo) return;
+      const { userId } = userInfo;
       const room = rooms.get(roomCode);
-      if (room && room.branches && room.branches[socket.id] > 0) {
-        room.branches[socket.id] -= 1;
+      if (room && room.branches && room.branches[userId] > 0) {
+        room.branches[userId] -= 1;
         io.to(roomCode).emit("room-update", room);
       }
     });
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
-      // Handle player removal from rooms
-      rooms.forEach((room, roomCode) => {
-        const playerIdx = room.players.findIndex((p: any) => p.id === socket.id);
-        if (playerIdx !== -1) {
-          room.players.splice(playerIdx, 1);
-          if (room.players.length === 0) {
-            rooms.delete(roomCode);
-          } else {
-            if (room.host === socket.id) {
-              room.host = room.players[0].id;
+      const userInfo = socketToUser.get(socket.id);
+      if (userInfo) {
+        const { userId, roomCode } = userInfo;
+        const room = rooms.get(roomCode);
+        if (room) {
+          const playerIdx = room.players.findIndex((p: any) => p.id === userId);
+          if (playerIdx !== -1) {
+            // Optional: Don't remove immediately to allow reconnection
+            // For now, we'll keep the original logic of removing them
+            room.players.splice(playerIdx, 1);
+            if (room.players.length === 0) {
+              rooms.delete(roomCode);
+            } else {
+              if (room.host === userId) {
+                room.host = room.players[0].id;
+                room.players[0].role = 'host';
+              }
+              io.to(roomCode).emit("room-update", room);
             }
-            io.to(roomCode).emit("room-update", room);
           }
         }
-      });
+        socketToUser.delete(socket.id);
+      }
     });
   });
 

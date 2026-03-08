@@ -1,5 +1,19 @@
 import Pusher from "pusher";
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage, ServerResponse } from 'http';
+
+// Extend the basic types to include 'body' and 'status/json' which Vercel adds
+interface VercelRequest extends IncomingMessage {
+  body: any;
+  query: { [key: string]: string | string[] };
+}
+
+interface VercelResponse extends ServerResponse {
+  send: (body: any) => VercelResponse;
+  json: (jsonBody: any) => VercelResponse;
+  status: (statusCode: number) => VercelResponse;
+}
+
+// Your existing Pusher init and handler code...
 
 // Initialize Pusher with Server-Side variables (No VITE_ prefix)
 const pusher = new Pusher({

@@ -172,7 +172,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     newSocket.on('room-update', (updatedRoom) => {
       setRoom(updatedRoom);
       
-      const me = updatedRoom.players.find((p: any) => p.id === newSocket.id);
+      const me = updatedRoom.players.find((p: any) => p.id === user.id);
       if (me && me.role) {
         setRole(me.role);
       }
@@ -250,6 +250,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       setRoomCode(roomData.roomCode);
       setRoom(roomData);
 
+      // Join the socket room
+      socket?.emit('join-room', { roomCode: roomData.roomCode, user });
+
       // Update URL without reload
       const newUrl = `${window.location.origin}${window.location.pathname}?game=${roomData.roomCode}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
@@ -268,11 +271,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   };
 
   const handleStartGame = () => {
-    if (!roomCode || room?.host !== socket?.id) return;
+    if (!roomCode || room?.host !== user?.id) return;
     
     const updatedPlayers = room.players.map((p: any) => ({
       ...p,
-      role: p.id === socket.id ? 'judge' : 'writer'
+      role: p.id === user.id ? 'judge' : 'writer'
     }));
 
     socket?.emit('update-game-state', { 
@@ -546,14 +549,14 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       setTimeLeft(-1);
       if (role === 'writer') {
         handleSaveAndSubmit();
-      } else if (role === 'judge' && room?.host === socket?.id) {
+      } else if (role === 'judge' && room?.host === user?.id) {
         // If time runs out and judge is host, force transition to judging if needed
         // Actually, the judge just waits for submissions. 
         // If time is up, everyone should be forced to submit.
       }
     }
     return () => clearInterval(timer);
-  }, [room?.gameState, activeStrip, hasSubmitted, timeLeft, isSavingLocal, role, room?.host, socket?.id]);
+  }, [room?.gameState, activeStrip, hasSubmitted, timeLeft, isSavingLocal, role, room?.host, user?.id]);
 
   useEffect(() => {
     if (room?.gameState === 'playing' && activeStrip && !hasSubmitted && (timeLeft === null || timeLeft === -1)) {
@@ -614,7 +617,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       setTimeLeft(timeLimit * 60);
 
       // Sync to room if host
-      if (room?.host === socket?.id && roomCode) {
+      if (room?.host === user?.id && roomCode) {
         socket?.emit('update-game-state', {
           roomCode,
           newState: { 
@@ -1033,7 +1036,7 @@ const submitToJudge = async (imageUrl: string) => {
     );
   }
 
-  if (room && !room.players.find((p: any) => p.id === socket?.id)) {
+  if (room && !room.players.find((p: any) => p.id === user?.id)) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
@@ -1046,7 +1049,7 @@ const submitToJudge = async (imageUrl: string) => {
   }
 
   if (room?.gameState === 'lobby') {
-    const isHost = room.host === socket?.id;
+    const isHost = room.host === user?.id;
     const shareLink = `${window.location.origin}${window.location.pathname}?game=${roomCode}`;
 
     return (
@@ -1123,7 +1126,7 @@ const submitToJudge = async (imageUrl: string) => {
                         {p.id === room.host && <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Host</span>}
                       </div>
                     </div>
-                    {p.id === socket?.id && <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>}
+                    {p.id === user?.id && <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>}
                   </div>
                 ))}
               </div>
@@ -1204,8 +1207,8 @@ const submitToJudge = async (imageUrl: string) => {
   if (room?.gameState === 'game-over') {
     const sortedPlayers = [...room.players].sort((a, b) => (room.scores[b.id] || 0) - (room.scores[a.id] || 0));
     const overallWinner = sortedPlayers[0];
-    const userScore = room.scores[socket?.id || ''] || 0;
-    const isUserWinner = overallWinner.id === socket?.id;
+    const userScore = room.scores[user?.id || ''] || 0;
+    const isUserWinner = overallWinner.id === user?.id;
 
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 relative overflow-hidden p-8">
@@ -1253,7 +1256,7 @@ const submitToJudge = async (imageUrl: string) => {
               <h3 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-8">Leaderboard</h3>
               <div className="space-y-4">
                 {sortedPlayers.map((p, idx) => (
-                  <div key={p.id} className={`flex items-center justify-between p-4 rounded-2xl border ${p.id === socket?.id ? 'bg-amber-600/20 border-amber-500/30' : 'bg-white/5 border-white/5'}`}>
+                  <div key={p.id} className={`flex items-center justify-between p-4 rounded-2xl border ${p.id === user?.id ? 'bg-amber-600/20 border-amber-500/30' : 'bg-white/5 border-white/5'}`}>
                     <div className="flex items-center gap-4">
                       <span className="text-xs font-black text-white/20 w-4">#{idx + 1}</span>
                       <div className="w-10 h-10 rounded-full overflow-hidden bg-white/10">
@@ -1271,14 +1274,14 @@ const submitToJudge = async (imageUrl: string) => {
           <div className="flex gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-600">
             <button 
               onClick={() => {
-                if (room.host === socket?.id) {
+                if (room.host === user?.id) {
                   handleStartGame();
                 }
               }}
-              disabled={room.host !== socket?.id}
+              disabled={room.host !== user?.id}
               className="px-12 py-5 bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-amber-700 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
             >
-              {room.host === socket?.id ? 'Play Again' : 'Waiting for Host...'}
+              {room.host === user?.id ? 'Play Again' : 'Waiting for Host...'}
             </button>
             <button 
               onClick={() => {
@@ -1295,7 +1298,7 @@ const submitToJudge = async (imageUrl: string) => {
     );
   }
 
-  if (role === 'writer' && room?.gameState === 'playing' && (room?.branches?.[socket?.id || ''] ?? 30) <= 0) {
+  if (role === 'writer' && room?.gameState === 'playing' && (room?.branches?.[user?.id || ''] ?? 30) <= 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-8 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
@@ -1338,7 +1341,7 @@ const submitToJudge = async (imageUrl: string) => {
               onClick={() => {
                 setRole('writer');
                 if (roomCode) {
-                  const updatedPlayers = room.players.map((p: any) => p.id === socket?.id ? { ...p, role: 'writer' } : p);
+                  const updatedPlayers = room.players.map((p: any) => p.id === user?.id ? { ...p, role: 'writer' } : p);
                   socket?.emit('update-game-state', { roomCode, newState: { players: updatedPlayers } });
                 }
               }}
@@ -1353,7 +1356,7 @@ const submitToJudge = async (imageUrl: string) => {
               onClick={() => {
                 setRole('judge');
                 if (roomCode) {
-                  const updatedPlayers = room.players.map((p: any) => p.id === socket?.id ? { ...p, role: 'judge' } : p);
+                  const updatedPlayers = room.players.map((p: any) => p.id === user?.id ? { ...p, role: 'judge' } : p);
                   socket?.emit('update-game-state', { roomCode, newState: { players: updatedPlayers } });
                 }
               }}
@@ -1561,7 +1564,7 @@ const submitToJudge = async (imageUrl: string) => {
 
             {winner && (
               <div className="mt-8 flex flex-col items-center gap-6">
-                {winner.playerId === socket?.id ? (
+                {winner.playerId === user?.id ? (
                   <div className="flex flex-col items-center gap-6 w-full">
                     <div className="bg-emerald-50 text-emerald-700 px-8 py-4 rounded-2xl border border-emerald-100 flex items-center gap-3 animate-bounce">
                       <i className="fa-solid fa-trophy text-2xl"></i>
@@ -1574,7 +1577,7 @@ const submitToJudge = async (imageUrl: string) => {
                           if (roomCode) {
                             const updatedPlayers = room.players.map((p: any) => ({
                               ...p,
-                              role: p.id === socket?.id ? 'judge' : 'writer'
+                              role: p.id === user?.id ? 'judge' : 'writer'
                             }));
                             
                             socket?.emit('update-game-state', {
@@ -1620,7 +1623,7 @@ const submitToJudge = async (imageUrl: string) => {
                   </div>
                 )}
 
-                {isSharing && winner && winner.playerId === socket?.id && (
+                {isSharing && winner && winner.playerId === user?.id && (
                   <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSharing(false)}></div>
                     <div className="relative bg-white rounded-[3rem] p-10 shadow-2xl border border-slate-100 w-full max-w-sm flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-300">
@@ -1678,7 +1681,7 @@ const submitToJudge = async (imageUrl: string) => {
                 )}
 
                 {/* Cinematic Render Section - Only for Winner */}
-                {winner.playerId === socket?.id && (
+                {winner.playerId === user?.id && (
                   <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur p-6 rounded-3xl border border-amber-200 shadow-sm w-full max-w-2xl">
                     <div className="flex items-center gap-4 mb-2">
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cinematic Render</span>
@@ -1883,7 +1886,7 @@ const submitToJudge = async (imageUrl: string) => {
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (room?.branches?.[socket?.id || ''] <= 0) return;
+                                        if (room?.branches?.[user?.id || ''] <= 0) return;
                                         if (tf.dialogueId && activeStrip.script) {
                                           const dialogue = activeStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
                                           if (dialogue) {
@@ -1895,10 +1898,10 @@ const submitToJudge = async (imageUrl: string) => {
                                           }
                                         }
                                       }}
-                                      disabled={room?.branches?.[socket?.id || ''] <= 0}
+                                      disabled={room?.branches?.[user?.id || ''] <= 0}
                                       className={`text-[9px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 ${
                                         isHintUsed ? 'bg-slate-600 text-slate-400' : 
-                                        room?.branches?.[socket?.id || ''] <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' :
+                                        room?.branches?.[user?.id || ''] <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' :
                                         'bg-amber-600 text-white hover:bg-amber-500'
                                       }`}
                                     >
@@ -1971,7 +1974,7 @@ const submitToJudge = async (imageUrl: string) => {
                                       </div>
                                       <button 
                                         onClick={() => {
-                                          if (room?.branches?.[socket?.id || ''] <= 0) return;
+                                          if (room?.branches?.[user?.id || ''] <= 0) return;
                                           if (tf.dialogueId && activeStrip.script) {
                                             const dialogue = activeStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
                                             if (dialogue) {
@@ -1987,14 +1990,14 @@ const submitToJudge = async (imageUrl: string) => {
                                             alert("No Dialogue ID associated with this field.");
                                           }
                                         }}
-                                        disabled={room?.branches?.[socket?.id || ''] <= 0}
+                                        disabled={room?.branches?.[user?.id || ''] <= 0}
                                         className={`text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
                                           isHintUsed 
                                             ? 'bg-slate-200 text-slate-500' 
-                                            : room?.branches?.[socket?.id || ''] <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
+                                            : room?.branches?.[user?.id || ''] <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
                                             'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
                                         }`}
-                                        title={room?.branches?.[socket?.id || ''] <= 0 ? "Out of branches" : "Fill with original script text"}
+                                        title={room?.branches?.[user?.id || ''] <= 0 ? "Out of branches" : "Fill with original script text"}
                                       >
                                         <i className="fa-solid fa-lightbulb text-[7px]"></i>
                                         Hint
