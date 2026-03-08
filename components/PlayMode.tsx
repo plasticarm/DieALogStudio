@@ -166,7 +166,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
   // Initialize Socket.io
   useEffect(() => {
-    const newSocket = io();
+    const newSocket = io({
+      transports: ['polling', 'websocket']
+    });
     setSocket(newSocket);
 
     newSocket.on('room-update', (updatedRoom) => {
@@ -952,9 +954,60 @@ const submitToJudge = async (imageUrl: string) => {
     setPreGameState('none');
   };
 
+  const ConnectionBadge: React.FC<{ status: string }> = ({ status }) => {
+  const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
+    connected: { color: 'bg-emerald-500', icon: 'fa-circle-check', label: 'Live' },
+    connecting: { color: 'bg-amber-500 animate-pulse', icon: 'fa-circle-notch fa-spin', label: 'Connecting' },
+    disconnected: { color: 'bg-rose-500', icon: 'fa-circle-xmark', label: 'Offline' },
+    unavailable: { color: 'bg-slate-500', icon: 'fa-triangle-exclamation', label: 'Unavailable' },
+  };
+
+  const config = statusConfig[status] || statusConfig.connecting;
+
+  return (
+    <div className="fixed bottom-6 left-6 z-[100] flex items-center gap-2 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-lg border border-slate-100 transition-all hover:scale-105">
+      <div className={`w-2 h-2 rounded-full ${config.color}`} />
+      <i className={`fa-solid ${config.icon} text-[10px] text-slate-400`} />
+      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+        {config.label}
+      </span>
+    </div>
+  );
+};
+// Inside your PlayMode component
+const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'unavailable'>('connecting');
+
+useEffect(() => {
+  if (!roomCode) return;
+
+  const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+    cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+    authEndpoint: '/api/pusher/auth',
+  });
+
+  // Track Connection States
+  pusher.connection.bind('state_change', (states: any) => {
+    // states.current can be: 'initialized', 'connecting', 'connected', 'unavailable', 'failed', 'disconnected'
+    if (states.current === 'connected') setConnectionStatus('connected');
+    else if (states.current === 'connecting') setConnectionStatus('connecting');
+    else if (states.current === 'unavailable' || states.current === 'failed') setConnectionStatus('unavailable');
+    else setConnectionStatus('disconnected');
+  });
+
+  const channel = pusher.subscribe(`presence-room-${roomCode}`);
+
+  // ... rest of your channel.bind logic ...
+
+  return () => {
+    pusher.unsubscribe(`presence-room-${roomCode}`);
+    pusher.disconnect();
+  };
+}, [roomCode]);
+
   if (!roomCode) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         <button 
           onClick={() => {
@@ -1014,6 +1067,7 @@ const submitToJudge = async (imageUrl: string) => {
   if (roomCode && !room) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         <div className="relative z-10 flex flex-col items-center">
           <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-6"></div>
@@ -1039,6 +1093,7 @@ const submitToJudge = async (imageUrl: string) => {
   if (room && !room.players.find((p: any) => p.id === user?.id)) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         <div className="relative z-10 flex flex-col items-center">
           <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-6"></div>
@@ -1054,6 +1109,7 @@ const submitToJudge = async (imageUrl: string) => {
 
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         
         <div className="relative z-10 w-full max-w-4xl px-8 flex flex-col lg:flex-row gap-12 items-center">
@@ -1212,6 +1268,7 @@ const submitToJudge = async (imageUrl: string) => {
 
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 relative overflow-hidden p-8">
+        <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 via-slate-900 to-black opacity-50"></div>
         
         <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
@@ -1301,6 +1358,7 @@ const submitToJudge = async (imageUrl: string) => {
   if (role === 'writer' && room?.gameState === 'playing' && (room?.branches?.[user?.id || ''] ?? 30) <= 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-8 relative overflow-hidden">
+        <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
         
         <div className="relative z-10 flex flex-col items-center animate-in fade-in zoom-in duration-700">
@@ -1328,6 +1386,7 @@ const submitToJudge = async (imageUrl: string) => {
   if (room?.gameState === 'playing' && role === 'select') {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-8 relative overflow-hidden">
+        <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
         <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center">
           <div className="w-24 h-24 bg-amber-600 rounded-[2rem] flex items-center justify-center text-white text-4xl shadow-2xl mb-8">
@@ -1380,7 +1439,10 @@ const submitToJudge = async (imageUrl: string) => {
       className="h-full flex flex-col overflow-hidden relative"
       style={{ backgroundColor: bgColor }}
     >
-        <div className="absolute top-6 left-6 z-50 flex gap-4">
+      {/* Connection Badge */}
+      <ConnectionBadge status={connectionStatus} />
+
+      <div className="absolute top-6 left-6 z-50 flex gap-4">
           <button 
             onClick={() => {
               resetRoundState();

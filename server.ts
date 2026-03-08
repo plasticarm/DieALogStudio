@@ -27,28 +27,89 @@ if (process.env.PUSHER_APP_ID && process.env.PUSHER_APP_KEY && process.env.PUSHE
 async function startServer() {
   const app = express();
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
   const httpServer = createServer(app);
+  
+  // Game state storage (in-memory for now)
+  const rooms = new Map<string, any>();
+  const socketToUser = new Map<string, { userId: string, roomCode: string }>();
+
   const io = new Server(httpServer, {
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
-    }
+    },
+    transports: ['websocket', 'polling']
   });
 
   const PORT = 3000;
 
-  // API Routes for Pusher
+  // API Routes
+  app.get('/api/health', (req, res) => {
+    const config = {
+      appId: !!process.env.PUSHER_APP_ID,
+      key: !!process.env.PUSHER_APP_KEY,
+      secret: !!process.env.PUSHER_APP_SECRET,
+      cluster: !!process.env.PUSHER_APP_CLUSTER,
+      nodeEnv: process.env.NODE_ENV,
+    };
+
+    const isConfigured = Object.values(config).every(val => val !== false);
+
+    res.json({
+      status: isConfigured ? "Multiplayer Engine Ready" : "Multiplayer Configuration Missing",
+      checks: config
+    });
+  });
+
+  app.post('/api/pusher/auth', (req, res) => {
+    if (!pusher) {
+      return res.status(503).send("Pusher not configured");
+    }
+    
+    const body = req.body || {};
+    const socketId = body.socket_id;
+    const channel = body.channel_name;
+    
+    if (!socketId || !channel) {
+      return res.status(400).send("Missing socket_id or channel_name");
+    }
+
+    const user_id = body.user_id || `user_${Math.random().toString(36).slice(2, 7)}`;
+    
+    const presenceData = {
+      user_id: user_id,
+      user_info: {
+        name: body.user_name || "Anonymous Player",
+      },
+    };
+
+    try {
+      const authResponse = pusher.authenticate(socketId, channel, presenceData);
+      res.send(authResponse);
+    } catch (error) {
+      console.error("Pusher Auth Error:", error);
+      res.status(403).send("Forbidden");
+    }
+  });
+
   app.post('/api/game/create', async (req, res) => {
     const roomCode = generateRoomCode();
     const { hostUser } = req.body;
 
     const initialRoomState = {
-      roomCode,
+      code: roomCode,
       host: hostUser.id,
-      gameState: 'lobby',
       players: [{ ...hostUser, role: 'host' }],
+      gameState: 'lobby',
+      activeStripId: null,
+      submissions: [],
+      winner: null,
       scores: { [hostUser.id]: 0 },
       branches: { [hostUser.id]: 30 },
+      winningComics: [],
+      timeLimit: 2,
+      pointsToWin: 3
     };
 
     rooms.set(roomCode, initialRoomState);
@@ -92,10 +153,6 @@ async function startServer() {
     }
     res.json({ success: true });
   });
-
-  // Game state storage (in-memory for now)
-  const rooms = new Map<string, any>();
-  const socketToUser = new Map<string, { userId: string, roomCode: string }>();
 
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
