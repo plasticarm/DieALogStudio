@@ -9,6 +9,14 @@ import { generateRoomCode } from "./utils/roomUtils";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Game state storage (in-memory for now)
+// NOTE: On Vercel, this will be reset when the function spins down.
+const rooms = new Map<string, any>();
+
 let pusher: Pusher | null = null;
 
 if (process.env.PUSHER_APP_ID && process.env.PUSHER_APP_KEY && process.env.PUSHER_APP_SECRET && process.env.PUSHER_APP_CLUSTER) {
@@ -19,23 +27,10 @@ if (process.env.PUSHER_APP_ID && process.env.PUSHER_APP_KEY && process.env.PUSHE
     cluster: process.env.PUSHER_APP_CLUSTER,
     useTLS: true,
   });
-} else {
-  console.warn("Pusher environment variables are missing. Real-time features will be limited to Socket.io.");
 }
 
-async function startServer() {
-  const app = express();
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-  const httpServer = createServer(app);
-  
-  // Game state storage (in-memory for now)
-  const rooms = new Map<string, any>();
-
-  const PORT = 3000;
-
-  // API Routes
-  app.get('/api/health', (req, res) => {
+// API Routes
+app.get('/api/health', (req, res) => {
     const config = {
       appId: !!process.env.PUSHER_APP_ID,
       key: !!process.env.PUSHER_APP_KEY,
@@ -201,16 +196,22 @@ async function startServer() {
   });
 
   app.post('/api/game/update-state', async (req, res) => {
-    const { roomCode, newState } = req.body;
-    const room = rooms.get(roomCode);
-    if (room) {
-      Object.assign(room, newState);
-      if (pusher) {
-        await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
-      }
+  const { roomCode, newState } = req.body;
+  const room = rooms.get(roomCode);
+  if (room) {
+    Object.assign(room, newState);
+    if (pusher) {
+      await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
     }
-    res.json({ success: true });
-  });
+  }
+  res.json({ success: true });
+});
+
+export default app;
+
+async function startServer() {
+  const PORT = 3000;
+  const httpServer = createServer(app);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
@@ -231,4 +232,6 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
