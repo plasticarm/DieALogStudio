@@ -231,7 +231,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       else setConnectionStatus('disconnected');
     });
 
-    const channel = pusher.subscribe(`presence-room-${roomCode}`);
+    const channel = pusher.subscribe(`room-${roomCode}`);
 
     channel.bind('room-update', (updatedRoom: any) => {
       setRoom(updatedRoom);
@@ -298,7 +298,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     });
 
     return () => {
-      pusher.unsubscribe(`presence-room-${roomCode}`);
+      pusher.unsubscribe(`room-${roomCode}`);
       pusher.disconnect();
     };
   }, [user, history, comics, roomCode]);
@@ -547,19 +547,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
   const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
     cluster: import.meta.env.VITE_PUSHER_CLUSTER,
-    // Point to your new Vercel API route
-    authEndpoint: '/api/pusher/auth',
-    auth: {
-      params: {
-        user_id: user.id,
-        user_name: user.name
-      }
-    }
   });
 
-  const channel = pusher.subscribe(`presence-room-${roomCode}`);
+  const channel = pusher.subscribe(`room-${roomCode}`);
 
-  // This event triggers once the auth is successful
+  // This event triggers once the subscription is successful
   channel.bind('pusher:subscription_succeeded', () => {
     console.log("Successfully connected to the game room!");
   });
@@ -567,7 +559,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   // Handle other game events here...
 
   return () => {
-    pusher.unsubscribe(`presence-room-${roomCode}`);
+    pusher.unsubscribe(`room-${roomCode}`);
     pusher.disconnect();
   };
 }, [roomCode, user.id]);
@@ -1068,7 +1060,7 @@ const submitToJudge = async (imageUrl: string) => {
       else setConnectionStatus('disconnected');
     });
 
-    const channel = pusher.subscribe(`presence-room-${roomCode}`);
+    const channel = pusher.subscribe(`room-${roomCode}`);
 
     channel.bind('room-update', (data: any) => {
       setRoom(data);
@@ -1100,7 +1092,7 @@ const submitToJudge = async (imageUrl: string) => {
     });
 
     return () => {
-      pusher.unsubscribe(`presence-room-${roomCode}`);
+      pusher.unsubscribe(`room-${roomCode}`);
       pusher.disconnect();
     };
   }, [roomCode]);

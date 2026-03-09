@@ -108,57 +108,61 @@ app.get('/api/health', (req, res) => {
       console.log(`Room ${roomCode} stored in Map. Total rooms: ${rooms.size}`);
       
       if (pusher) {
-        try {
-          await pusher.trigger(`presence-room-${roomCode}`, 'room-update', initialRoomState);
-        } catch (pusherError) {
-          console.error("Pusher trigger failed:", pusherError);
-          // We don't necessarily want to fail the whole request if Pusher fails,
-          // but in a real-time game it's pretty critical.
-        }
+      try {
+        await pusher.trigger(`room-${roomCode}`, 'room-update', initialRoomState);
+      } catch (pusherError) {
+        console.error("Pusher trigger failed:", pusherError);
       }
-      
-      res.json(initialRoomState);
-    } catch (error) {
-      console.error("Game creation error:", error);
-      res.status(500).json({ error: "Failed to create game room", details: error instanceof Error ? error.message : String(error) });
     }
-  });
-
-  app.post('/api/game/join', async (req, res) => {
-    const { roomCode, user } = req.body;
-    let room = rooms.get(roomCode);
     
-    if (!room) {
-      return res.status(404).json({ error: "Room not found" });
+    res.json(initialRoomState);
+  } catch (error) {
+    console.error("Game creation error:", error);
+    res.status(500).json({ error: "Failed to create game room", details: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+app.get('/api/game/room/:code', (req, res) => {
+  const room = rooms.get(req.params.code.toUpperCase());
+  if (!room) return res.status(404).json({ error: "Room not found" });
+  res.json(room);
+});
+
+app.post('/api/game/join', async (req, res) => {
+  const { roomCode, user } = req.body;
+  let room = rooms.get(roomCode);
+  
+  if (!room) {
+    return res.status(404).json({ error: "Room not found" });
+  }
+
+  const player = {
+    id: user.id,
+    name: user.name,
+    picture: user.picture,
+    role: room.host === user.id ? 'host' : null
+  };
+
+  // Check if player already in room by user.id
+  const existingPlayerIdx = room.players.findIndex((p: any) => p.id === user.id);
+  if (existingPlayerIdx === -1) {
+    room.players.push(player);
+    if (room.scores && !room.scores[user.id]) {
+      room.scores[user.id] = 0;
     }
-
-    const player = {
-      id: user.id,
-      name: user.name,
-      picture: user.picture,
-      role: room.host === user.id ? 'host' : null
-    };
-
-    // Check if player already in room by user.id
-    const existingPlayerIdx = room.players.findIndex((p: any) => p.id === user.id);
-    if (existingPlayerIdx === -1) {
-      room.players.push(player);
-      if (room.scores && !room.scores[user.id]) {
-        room.scores[user.id] = 0;
-      }
-      if (room.branches && !room.branches[user.id]) {
-        room.branches[user.id] = 30;
-      }
-    } else {
-      room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
+    if (room.branches && !room.branches[user.id]) {
+      room.branches[user.id] = 30;
     }
+  } else {
+    room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
+  }
 
-    if (pusher) {
-      await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
-    }
+  if (pusher) {
+    await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+  }
 
-    res.json(room);
-  });
+  res.json(room);
+});
 
   app.post('/api/game/leave', async (req, res) => {
     const { roomCode, userId } = req.body;
@@ -176,7 +180,7 @@ app.get('/api/health', (req, res) => {
             room.players[0].role = 'host';
           }
           if (pusher) {
-            await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
+            await pusher.trigger(`room-${roomCode}`, 'room-update', room);
           }
         }
       }
@@ -190,8 +194,8 @@ app.get('/api/health', (req, res) => {
     if (room) {
       room.submissions.push(submission);
       if (pusher) {
-        await pusher.trigger(`presence-room-${roomCode}`, 'new-submission', { submission });
-        await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
+        await pusher.trigger(`room-${roomCode}`, 'new-submission', { submission });
+        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
       }
     }
     res.json({ success: true });
@@ -206,8 +210,8 @@ app.get('/api/health', (req, res) => {
       room.branches[playerId] = newBranchCount;
       
       if (pusher) {
-        await pusher.trigger(`presence-room-${roomCode}`, 'branch-deduction', { playerId, newBranchCount });
-        await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
+        await pusher.trigger(`room-${roomCode}`, 'branch-deduction', { playerId, newBranchCount });
+        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
       }
     }
     res.json({ success: true });
@@ -219,7 +223,7 @@ app.get('/api/health', (req, res) => {
   if (room) {
     Object.assign(room, newState);
     if (pusher) {
-      await pusher.trigger(`presence-room-${roomCode}`, 'room-update', room);
+      await pusher.trigger(`room-${roomCode}`, 'room-update', room);
     }
   }
   res.json({ success: true });
