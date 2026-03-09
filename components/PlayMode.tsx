@@ -867,19 +867,28 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       let imageUrl = activeStrip.exportImageUrl || activeStrip.finishedImageUrl;
       const originalImageUrl = imageUrl; // Keep for fallback
 
-      if (imageUrl.startsWith('vault:')) {
-        const resolved = await imageStore.getImage(imageUrl);
-        if (resolved) imageUrl = resolved;
+      // Try to get the image as a blob to avoid CORS issues with canvas
+      try {
+        let blobUrl = imageUrl;
+        if (imageUrl.startsWith('vault:')) {
+          const resolved = await imageStore.getImage(imageUrl);
+          if (resolved) blobUrl = resolved;
+        } else if (!imageUrl.startsWith('data:')) {
+          const response = await fetch(imageUrl, { mode: 'cors' });
+          const blob = await response.blob();
+          blobUrl = URL.createObjectURL(blob);
+        }
+        img.src = blobUrl;
+      } catch (e) {
+        console.warn("Failed to fetch image as blob, falling back to direct src:", e);
+        img.src = imageUrl;
       }
-      
-      img.src = imageUrl;
 
       try {
         await new Promise((resolve, reject) => {
           img.onload = resolve;
-          img.onerror = () => reject(new Error("Failed to load image for flattening. This might be a CORS issue."));
-          // Timeout after 10 seconds
-          setTimeout(() => reject(new Error("Image load timeout")), 10000);
+          img.onerror = () => reject(new Error("Failed to load image for flattening."));
+          setTimeout(() => reject(new Error("Image load timeout")), 15000);
         });
 
         canvas.width = img.width;
@@ -887,6 +896,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         ctx.drawImage(img, 0, 0);
 
         localTextFields.forEach(tf => {
+          ctx.save();
           const x = (tf.x / 100) * canvas.width;
           const y = (tf.y / 100) * canvas.height;
           const w = (tf.width / 100) * canvas.width;
@@ -898,14 +908,19 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             cleanText = cleanText.substring(nameMatch[0].length);
           }
 
+          if (!cleanText.trim()) {
+            ctx.restore();
+            return;
+          }
+
           const fontName = tf.font || 'Inter';
           const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
           
           let fontSize = 40 * (canvas.height / 1000);
-          ctx.font = `${fontSize}px "${fontFamily}"`;
+          ctx.font = `${fontSize}px "${fontFamily}", sans-serif`;
           
           const wrapText = (text: string, maxWidth: number) => {
-            const words = text.split(' ');
+            const words = text.split(/\s+/);
             const lines = [];
             if (words.length === 0) return [];
             let currentLine = words[0];
@@ -924,36 +939,37 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             return lines;
           };
 
-          while (fontSize > 8) {
-            ctx.font = `${fontSize}px "${fontFamily}"`;
-            const lines = wrapText(cleanText, w * 0.9);
-            const totalHeight = lines.length * fontSize * 1.2;
-            if (totalHeight < h * 0.9) break;
-            fontSize -= 1;
+          // Adjust font size to fit
+          while (fontSize > 12) {
+            ctx.font = `${fontSize}px "${fontFamily}", sans-serif`;
+            const lines = wrapText(cleanText, w * 0.85);
+            const totalHeight = lines.length * fontSize * 1.1;
+            if (totalHeight < h * 0.85) break;
+            fontSize -= 2;
           }
 
           ctx.fillStyle = '#000000';
           ctx.textAlign = tf.alignment as CanvasTextAlign || 'center';
           ctx.textBaseline = 'middle';
 
-          const lines = wrapText(cleanText, w * 0.9);
-          const lineHeight = fontSize * 1.2;
+          const lines = wrapText(cleanText, w * 0.85);
+          const lineHeight = fontSize * 1.1;
           const startY = y + h / 2 - ((lines.length - 1) * lineHeight) / 2;
 
           lines.forEach((line, i) => {
-            const lineX = tf.alignment === 'left' ? x + w * 0.05 : tf.alignment === 'right' ? x + w * 0.95 : x + w / 2;
+            const lineX = tf.alignment === 'left' ? x + w * 0.075 : tf.alignment === 'right' ? x + w * 0.925 : x + w / 2;
             ctx.fillText(line, lineX, startY + i * lineHeight);
           });
+          ctx.restore();
         });
 
-        const finalDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const finalDataUrl = canvas.toDataURL('image/jpeg', 0.9);
         const downscaled = await downscaleImage(finalDataUrl, 1200);
         const vaultedUrl = await imageStore.vaultify(downscaled);
         
         submitToJudge(vaultedUrl);
       } catch (flattenError) {
         console.warn("Flattening failed, submitting original image instead:", flattenError);
-        // Fallback to original image if flattening fails (e.g. CORS)
         submitToJudge(originalImageUrl);
       }
     } catch (error) {
