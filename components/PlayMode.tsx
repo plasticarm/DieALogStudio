@@ -254,35 +254,36 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         }
       }
 
-      setWinner(updatedRoom.winner || null);
+          setWinner(updatedRoom.winner || null);
 
-      if (updatedRoom.previewImage !== undefined) {
-        setPreviewImage(updatedRoom.previewImage);
-      }
+          if (updatedRoom.previewImage !== undefined) {
+            setPreviewImage(updatedRoom.previewImage);
+          }
 
-      if (updatedRoom.gameState === 'playing' && (updatedRoom.activeStripId || updatedRoom.activeStrip)) {
-        const strip = updatedRoom.activeStrip || history.find(h => h.id === updatedRoom.activeStripId);
-        if (strip) {
-          setActiveStrip(strip);
-          const profile = comics.find(c => c.id === strip.comicProfileId);
-          const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
-          setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
-          setSelectedComic({
-            id: `temp_${strip.id}`,
-            comicProfileId: strip.comicProfileId,
-            stripId: strip.id,
-            imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
-            rating: 0,
-            timestamp: Date.now(),
-            name: strip.name
-          });
-        }
-      } else if (updatedRoom.gameState === 'playing' && !updatedRoom.activeStripId && !updatedRoom.activeStrip) {
-        setSelectedComic(null);
-        setActiveStrip(null);
-        setLocalTextFields([]);
-      }
-    });
+          if (updatedRoom.gameState === 'playing' && (updatedRoom.activeStripId || updatedRoom.activeStrip)) {
+            const strip = updatedRoom.activeStrip || history.find(h => h.id === updatedRoom.activeStripId);
+            if (strip) {
+              setActiveStrip(strip);
+              const profile = comics.find(c => c.id === strip.comicProfileId);
+              const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
+              setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
+              setSelectedComic({
+                id: `temp_${strip.id}`,
+                comicProfileId: strip.comicProfileId,
+                stripId: strip.id,
+                imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
+                rating: 0,
+                timestamp: Date.now(),
+                name: strip.name
+              });
+            }
+          } else {
+            // If game state is playing but no active strip, ensure we are in waiting state
+            setSelectedComic(null);
+            setActiveStrip(null);
+            setLocalTextFields([]);
+          }
+        });
 
     channel.bind('new-submission', (data: any) => {
       setSubmittedComics(prev => {
@@ -373,6 +374,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             players: updatedPlayers,
             timeLimit,
             pointsToWin,
+            activeStripId: null,
+            activeStrip: null,
+            submissions: [],
+            winner: null,
             scores: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 0 }), {}),
             branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 30 }), {}),
             winningComics: []
@@ -948,6 +953,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             fontSize -= 2;
           }
 
+          // Draw a white outline for readability
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = fontSize * 0.15;
+          ctx.lineJoin = 'round';
           ctx.fillStyle = '#000000';
           ctx.textAlign = tf.alignment as CanvasTextAlign || 'center';
           ctx.textBaseline = 'middle';
@@ -958,6 +967,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
           lines.forEach((line, i) => {
             const lineX = tf.alignment === 'left' ? x + w * 0.075 : tf.alignment === 'right' ? x + w * 0.925 : x + w / 2;
+            ctx.strokeText(line, lineX, startY + i * lineHeight);
             ctx.fillText(line, lineX, startY + i * lineHeight);
           });
           ctx.restore();
@@ -1887,8 +1897,39 @@ const submitToJudge = async (imageUrl: string) => {
                   onDragStart={(e) => handleDragStart(e, comic)}
                   className={`relative group ${role === 'judge' && !winner ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 >
-                  <div className="w-48 aspect-square rounded-2xl overflow-hidden shadow-lg border-4 border-white transition-transform group-hover:scale-105">
+                  <div className="w-48 aspect-square rounded-2xl overflow-hidden shadow-lg border-4 border-white transition-transform group-hover:scale-105 relative">
                     <CachedImage src={comic.imageUrl} className="w-full h-full object-cover" />
+                    
+                    {/* Fallback Text Overlay for Judge */}
+                    {comic.textFields && comic.textFields.length > 0 && (
+                      <div className="absolute inset-0 pointer-events-none">
+                        {comic.textFields.map(tf => (
+                          <div 
+                            key={tf.id}
+                            style={{
+                              position: 'absolute',
+                              left: `${tf.x}%`,
+                              top: `${tf.y}%`,
+                              width: `${tf.width}%`,
+                              height: `${tf.height}%`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              textAlign: tf.alignment || 'center',
+                              padding: '4%',
+                              pointerEvents: 'none'
+                            }}
+                          >
+                            <AutoResizingText 
+                              text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                              alignment={tf.alignment || 'center'} 
+                              font={tf.font || 'Inter'} 
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <button 
                         onClick={() => handlePreviewImage(comic.imageUrl)}
