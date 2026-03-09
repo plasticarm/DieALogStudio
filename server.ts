@@ -1,10 +1,9 @@
 import express from "express";
 import { createServer } from "http";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import Pusher from "pusher";
-import { generateRoomCode } from "./utils/roomUtils";
+import { generateRoomCode } from "./utils/roomUtils.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,31 +78,47 @@ app.get('/api/health', (req, res) => {
   });
 
   app.post('/api/game/create', async (req, res) => {
-    const roomCode = generateRoomCode();
-    const { hostUser } = req.body;
+    try {
+      const { hostUser } = req.body;
+      
+      if (!hostUser || !hostUser.id) {
+        return res.status(400).json({ error: "Invalid host user data" });
+      }
 
-    const initialRoomState = {
-      roomCode,
-      host: hostUser.id,
-      players: [{ ...hostUser, role: 'host' }],
-      gameState: 'lobby',
-      activeStripId: null,
-      submissions: [],
-      winner: null,
-      scores: { [hostUser.id]: 0 },
-      branches: { [hostUser.id]: 30 },
-      winningComics: [],
-      timeLimit: 2,
-      pointsToWin: 3
-    };
+      const roomCode = generateRoomCode();
 
-    rooms.set(roomCode, initialRoomState);
-    
-    if (pusher) {
-      await pusher.trigger(`presence-room-${roomCode}`, 'room-update', initialRoomState);
+      const initialRoomState = {
+        roomCode,
+        host: hostUser.id,
+        players: [{ ...hostUser, role: 'host' }],
+        gameState: 'lobby',
+        activeStripId: null,
+        submissions: [],
+        winner: null,
+        scores: { [hostUser.id]: 0 },
+        branches: { [hostUser.id]: 30 },
+        winningComics: [],
+        timeLimit: 2,
+        pointsToWin: 3
+      };
+
+      rooms.set(roomCode, initialRoomState);
+      
+      if (pusher) {
+        try {
+          await pusher.trigger(`presence-room-${roomCode}`, 'room-update', initialRoomState);
+        } catch (pusherError) {
+          console.error("Pusher trigger failed:", pusherError);
+          // We don't necessarily want to fail the whole request if Pusher fails,
+          // but in a real-time game it's pretty critical.
+        }
+      }
+      
+      res.json(initialRoomState);
+    } catch (error) {
+      console.error("Game creation error:", error);
+      res.status(500).json({ error: "Failed to create game room", details: error instanceof Error ? error.message : String(error) });
     }
-    
-    res.json(initialRoomState);
   });
 
   app.post('/api/game/join', async (req, res) => {
@@ -215,6 +230,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
