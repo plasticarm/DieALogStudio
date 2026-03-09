@@ -80,12 +80,14 @@ app.get('/api/health', (req, res) => {
   app.post('/api/game/create', async (req, res) => {
     try {
       const { hostUser } = req.body;
+      console.log(`Creating room for user: ${hostUser?.name} (${hostUser?.id})`);
       
       if (!hostUser || !hostUser.id) {
         return res.status(400).json({ error: "Invalid host user data" });
       }
 
       const roomCode = generateRoomCode();
+      console.log(`Generated room code: ${roomCode}`);
 
       const initialRoomState = {
         roomCode,
@@ -103,6 +105,7 @@ app.get('/api/health', (req, res) => {
       };
 
       rooms.set(roomCode, initialRoomState);
+      console.log(`Room ${roomCode} stored in Map. Total rooms: ${rooms.size}`);
       
       if (pusher) {
         try {

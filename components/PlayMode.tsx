@@ -184,6 +184,37 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     );
   };
 
+  // Check for room code in URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlRoomCode = params.get('game');
+    if (urlRoomCode && !roomCode) {
+      setRoomCode(urlRoomCode.toUpperCase());
+      autoJoinGame(urlRoomCode.toUpperCase());
+    }
+  }, []);
+
+  const autoJoinGame = async (code: string) => {
+    try {
+      const response = await fetch('/api/game/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode: code, user }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to join room");
+      
+      const roomData = await response.json();
+      setRoom(roomData);
+    } catch (error) {
+      console.error("Auto-join failed:", error);
+      // If auto-join fails, clear the room code so they see the join screen
+      setRoomCode(null);
+      const newUrl = `${window.location.origin}${window.location.pathname}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+  };
+
   // Initialize Pusher
   useEffect(() => {
     if (!roomCode) return;
@@ -265,13 +296,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         };
       });
     });
-
-    // Check for room code in URL
-    const params = new URLSearchParams(window.location.search);
-    const urlRoomCode = params.get('game');
-    if (urlRoomCode && !roomCode) {
-      setRoomCode(urlRoomCode);
-    }
 
     return () => {
       pusher.unsubscribe(`presence-room-${roomCode}`);
