@@ -233,6 +233,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
     const channel = pusher.subscribe(`room-${roomCode}`);
 
+    channel.bind('pusher:subscription_succeeded', () => {
+      console.log("Successfully connected to the game room!");
+    });
+
     channel.bind('room-update', (updatedRoom: any) => {
       setRoom(updatedRoom);
       
@@ -281,7 +285,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     });
 
     channel.bind('new-submission', (data: any) => {
-      setSubmittedComics(prev => [...prev, data.submission]);
+      setSubmittedComics(prev => {
+        if (prev.some(s => s.id === data.submission.id)) return prev;
+        return [...prev, data.submission];
+      });
     });
 
     channel.bind('branch-deduction', (data: any) => {
@@ -541,28 +548,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       lastJudgePool.current = [];
     }
   }, [filteredRatings, judgeDeck.length]);
-
-  useEffect(() => {
-  if (!roomCode || !user) return;
-
-  const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
-    cluster: import.meta.env.VITE_PUSHER_CLUSTER,
-  });
-
-  const channel = pusher.subscribe(`room-${roomCode}`);
-
-  // This event triggers once the subscription is successful
-  channel.bind('pusher:subscription_succeeded', () => {
-    console.log("Successfully connected to the game room!");
-  });
-
-  // Handle other game events here...
-
-  return () => {
-    pusher.unsubscribe(`room-${roomCode}`);
-    pusher.disconnect();
-  };
-}, [roomCode, user.id]);
 
   // Timer States
   const [timeLimit, setTimeLimit] = useState(2); // Default 2 minutes
@@ -984,7 +969,7 @@ const submitToJudge = async (imageUrl: string) => {
   if (!activeStrip || !roomCode) return;
 
   const newSubmission: RatedComic = {
-    id: `sub_${Date.now()}`,
+    id: `sub_${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     stripId: activeStrip.id,
     comicProfileId: activeStrip.comicProfileId,
     name: `Submission ${submittedComics.length + 1}`,
@@ -1044,58 +1029,6 @@ const submitToJudge = async (imageUrl: string) => {
     setTimeLeft(null);
     setPreGameState('none');
   };
-
-  useEffect(() => {
-    if (!roomCode) return;
-
-    const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
-      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
-    });
-
-    // Track Connection States
-    pusher.connection.bind('state_change', (states: any) => {
-      if (states.current === 'connected') setConnectionStatus('connected');
-      else if (states.current === 'connecting') setConnectionStatus('connecting');
-      else if (states.current === 'unavailable' || states.current === 'failed') setConnectionStatus('unavailable');
-      else setConnectionStatus('disconnected');
-    });
-
-    const channel = pusher.subscribe(`room-${roomCode}`);
-
-    channel.bind('room-update', (data: any) => {
-      setRoom(data);
-      if (data.activeStrip) {
-        setActiveStrip(data.activeStrip);
-        setLocalTextFields(data.activeStrip.textFields || []);
-      }
-      if (data.submissions) setSubmittedComics(data.submissions);
-      if (data.winner) setWinner(data.winner);
-      if (data.previewImage !== undefined) setPreviewImage(data.previewImage);
-    });
-
-    channel.bind('new-submission', (data: any) => {
-      setSubmittedComics(prev => [...prev, data.submission]);
-    });
-
-    channel.bind('branch-deduction', (data: any) => {
-      // The room-update will handle the full state, but we can update locally for snappiness
-      setRoom((prev: any) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          branches: {
-            ...prev.branches,
-            [data.playerId]: data.newBranchCount
-          }
-        };
-      });
-    });
-
-    return () => {
-      pusher.unsubscribe(`room-${roomCode}`);
-      pusher.disconnect();
-    };
-  }, [roomCode]);
 
   if (!roomCode) {
     return (
