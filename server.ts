@@ -3,7 +3,7 @@ import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import Pusher from "pusher";
-import { generateRoomCode } from "./utils/roomUtils.ts";
+import { generateRoomCode } from "./utils/roomUtils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
