@@ -213,12 +213,32 @@ export const TestingLab: React.FC<TestingLabProps> = ({
     img.crossOrigin = "anonymous";
     
     let imageUrl = selectedStrip.exportImageUrl || selectedStrip.finishedImageUrl;
-    if (imageUrl.startsWith('vault:')) {
-      const resolved = await imageStore.getImage(imageUrl);
-      if (resolved) imageUrl = resolved;
-    }
     
-    img.src = imageUrl;
+    try {
+      let blobUrl = imageUrl;
+      if (imageUrl.startsWith('vault:')) {
+        const resolved = await imageStore.getImage(imageUrl);
+        if (resolved) blobUrl = resolved;
+      } else if (!imageUrl.startsWith('data:')) {
+        try {
+          const response = await fetch(imageUrl, { mode: 'cors' });
+          if (!response.ok) throw new Error('CORS fetch failed');
+          const blob = await response.blob();
+          blobUrl = URL.createObjectURL(blob);
+        } catch (corsError) {
+          console.warn("CORS fetch failed, trying proxy...", corsError);
+          const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+          const response = await fetch(proxyUrl);
+          if (!response.ok) throw new Error('Proxy fetch failed');
+          const blob = await response.blob();
+          blobUrl = URL.createObjectURL(blob);
+        }
+      }
+      img.src = blobUrl;
+    } catch (e) {
+      console.warn("Failed to fetch image as blob, falling back to direct src:", e);
+      img.src = imageUrl;
+    }
 
     await new Promise((resolve) => {
       img.onload = resolve;
@@ -245,7 +265,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
       const fontName = tf.font || 'Inter';
       const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
       
-      let fontSize = 40 * (canvas.height / 1000);
+      let fontSize = h; // Start with the maximum possible height
       ctx.font = `${fontSize}px "${fontFamily}"`;
       
       const wrapText = (text: string, maxWidth: number) => {
@@ -272,7 +292,9 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         ctx.font = `${fontSize}px "${fontFamily}"`;
         const lines = wrapText(cleanText, w * 0.9);
         const totalHeight = lines.length * fontSize * 1.2;
-        if (totalHeight < h * 0.9) break;
+        const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+        
+        if (totalHeight <= h * 0.9 && maxLineWidth <= w * 0.9) break;
         fontSize -= 1;
       }
 

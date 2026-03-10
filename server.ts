@@ -29,6 +29,31 @@ if (process.env.PUSHER_APP_ID && process.env.PUSHER_APP_KEY && process.env.PUSHE
 }
 
 // API Routes
+app.get('/api/proxy-image', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).send('Missing url parameter');
+    }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.statusText}`);
+    }
+    const contentType = response.headers.get('content-type');
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Proxy error:', error);
+    res.status(500).send('Failed to proxy image');
+  }
+});
+
 app.get('/api/health', (req, res) => {
     const config = {
       appId: !!process.env.PUSHER_APP_ID,
@@ -108,12 +133,12 @@ app.get('/api/health', (req, res) => {
       console.log(`Room ${roomCode} stored in Map. Total rooms: ${rooms.size}`);
       
       if (pusher) {
-      try {
-        await pusher.trigger(`room-${roomCode}`, 'room-update', initialRoomState);
-      } catch (pusherError) {
-        console.error("Pusher trigger failed:", pusherError);
+        try {
+          await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
+        } catch (pusherError) {
+          console.error("Pusher trigger failed:", pusherError);
+        }
       }
-    }
     
     res.json(initialRoomState);
   } catch (error) {
@@ -158,7 +183,11 @@ app.post('/api/game/join', async (req, res) => {
   }
 
   if (pusher) {
-    await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+    try {
+      await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
+    } catch (pusherError) {
+      console.error("Pusher trigger failed:", pusherError);
+    }
   }
 
   res.json(room);
@@ -180,7 +209,11 @@ app.post('/api/game/join', async (req, res) => {
             room.players[0].role = 'host';
           }
           if (pusher) {
-            await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+            try {
+              await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
+            } catch (pusherError) {
+              console.error("Pusher trigger failed:", pusherError);
+            }
           }
         }
       }
@@ -194,8 +227,12 @@ app.post('/api/game/join', async (req, res) => {
     if (room) {
       room.submissions.push(submission);
       if (pusher) {
-        await pusher.trigger(`room-${roomCode}`, 'new-submission', { submission });
-        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+        try {
+          await pusher.trigger(`room-${roomCode}`, 'new-submission', { submissionId: submission.id });
+          await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
+        } catch (pusherError) {
+          console.error("Pusher trigger failed:", pusherError);
+        }
       }
     }
     res.json({ success: true });
@@ -210,8 +247,12 @@ app.post('/api/game/join', async (req, res) => {
       room.branches[playerId] = newBranchCount;
       
       if (pusher) {
-        await pusher.trigger(`room-${roomCode}`, 'branch-deduction', { playerId, newBranchCount });
-        await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+        try {
+          await pusher.trigger(`room-${roomCode}`, 'branch-deduction', { playerId, newBranchCount });
+          await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
+        } catch (pusherError) {
+          console.error("Pusher trigger failed:", pusherError);
+        }
       }
     }
     res.json({ success: true });
@@ -223,7 +264,11 @@ app.post('/api/game/join', async (req, res) => {
   if (room) {
     Object.assign(room, newState);
     if (pusher) {
-      await pusher.trigger(`room-${roomCode}`, 'room-update', room);
+      try {
+        await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
+      } catch (pusherError) {
+        console.error("Pusher trigger failed:", pusherError);
+      }
     }
   }
   res.json({ success: true });

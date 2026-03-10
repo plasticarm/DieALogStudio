@@ -237,33 +237,40 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       console.log("Successfully connected to the game room!");
     });
 
-    channel.bind('room-update', (updatedRoom: any) => {
-      setRoom(updatedRoom);
-      
-      const me = updatedRoom.players.find((p: any) => p.id === user.id);
-      if (me && me.role) {
-        setRole(me.role);
-      }
-
-      // Sync submissions
-      if (updatedRoom.submissions) {
-        setSubmittedComics(updatedRoom.submissions);
-        if (updatedRoom.submissions.length === 0) {
-          setHasSubmitted(false);
-          setUsedHints(new Set());
+    channel.bind('room-update', async () => {
+      try {
+        const res = await fetch(`/api/game/room/${roomCode}`);
+        if (!res.ok) return;
+        const updatedRoom = await res.json();
+        
+        setRoom(updatedRoom);
+        
+        const me = updatedRoom.players.find((p: any) => p.id === user.id);
+        if (me && me.role) {
+          setRole(me.role);
         }
-      }
 
-          setWinner(updatedRoom.winner || null);
-
-          if (updatedRoom.previewImage !== undefined) {
-            setPreviewImage(updatedRoom.previewImage);
+        // Sync submissions
+        if (updatedRoom.submissions) {
+          setSubmittedComics(updatedRoom.submissions);
+          if (updatedRoom.submissions.length === 0) {
+            setHasSubmitted(false);
+            setUsedHints(new Set());
           }
+        }
 
-          if (updatedRoom.gameState === 'playing' && (updatedRoom.activeStripId || updatedRoom.activeStrip)) {
-            const strip = updatedRoom.activeStrip || history.find(h => h.id === updatedRoom.activeStripId);
-            if (strip) {
-              setActiveStrip(strip);
+        setWinner(updatedRoom.winner || null);
+
+        if (updatedRoom.previewImage !== undefined) {
+          setPreviewImage(updatedRoom.previewImage);
+        }
+
+        if (updatedRoom.gameState === 'playing' && (updatedRoom.activeStripId || updatedRoom.activeStrip)) {
+          const strip = updatedRoom.activeStrip || history.find(h => h.id === updatedRoom.activeStripId);
+          if (strip) {
+            setActiveStrip(strip);
+            if (activeStripIdRef.current !== strip.id) {
+              activeStripIdRef.current = strip.id;
               const profile = comics.find(c => c.id === strip.comicProfileId);
               const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
               setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
@@ -277,32 +284,25 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                 name: strip.name
               });
             }
-          } else {
-            // If game state is playing but no active strip, ensure we are in waiting state
-            setSelectedComic(null);
-            setActiveStrip(null);
-            setLocalTextFields([]);
           }
-        });
-
-    channel.bind('new-submission', (data: any) => {
-      setSubmittedComics(prev => {
-        if (prev.some(s => s.id === data.submission.id)) return prev;
-        return [...prev, data.submission];
-      });
+        } else {
+          // If game state is playing but no active strip, ensure we are in waiting state
+          setSelectedComic(null);
+          setActiveStrip(null);
+          activeStripIdRef.current = null;
+          setLocalTextFields([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch room state:", err);
+      }
     });
 
-    channel.bind('branch-deduction', (data: any) => {
-      setRoom((prev: any) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          branches: {
-            ...prev.branches,
-            [data.playerId]: data.newBranchCount
-          }
-        };
-      });
+    channel.bind('new-submission', () => {
+      // Handled by room-update
+    });
+
+    channel.bind('branch-deduction', () => {
+      // Handled by room-update
     });
 
     return () => {
@@ -477,23 +477,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
   const [isSavingLocal, setIsSavingLocal] = useState(false);
   const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
+  const activeStripIdRef = useRef<string | null>(null);
   const [isEnlarged, setIsEnlarged] = useState(false);
   const [preGameState, setPreGameState] = useState<'none' | 'cover' | 'go'>('none');
 
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(GENRES.map(g => g.id));
-
-  // Filter binderPages to only those present in history to avoid dead links
-  const validBinderPages = React.useMemo(() => {
-    return binderPages.filter(id => history.some(h => h.id === id));
-  }, [binderPages, history]);
-
-  const filteredBinderPages = React.useMemo(() => {
-    return validBinderPages.filter(id => {
-      const strip = history.find(h => h.id === id);
-      const profile = comics.find(c => c.id === strip?.comicProfileId);
-      return profile && selectedGenreIds.includes(profile.category);
-    });
-  }, [validBinderPages, history, comics, selectedGenreIds]);
 
   const filteredRatings = React.useMemo(() => {
     return ratings.filter(r => {
@@ -504,35 +492,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   }, [ratings, history, comics, selectedGenreIds]);
 
   // Deck States
-  const [writerDeck, setWriterDeck] = useState<string[]>([]);
   const [judgeDeck, setJudgeDeck] = useState<string[]>([]);
-  const lastWriterPool = useRef<string[]>([]);
   const lastJudgePool = useRef<string[]>([]);
-  const lastPickedWriterId = useRef<string | null>(null);
   const lastPickedJudgeId = useRef<string | null>(null);
 
   // Initialize/Shuffle Decks
-  useEffect(() => {
-    if (filteredBinderPages.length > 0) {
-      const poolChanged = lastWriterPool.current.length !== filteredBinderPages.length || 
-                          lastWriterPool.current.some(id => !filteredBinderPages.includes(id));
-      
-      if (writerDeck.length === 0 || poolChanged) {
-        let newDeck = shuffleArray([...filteredBinderPages]);
-        // Avoid immediate repeat if possible
-        if (newDeck.length > 1 && newDeck[newDeck.length - 1] === lastPickedWriterId.current) {
-          // Swap last with first
-          [newDeck[0], newDeck[newDeck.length - 1]] = [newDeck[newDeck.length - 1], newDeck[0]];
-        }
-        setWriterDeck(newDeck);
-        lastWriterPool.current = [...filteredBinderPages];
-      }
-    } else {
-      setWriterDeck([]);
-      lastWriterPool.current = [];
-    }
-  }, [filteredBinderPages, writerDeck.length]);
-
   useEffect(() => {
     const ratingIds = filteredRatings.map(r => r.id);
     if (ratingIds.length > 0) {
@@ -643,22 +607,46 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   }, [previewImage]);
 
-  const pickWriterComic = () => {
-    if (filteredBinderPages.length === 0) return;
+  // Start pre-game sequence for writer when activeStrip is set
+  useEffect(() => {
+    if (role === 'writer' && activeStrip && room?.gameState === 'playing' && !hasSubmitted) {
+      setPreGameState('cover');
+      setTimeLeft((room.timeLimit || timeLimit) * 60);
+
+      const t1 = setTimeout(() => {
+        setPreGameState('go');
+        const t2 = setTimeout(() => {
+          setPreGameState('none');
+        }, 1000);
+      }, 3000);
+
+      return () => {
+        clearTimeout(t1);
+      };
+    }
+  }, [activeStrip?.id, role, room?.gameState]);
+
+  const handlePickComic = () => {
+    if (filteredRatings.length === 0) return;
     
-    let currentDeck = [...writerDeck];
+    let currentDeck = [...judgeDeck];
     if (currentDeck.length === 0) {
-      currentDeck = shuffleArray([...filteredBinderPages]);
-      if (currentDeck.length > 1 && currentDeck[currentDeck.length - 1] === lastPickedWriterId.current) {
+      currentDeck = shuffleArray(filteredRatings.map(r => r.id));
+      if (currentDeck.length > 1 && currentDeck[currentDeck.length - 1] === lastPickedJudgeId.current) {
         [currentDeck[0], currentDeck[currentDeck.length - 1]] = [currentDeck[currentDeck.length - 1], currentDeck[0]];
       }
     }
     
     const nextId = currentDeck.pop()!;
-    lastPickedWriterId.current = nextId;
-    setWriterDeck(currentDeck);
+    lastPickedJudgeId.current = nextId;
+    setJudgeDeck(currentDeck);
     
-    const strip = history.find(h => h.id === nextId);
+    const randomComic = filteredRatings.find(r => r.id === nextId);
+    if (!randomComic) return;
+    
+    setSelectedComic(randomComic);
+    
+    const strip = history.find(h => h.id === randomComic.stripId);
     if (strip) {
       const profile = comics.find(c => c.id === strip.comicProfileId);
       const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
@@ -667,120 +655,34 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       // Initialize text fields as empty and use the series primary font
       setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
       setUsedHints(new Set());
-      
-      // Mock a RatedComic for selectedComic
-      setSelectedComic({
-        id: `temp_${strip.id}`,
-        comicProfileId: strip.comicProfileId,
-        stripId: strip.id,
-        imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
-        rating: 0,
-        timestamp: Date.now(),
-        name: strip.name
+    }
+    
+    // Simulate submitted comics for the judge from existing ratings
+    // Filter these as well to ensure they match the genre if needed, though they are just distractors
+    const others = filteredRatings
+      .filter(r => r.id !== randomComic.id && r.stripId === randomComic.stripId)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 4); // Get up to 4 archived comics for the same strip
+    setSubmittedComics(others);
+
+    // Sync to room if judge
+    if (role === 'judge' && roomCode) {
+      fetch('/api/game/update-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomCode,
+          newState: { 
+            gameState: 'playing',
+            activeStripId: strip?.id,
+            activeStrip: strip,
+            selectedComic: randomComic,
+            previewImage: null
+          }
+        })
       });
-
-      // Start pre-game sequence
-      setPreGameState('cover');
-      setTimeLeft(timeLimit * 60);
-
-      // Sync to room if host
-      if (room?.host === user?.id && roomCode) {
-        fetch('/api/game/update-state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomCode,
-            newState: { 
-              gameState: 'playing',
-              activeStripId: strip.id,
-              activeStrip: strip,
-              timeLimit: timeLimit
-            }
-          })
-        });
-      }
-
-      setTimeout(() => {
-        setPreGameState('go');
-        setTimeout(() => {
-          setPreGameState('none');
-        }, 1000);
-      }, 3000);
     }
   };
-
-  const handlePickComic = () => {
-    if (role === 'writer') {
-      pickWriterComic();
-    } else {
-      if (filteredRatings.length === 0) return;
-      
-      let currentDeck = [...judgeDeck];
-      if (currentDeck.length === 0) {
-        currentDeck = shuffleArray(filteredRatings.map(r => r.id));
-        if (currentDeck.length > 1 && currentDeck[currentDeck.length - 1] === lastPickedJudgeId.current) {
-          [currentDeck[0], currentDeck[currentDeck.length - 1]] = [currentDeck[currentDeck.length - 1], currentDeck[0]];
-        }
-      }
-      
-      const nextId = currentDeck.pop()!;
-      lastPickedJudgeId.current = nextId;
-      setJudgeDeck(currentDeck);
-      
-      const randomComic = filteredRatings.find(r => r.id === nextId);
-      if (!randomComic) return;
-      
-      setSelectedComic(randomComic);
-      
-      const strip = history.find(h => h.id === randomComic.stripId);
-      if (strip) {
-        const profile = comics.find(c => c.id === strip.comicProfileId);
-        const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
-
-        setActiveStrip(strip);
-        // Initialize text fields as empty and use the series primary font
-        setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
-        setUsedHints(new Set());
-      }
-      
-      // Simulate submitted comics for the judge from existing ratings
-      // Filter these as well to ensure they match the genre if needed, though they are just distractors
-      const others = filteredRatings
-        .filter(r => r.id !== randomComic.id && r.stripId === randomComic.stripId)
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 4); // Get up to 4 archived comics for the same strip
-      setSubmittedComics(others);
-
-      // Sync to room if judge
-      if (role === 'judge' && roomCode) {
-        fetch('/api/game/update-state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomCode,
-            newState: { 
-              gameState: 'playing',
-              activeStripId: strip?.id,
-              activeStrip: strip,
-              selectedComic: randomComic,
-              previewImage: null
-            }
-          })
-        });
-      }
-    }
-  };
-
-  // Auto-pick for writer when role changes
-  useEffect(() => {
-    if (role === 'writer' && !selectedComic && !activeStrip && filteredBinderPages.length > 0 && writerDeck.length > 0) {
-      // Small timeout to ensure state is settled
-      const timer = setTimeout(() => {
-        pickWriterComic();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [role, selectedComic, activeStrip, filteredBinderPages.length, writerDeck.length]);
 
   const handlePreviewImage = (url: string | null) => {
     setPreviewImage(url);
@@ -879,9 +781,19 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           const resolved = await imageStore.getImage(imageUrl);
           if (resolved) blobUrl = resolved;
         } else if (!imageUrl.startsWith('data:')) {
-          const response = await fetch(imageUrl, { mode: 'cors' });
-          const blob = await response.blob();
-          blobUrl = URL.createObjectURL(blob);
+          try {
+            const response = await fetch(imageUrl, { mode: 'cors' });
+            if (!response.ok) throw new Error('CORS fetch failed');
+            const blob = await response.blob();
+            blobUrl = URL.createObjectURL(blob);
+          } catch (corsError) {
+            console.warn("CORS fetch failed, trying proxy...", corsError);
+            const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error('Proxy fetch failed');
+            const blob = await response.blob();
+            blobUrl = URL.createObjectURL(blob);
+          }
         }
         img.src = blobUrl;
       } catch (e) {
@@ -921,7 +833,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           const fontName = tf.font || 'Inter';
           const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
           
-          let fontSize = 40 * (canvas.height / 1000);
+          let fontSize = h; // Start with the maximum possible height
           ctx.font = `${fontSize}px "${fontFamily}", sans-serif`;
           
           const wrapText = (text: string, maxWidth: number) => {
@@ -947,27 +859,24 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           // Adjust font size to fit
           while (fontSize > 12) {
             ctx.font = `${fontSize}px "${fontFamily}", sans-serif`;
-            const lines = wrapText(cleanText, w * 0.85);
-            const totalHeight = lines.length * fontSize * 1.1;
-            if (totalHeight < h * 0.85) break;
+            const lines = wrapText(cleanText, w * 0.9);
+            const totalHeight = lines.length * fontSize * 1.2;
+            const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+            
+            if (totalHeight <= h * 0.9 && maxLineWidth <= w * 0.9) break;
             fontSize -= 2;
           }
 
-          // Draw a white outline for readability
-          ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = fontSize * 0.15;
-          ctx.lineJoin = 'round';
           ctx.fillStyle = '#000000';
           ctx.textAlign = tf.alignment as CanvasTextAlign || 'center';
           ctx.textBaseline = 'middle';
 
-          const lines = wrapText(cleanText, w * 0.85);
-          const lineHeight = fontSize * 1.1;
+          const lines = wrapText(cleanText, w * 0.9);
+          const lineHeight = fontSize * 1.2;
           const startY = y + h / 2 - ((lines.length - 1) * lineHeight) / 2;
 
           lines.forEach((line, i) => {
-            const lineX = tf.alignment === 'left' ? x + w * 0.075 : tf.alignment === 'right' ? x + w * 0.925 : x + w / 2;
-            ctx.strokeText(line, lineX, startY + i * lineHeight);
+            const lineX = tf.alignment === 'left' ? x + w * 0.05 : tf.alignment === 'right' ? x + w * 0.95 : x + w / 2;
             ctx.fillText(line, lineX, startY + i * lineHeight);
           });
           ctx.restore();
@@ -1566,10 +1475,9 @@ const submitToJudge = async (imageUrl: string) => {
           ) : (
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
               <h2 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-6">
-                Ready to {role === 'judge' ? 'Judge' : 'Write'}
+                Ready to Judge
               </h2>
             
-            {role === 'judge' && (
               <div className="mb-8 w-full max-w-3xl">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Select Genres for Game</p>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -1596,7 +1504,6 @@ const submitToJudge = async (imageUrl: string) => {
                   ))}
                 </div>
               </div>
-            )}
 
             <div className="flex items-center justify-center gap-4 mb-10">
               <div className="w-16 h-16 bg-stone-100 rounded-2xl flex items-center justify-center text-amber-700 text-2xl">
@@ -1604,13 +1511,13 @@ const submitToJudge = async (imageUrl: string) => {
               </div>
               <div className="text-left">
                 <span className="block text-3xl font-black text-slate-800">
-                  {role === 'writer' ? filteredBinderPages.length : filteredRatings.length}
+                  {filteredRatings.length}
                 </span>
                 <span className="block text-xs font-black uppercase tracking-widest text-slate-400">Comics Available</span>
               </div>
             </div>
 
-            {(role === 'writer' ? filteredBinderPages.length > 0 : filteredRatings.length > 0) ? (
+            {filteredRatings.length > 0 ? (
               <button 
                 onClick={handlePickComic}
                 className="px-12 py-5 bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-xl shadow-xl hover:bg-amber-800 transition-all hover:scale-105"
@@ -1622,7 +1529,7 @@ const submitToJudge = async (imageUrl: string) => {
                 <i className="fa-solid fa-triangle-exclamation text-3xl mb-3"></i>
                 <p className="font-bold">No comics available!</p>
                 <p className="text-sm mt-2 opacity-80">
-                  {role === 'judge' && selectedGenreIds.length < GENRES.length 
+                  {selectedGenreIds.length < GENRES.length 
                     ? "Try selecting more genres." 
                     : "Go back to Edit mode and use the Testing Lab to submit comics to Play Mode."}
                 </p>
@@ -1662,6 +1569,41 @@ const submitToJudge = async (imageUrl: string) => {
               {winner ? (
                 <div className="relative w-full h-full p-2">
                   <CachedImage src={winner.imageUrl} className="w-full h-full object-cover rounded-2xl shadow-lg" />
+                  
+                  {/* Fallback Text Overlay for Winner */}
+                  {winner.textFields && winner.textFields.length > 0 && (
+                    <div className="absolute inset-2 pointer-events-none rounded-2xl overflow-hidden">
+                      {winner.textFields.map(tf => (
+                        <div 
+                          key={tf.id}
+                          className="absolute flex items-center justify-center pointer-events-none"
+                          style={{
+                            left: `${tf.x}%`,
+                            top: `${tf.y}%`,
+                            width: `${tf.width}%`,
+                            height: `${tf.height}%`,
+                            textAlign: tf.alignment || 'center',
+                          }}
+                        >
+                          <div 
+                            className="w-full h-full flex items-center justify-center overflow-hidden"
+                            style={{
+                              fontFamily: getFontFamily(tf.font || 'Inter'),
+                              color: 'black',
+                              lineHeight: 0.8,
+                            }}
+                          >
+                            <AutoResizingText 
+                              text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                              alignment={tf.alignment || 'center'} 
+                              font={tf.font || 'Inter'} 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="absolute -top-4 -right-4 w-12 h-12 bg-amber-600 text-white rounded-full flex items-center justify-center text-2xl shadow-xl">
                     <i className="fa-solid fa-star"></i>
                   </div>
@@ -1906,25 +1848,29 @@ const submitToJudge = async (imageUrl: string) => {
                         {comic.textFields.map(tf => (
                           <div 
                             key={tf.id}
+                            className="absolute flex items-center justify-center pointer-events-none"
                             style={{
-                              position: 'absolute',
                               left: `${tf.x}%`,
                               top: `${tf.y}%`,
                               width: `${tf.width}%`,
                               height: `${tf.height}%`,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
                               textAlign: tf.alignment || 'center',
-                              padding: '4%',
-                              pointerEvents: 'none'
                             }}
                           >
-                            <AutoResizingText 
-                              text={tf.text.replace(/^[^:]+:\s*/, '')} 
-                              alignment={tf.alignment || 'center'} 
-                              font={tf.font || 'Inter'} 
-                            />
+                            <div 
+                              className="w-full h-full flex items-center justify-center overflow-hidden"
+                              style={{
+                                fontFamily: getFontFamily(tf.font || 'Inter'),
+                                color: 'black',
+                                lineHeight: 0.8,
+                              }}
+                            >
+                              <AutoResizingText 
+                                text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                                alignment={tf.alignment || 'center'} 
+                                font={tf.font || 'Inter'} 
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2202,6 +2148,47 @@ const submitToJudge = async (imageUrl: string) => {
         <div className="fixed inset-0 z-[2000] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => handlePreviewImage(null)}>
           <div className="relative max-w-8xl max-h-full">
             <img src={resolvedPreviewImage || null} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.4)] border-[12px] border-white animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
+            
+            {/* Render text fields on preview if it matches a submitted comic */}
+            {(() => {
+              const previewComic = submittedComics.find(c => c.imageUrl === previewImage) || (winner?.imageUrl === previewImage ? winner : null);
+              if (previewComic && previewComic.textFields && previewComic.textFields.length > 0) {
+                return (
+                  <div className="absolute inset-0 pointer-events-none rounded-3xl overflow-hidden animate-in zoom-in-95" style={{ margin: '12px' }}>
+                    {previewComic.textFields.map(tf => (
+                      <div 
+                        key={tf.id}
+                        className="absolute flex items-center justify-center pointer-events-none"
+                        style={{
+                          left: `${tf.x}%`,
+                          top: `${tf.y}%`,
+                          width: `${tf.width}%`,
+                          height: `${tf.height}%`,
+                          textAlign: tf.alignment || 'center',
+                        }}
+                      >
+                        <div 
+                          className="w-full h-full flex items-center justify-center overflow-hidden"
+                          style={{
+                            fontFamily: getFontFamily(tf.font || 'Inter'),
+                            color: 'black',
+                            lineHeight: 0.8,
+                          }}
+                        >
+                          <AutoResizingText 
+                            text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                            alignment={tf.alignment || 'center'} 
+                            font={tf.font || 'Inter'} 
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <button className="absolute -top-6 -right-6 bg-slate-800 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-110 transition-all shadow-2xl" onClick={() => handlePreviewImage(null)}>
               <i className="fa-solid fa-xmark"></i>
             </button>
