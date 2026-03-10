@@ -120,6 +120,7 @@ export interface RatedComic {
   name: string;
   textFields?: TextField[];
   playerId?: string;
+  isFlattened?: boolean;
 }
 
 export interface ProjectState {

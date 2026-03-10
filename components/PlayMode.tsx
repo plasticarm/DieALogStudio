@@ -884,12 +884,24 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
         const finalDataUrl = canvas.toDataURL('image/jpeg', 0.9);
         const downscaled = await downscaleImage(finalDataUrl, 1200);
-        const vaultedUrl = await imageStore.vaultify(downscaled);
         
-        submitToJudge(vaultedUrl);
+        // Upload the flattened image to the server so the judge can see it
+        const uploadId = `flat_${user.id}_${Date.now()}`;
+        const uploadResponse = await fetch('/api/upload-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: uploadId, dataUrl: downscaled })
+        });
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload flattened image');
+        }
+        
+        const { url: uploadedUrl } = await uploadResponse.json();
+        submitToJudge(uploadedUrl, true);
       } catch (flattenError) {
         console.warn("Flattening failed, submitting original image instead:", flattenError);
-        submitToJudge(originalImageUrl);
+        submitToJudge(originalImageUrl, false);
       }
     } catch (error) {
       console.error("Failed to process submission:", error);
@@ -900,7 +912,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   };
 
-const submitToJudge = async (imageUrl: string) => {
+const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => {
   if (!activeStrip || !roomCode) return;
 
   const newSubmission: RatedComic = {
@@ -912,7 +924,8 @@ const submitToJudge = async (imageUrl: string) => {
     rating: 0,
     timestamp: Date.now(),
     textFields: localTextFields,
-    playerId: user.id // Using user.id since socket.id is less reliable in serverless
+    playerId: user.id, // Using user.id since socket.id is less reliable in serverless
+    isFlattened: isFlattened
   };
 
   try {
@@ -1571,7 +1584,7 @@ const submitToJudge = async (imageUrl: string) => {
                   <CachedImage src={winner.imageUrl} className="w-full h-full object-cover rounded-2xl shadow-lg" />
                   
                   {/* Fallback Text Overlay for Winner */}
-                  {winner.textFields && winner.textFields.length > 0 && (
+                  {winner.textFields && winner.textFields.length > 0 && !winner.isFlattened && (
                     <div className="absolute inset-2 pointer-events-none rounded-2xl overflow-hidden">
                       {winner.textFields.map(tf => (
                         <div 
@@ -1843,7 +1856,7 @@ const submitToJudge = async (imageUrl: string) => {
                     <CachedImage src={comic.imageUrl} className="w-full h-full object-cover" />
                     
                     {/* Fallback Text Overlay for Judge */}
-                    {comic.textFields && comic.textFields.length > 0 && (
+                    {comic.textFields && comic.textFields.length > 0 && !comic.isFlattened && (
                       <div className="absolute inset-0 pointer-events-none">
                         {comic.textFields.map(tf => (
                           <div 
@@ -2152,7 +2165,7 @@ const submitToJudge = async (imageUrl: string) => {
             {/* Render text fields on preview if it matches a submitted comic */}
             {(() => {
               const previewComic = submittedComics.find(c => c.imageUrl === previewImage) || (winner?.imageUrl === previewImage ? winner : null);
-              if (previewComic && previewComic.textFields && previewComic.textFields.length > 0) {
+              if (previewComic && previewComic.textFields && previewComic.textFields.length > 0 && !previewComic.isFlattened) {
                 return (
                   <div className="absolute inset-0 pointer-events-none rounded-3xl overflow-hidden animate-in zoom-in-95" style={{ margin: '12px' }}>
                     {previewComic.textFields.map(tf => (

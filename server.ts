@@ -9,12 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Game state storage (in-memory for now)
 // NOTE: On Vercel, this will be reset when the function spins down.
 const rooms = new Map<string, any>();
+const imageCache = new Map<string, string>();
 
 let pusher: Pusher | null = null;
 
@@ -29,6 +30,46 @@ if (process.env.PUSHER_APP_ID && process.env.PUSHER_APP_KEY && process.env.PUSHE
 }
 
 // API Routes
+app.post('/api/upload-image', (req, res) => {
+  try {
+    const { id, dataUrl } = req.body;
+    if (!id || !dataUrl) {
+      return res.status(400).send('Missing id or dataUrl');
+    }
+    imageCache.set(id, dataUrl);
+    
+    // Clean up old images if cache gets too large (e.g. > 100 images)
+    if (imageCache.size > 100) {
+      const firstKey = imageCache.keys().next().value;
+      if (firstKey) imageCache.delete(firstKey);
+    }
+    
+    res.json({ url: `/api/image/${id}` });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).send('Failed to upload image');
+  }
+});
+
+app.get('/api/image/:id', (req, res) => {
+  try {
+    const dataUrl = imageCache.get(req.params.id);
+    if (!dataUrl) return res.status(404).send('Image not found');
+    
+    const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).send('Invalid image data');
+    }
+    
+    res.setHeader('Content-Type', matches[1]);
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.send(Buffer.from(matches[2], 'base64'));
+  } catch (error) {
+    console.error('Image retrieval error:', error);
+    res.status(500).send('Failed to retrieve image');
+  }
+});
+
 app.get('/api/proxy-image', async (req, res) => {
   try {
     const { url } = req.query;
