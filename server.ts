@@ -3,6 +3,7 @@ import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import Pusher from "pusher";
+import { kv } from "@vercel/kv";
 import { generateRoomCode } from "./utils/roomUtils.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -12,10 +13,51 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Game state storage (in-memory for now)
-// NOTE: On Vercel, this will be reset when the function spins down.
-const rooms = new Map<string, any>();
+// Game state storage
+// We'll use @vercel/kv for persistence if configured, otherwise fall back to Map
+const roomsMap = new Map<string, any>();
 const imageCache = new Map<string, string>();
+
+// Helper to get room from Redis or Map
+async function getRoom(code: string): Promise<any> {
+  const upperCode = code.toUpperCase();
+  try {
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      return await kv.get(`room:${upperCode}`);
+    }
+  } catch (e) {
+    console.error("Redis get error:", e);
+  }
+  return roomsMap.get(upperCode);
+}
+
+// Helper to save room to Redis or Map
+async function saveRoom(code: string, room: any): Promise<void> {
+  const upperCode = code.toUpperCase();
+  try {
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      await kv.set(`room:${upperCode}`, room, { ex: 86400 }); // 24h expiry
+      return;
+    }
+  } catch (e) {
+    console.error("Redis set error:", e);
+  }
+  roomsMap.set(upperCode, room);
+}
+
+// Helper to delete room
+async function deleteRoom(code: string): Promise<void> {
+  const upperCode = code.toUpperCase();
+  try {
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      await kv.del(`room:${upperCode}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Redis del error:", e);
+  }
+  roomsMap.delete(upperCode);
+}
 
 let pusher: Pusher | null = null;
 
@@ -170,8 +212,9 @@ app.get('/api/health', (req, res) => {
         pointsToWin: 3
       };
 
-      rooms.set(roomCode, initialRoomState);
-      console.log(`Room ${roomCode} stored in Map. Total rooms: ${rooms.size}`);
+      roomsMap.set(roomCode, initialRoomState);
+      await saveRoom(roomCode, initialRoomState);
+      console.log(`Room ${roomCode} stored. Redis used if configured.`);
       
       if (pusher) {
         try {
@@ -188,8 +231,8 @@ app.get('/api/health', (req, res) => {
   }
 });
 
-app.get('/api/game/room/:code', (req, res) => {
-  const room = rooms.get(req.params.code.toUpperCase());
+app.get('/api/game/room/:code', async (req, res) => {
+  const room = await getRoom(req.params.code.toUpperCase());
   if (!room) return res.status(404).json({ error: "Room not found" });
   res.json(room);
 });
@@ -206,7 +249,7 @@ app.post('/api/game/join', async (req, res) => {
       return res.status(400).json({ error: "Valid user data is required" });
     }
 
-    let room = rooms.get(roomCode);
+    let room = await getRoom(roomCode);
     
     if (!room) {
       return res.status(404).json({ error: "Room not found" });
@@ -237,6 +280,8 @@ app.post('/api/game/join', async (req, res) => {
       room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
     }
 
+    await saveRoom(roomCode, room);
+
     if (pusher) {
       try {
         await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
@@ -254,19 +299,20 @@ app.post('/api/game/join', async (req, res) => {
 
   app.post('/api/game/leave', async (req, res) => {
     const { roomCode, userId } = req.body;
-    const room = rooms.get(roomCode);
+    const room = await getRoom(roomCode);
     
     if (room) {
       const playerIdx = room.players.findIndex((p: any) => p.id === userId);
       if (playerIdx !== -1) {
         room.players.splice(playerIdx, 1);
         if (room.players.length === 0) {
-          rooms.delete(roomCode);
+          await deleteRoom(roomCode);
         } else {
           if (room.host === userId) {
             room.host = room.players[0].id;
             room.players[0].role = 'host';
           }
+          await saveRoom(roomCode, room);
           if (pusher) {
             try {
               await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
@@ -282,12 +328,22 @@ app.post('/api/game/join', async (req, res) => {
 
   app.post('/api/game/submit', async (req, res) => {
     const { roomCode, submission } = req.body;
-    const room = rooms.get(roomCode);
+    const room = await getRoom(roomCode);
     if (room) {
-      room.submissions.push(submission);
+      // Prevent duplicate submissions from the same player
+      if (!room.submissions) room.submissions = [];
+      const existingIndex = room.submissions.findIndex((s: any) => s.playerId === submission.playerId);
+      if (existingIndex > -1) {
+        room.submissions[existingIndex] = submission;
+      } else {
+        room.submissions.push(submission);
+      }
+      
+      await saveRoom(roomCode, room);
+      
       if (pusher) {
         try {
-          await pusher.trigger(`room-${roomCode}`, 'new-submission', { submissionId: submission.id });
+          await pusher.trigger(`room-${roomCode}`, 'new-submission', { submissionId: submission.id, submission });
           await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
         } catch (pusherError) {
           console.error("Pusher trigger failed:", pusherError);
@@ -299,11 +355,13 @@ app.post('/api/game/join', async (req, res) => {
 
   app.post('/api/game/use-hint', async (req, res) => {
     const { roomCode, playerId } = req.body;
-    const room = rooms.get(roomCode);
+    const room = await getRoom(roomCode);
     if (room && room.branches) {
       const currentBranches = room.branches[playerId] ?? 30;
       const newBranchCount = Math.max(0, currentBranches - 1);
       room.branches[playerId] = newBranchCount;
+      
+      await saveRoom(roomCode, room);
       
       if (pusher) {
         try {
@@ -319,9 +377,10 @@ app.post('/api/game/join', async (req, res) => {
 
   app.post('/api/game/update-state', async (req, res) => {
   const { roomCode, newState } = req.body;
-  const room = rooms.get(roomCode);
+  const room = await getRoom(roomCode);
   if (room) {
     Object.assign(room, newState);
+    await saveRoom(roomCode, room);
     if (pusher) {
       try {
         await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
