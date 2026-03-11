@@ -31,6 +31,7 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
 
     const adjustFontSize = () => {
       if (container.clientWidth === 0 || container.clientHeight === 0) return;
+
       let currentSize = 100;
       container.style.fontSize = `${currentSize}px`;
       container.style.fontFamily = getFontFamily(font);
@@ -44,18 +45,27 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
       }
     };
 
-    const resizeObserver = new ResizeObserver(() => adjustFontSize());
+    const resizeObserver = new ResizeObserver(() => {
+      adjustFontSize();
+    });
+
     resizeObserver.observe(container);
     adjustFontSize();
     
-    return () => resizeObserver.disconnect();
+    return () => {
+      resizeObserver.disconnect();
+    };
   }, [text, font, alignment]);
 
   return (
     <div 
       ref={containerRef}
       className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden"
-      style={{ textAlign: alignment as any, padding: '6%', lineHeight: 0.8 }}
+      style={{ 
+        textAlign: alignment as any,
+        padding: '6%',
+        lineHeight: 0.8,
+      }}
     >
       {text}
     </div>
@@ -72,6 +82,7 @@ const EditableBubble: React.FC<{
 
   useEffect(() => {
     if (containerRef.current && containerRef.current.innerText !== text) {
+      // Only update if not currently focused to avoid cursor jump
       if (document.activeElement !== containerRef.current) {
         containerRef.current.innerText = text;
       }
@@ -84,6 +95,7 @@ const EditableBubble: React.FC<{
 
     const adjustFontSize = () => {
       if (container.clientWidth === 0 || container.clientHeight === 0) return;
+
       let currentSize = 100;
       container.style.fontSize = `${currentSize}px`;
       container.style.fontFamily = getFontFamily(font);
@@ -97,25 +109,36 @@ const EditableBubble: React.FC<{
       }
     };
 
-    const resizeObserver = new ResizeObserver(() => adjustFontSize());
+    const resizeObserver = new ResizeObserver(() => {
+      adjustFontSize();
+    });
+
     resizeObserver.observe(container);
     adjustFontSize();
+    
+    // Also adjust on input
     container.addEventListener('input', adjustFontSize);
     
     return () => {
       resizeObserver.disconnect();
       container.removeEventListener('input', adjustFontSize);
     };
-  }, [font, alignment]);
+  }, [font, alignment]); // removed text dependency so it doesn't re-run on every keystroke
 
   return (
     <div 
       ref={containerRef}
       contentEditable
       suppressContentEditableWarning
-      onBlur={(e) => onChange(e.currentTarget.innerText)}
+      onBlur={(e) => {
+        onChange(e.currentTarget.innerText);
+      }}
       className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden outline-none focus:ring-4 focus:ring-amber-600/50 rounded-xl bg-white/20 hover:bg-white/40 focus:bg-white/80 transition-all cursor-text shadow-inner"
-      style={{ textAlign: alignment as any, padding: '6%', lineHeight: 0.8 }}
+      style={{ 
+        textAlign: alignment as any,
+        padding: '6%',
+        lineHeight: 0.8,
+      }}
     />
   );
 };
@@ -141,59 +164,25 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'unavailable'>('connecting');
-  const [role, setRole] = useState<'select' | 'judge' | 'writer'>('select');
-  const [judgeImage, setJudgeImage] = useState<string>('');
-  const [writerImage, setWriterImage] = useState<string>('');
-  const [selectedComic, setSelectedComic] = useState<RatedComic | null>(null);
-  const [submittedComics, setSubmittedComics] = useState<RatedComic[]>([]);
-  const [winner, setWinner] = useState<RatedComic | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [resolvedPreviewImage, setResolvedPreviewImage] = useState<string | null>(null);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [localTextFields, setLocalTextFields] = useState<TextField[]>([]);
-  const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
-  const [isSavingLocal, setIsSavingLocal] = useState(false);
-  const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
-  const [isEnlarged, setIsEnlarged] = useState(false);
-  const [preGameState, setPreGameState] = useState<'none' | 'cover' | 'go'>('none');
-  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(GENRES.map(g => g.id));
-  const [writerDeck, setWriterDeck] = useState<string[]>([]);
-  const [judgeDeck, setJudgeDeck] = useState<string[]>([]);
-  const [timeLimit, setTimeLimit] = useState(2);
-  const [pointsToWin, setPointsToWin] = useState(3);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [isRenderingVideo, setIsRenderingVideo] = useState(false);
-  const [videoProgress, setVideoProgress] = useState('');
-  const [renderedVideoUrl, setRenderedVideoUrl] = useState<string | null>(null);
-  const [selectedVeoModel, setSelectedVeoModel] = useState<'veo-3.1-fast-generate-preview' | 'veo-3.1-generate-preview'>('veo-3.1-fast-generate-preview');
-  const [isSharing, setIsSharing] = useState(false);
-
   const processedGameOverRef = useRef<boolean>(false);
-  const roomRef = useRef<any>(null);
-  const submissionsRef = useRef<RatedComic[]>([]);
-  const activeStripIdRef = useRef<string | null>(null);
-  const lastWriterPool = useRef<string[]>([]);
-  const lastJudgePool = useRef<string[]>([]);
-  const lastPickedWriterId = useRef<string | null>(null);
-  const lastPickedJudgeId = useRef<string | null>(null);
-
-  useEffect(() => {
-    roomRef.current = room;
-    submissionsRef.current = submittedComics;
-  }, [room, submittedComics]);
 
   useEffect(() => {
     if (room?.gameState === 'game-over' && !processedGameOverRef.current && onUserUpdate) {
       processedGameOverRef.current = true;
+      
       const lastWinningComic = room.winningComics?.[room.winningComics.length - 1];
       const gameId = lastWinningComic ? lastWinningComic.id : `${roomCode}-${Date.now()}`;
       
-      if (user.playedGames?.includes(gameId)) return; 
+      if (user.playedGames?.includes(gameId)) {
+        return; // Already processed this game
+      }
 
       const overallWinnerId = Object.keys(room.scores || {}).reduce((a, b) => room.scores[a] > room.scores[b] ? a : b, '');
       const isWinner = overallWinnerId === user.id;
+      
       const myWinningComics = (room.winningComics || []).filter((c: any) => c.winnerId === user.id);
       
+      // Only add comics that aren't already in user's winning comics
       const existingComicIds = new Set((user.winningComics || []).map(c => c.id));
       const newWinningComics = myWinningComics.filter((c: any) => !existingComicIds.has(c.id));
       
@@ -218,74 +207,66 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       disconnected: { color: 'bg-rose-500', icon: 'fa-circle-xmark', label: 'Offline' },
       unavailable: { color: 'bg-slate-500', icon: 'fa-triangle-exclamation', label: 'Unavailable' },
     };
+
     const config = statusConfig[status] || statusConfig.connecting;
 
     return (
       <div className="fixed bottom-6 left-6 z-[100] flex items-center gap-2 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-lg border border-slate-100 transition-all hover:scale-105">
         <div className={`w-2 h-2 rounded-full ${config.color}`} />
         <i className={`fa-solid ${config.icon} text-[10px] text-slate-400`} />
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{config.label}</span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+          {config.label}
+        </span>
       </div>
     );
   };
 
-  // 1. COMPLETELY DECOUPLED ROOM JOINING (NO SERVER MEMORY)
+  // Check for room code in URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlRoomCode = params.get('game');
     if (urlRoomCode && !roomCode) {
       setRoomCode(urlRoomCode.toUpperCase());
+      autoJoinGame(urlRoomCode.toUpperCase());
     }
   }, []);
 
-  const handleCreateGame = () => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    // We create the room entirely locally. No API call needed to risk a 500 error.
-    const initialRoom = {
-      roomCode: code,
-      host: user.id,
-      gameState: 'lobby',
-      players: [{ id: user.id, name: user.name, picture: user.picture, role: 'host' }],
-      scores: { [user.id]: 0 },
-      branches: { [user.id]: 30 },
-      submissions: [],
-      pointsToWin: 3,
-      timeLimit: 2
-    };
-    
-    setRoomCode(code);
-    setRoom(initialRoom);
-
-    const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
-    window.history.pushState({ path: newUrl }, '', newUrl);
-  };
-  
-  const handleJoinGame = () => {
-    if (!joinCodeInput) return;
-    const code = joinCodeInput.toUpperCase();
-    setRoomCode(code); // Trigger Pusher subscription below
-    
-    const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
-    window.history.pushState({ path: newUrl }, '', newUrl);
+  const autoJoinGame = async (code: string) => {
+    try {
+      const response = await fetch('/api/game/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode: code, user }),
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Room not found. The game may have ended or the server restarted.");
+        }
+        throw new Error("Failed to join room");
+      }
+      
+      const roomData = await response.json();
+      setRoom(roomData);
+    } catch (error: any) {
+      console.error("Auto-join failed:", error);
+      alert(error.message || "Could not join room automatically.");
+      // If auto-join fails, clear the room code so they see the join screen
+      setRoomCode(null);
+      const newUrl = `${window.location.origin}${window.location.pathname}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
   };
 
-  // 2. THE PUSHER ENGINE & HOST-AS-DATABASE LOGIC
+  // Initialize Pusher
   useEffect(() => {
-    if (!roomCode || !user) return;
+    if (!roomCode) return;
 
     const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
       cluster: import.meta.env.VITE_PUSHER_CLUSTER,
-      authEndpoint: '/api/pusher/auth', // Required for presence channels
-      auth: {
-        params: {
-          user_id: user.id,
-          user_name: user.name,
-          user_picture: user.picture || ''
-        }
-      }
     });
 
+    // Track Connection States
     pusher.connection.bind('state_change', (states: any) => {
       if (states.current === 'connected') setConnectionStatus('connected');
       else if (states.current === 'connecting') setConnectionStatus('connecting');
@@ -293,155 +274,134 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       else setConnectionStatus('disconnected');
     });
 
-    // Use Presence channel to easily detect joins/leaves
-    const channel = pusher.subscribe(`presence-room-${roomCode}`);
+    const channel = pusher.subscribe(`room-${roomCode}`);
 
-    // HOST DUTY: When someone joins, add them to roster and broadcast state
-    channel.bind('pusher:member_added', (member: any) => {
-      const currentRoom = roomRef.current;
-      if (currentRoom && currentRoom.host === user.id) {
-        const playerExists = currentRoom.players.find((p: any) => p.id === member.id);
+    channel.bind('pusher:subscription_succeeded', () => {
+      console.log("Successfully connected to the game room!");
+    });
+
+    channel.bind('room-update', async () => {
+      try {
+        const res = await fetch(`/api/game/room/${roomCode}`);
+        if (!res.ok) return;
+        const updatedRoom = await res.json();
         
-        let updatedPlayers = currentRoom.players;
-        let updatedScores = { ...currentRoom.scores };
-        let updatedBranches = { ...currentRoom.branches };
-
-        if (!playerExists) {
-          updatedPlayers = [...currentRoom.players, {
-            id: member.id,
-            name: member.info?.name || 'Player',
-            picture: member.info?.picture || '',
-            role: 'select'
-          }];
-          if (!(member.id in updatedScores)) updatedScores[member.id] = 0;
-          if (!(member.id in updatedBranches)) updatedBranches[member.id] = 30;
+        setRoom(updatedRoom);
+        
+        const me = updatedRoom.players.find((p: any) => p.id === user.id);
+        if (me && me.role) {
+          setRole(me.role);
         }
 
-        // Host pushes their "Truth" (including submissions!) down to the new player
-        fetch('/api/game/update-state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomCode,
-            newState: {
-              ...currentRoom,
-              players: updatedPlayers,
-              scores: updatedScores,
-              branches: updatedBranches,
-              submissions: submissionsRef.current 
+        // Sync submissions
+        if (updatedRoom.submissions) {
+          setSubmittedComics(updatedRoom.submissions);
+          if (updatedRoom.submissions.length === 0) {
+            setHasSubmitted(false);
+            setUsedHints(new Set());
+          }
+        }
+
+        setWinner(updatedRoom.winner || null);
+
+        if (updatedRoom.previewImage !== undefined) {
+          setPreviewImage(updatedRoom.previewImage);
+        }
+
+        if (updatedRoom.gameState === 'playing' && (updatedRoom.activeStripId || updatedRoom.activeStrip)) {
+          const strip = updatedRoom.activeStrip || history.find(h => h.id === updatedRoom.activeStripId);
+          if (strip) {
+            setActiveStrip(strip);
+            if (activeStripIdRef.current !== strip.id) {
+              activeStripIdRef.current = strip.id;
+              const profile = comics.find(c => c.id === strip.comicProfileId);
+              const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
+              setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
+              setSelectedComic({
+                id: `temp_${strip.id}`,
+                comicProfileId: strip.comicProfileId,
+                stripId: strip.id,
+                imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
+                rating: 0,
+                timestamp: Date.now(),
+                name: strip.name
+              });
             }
-          })
-        });
-      }
-    });
-
-    // HOST DUTY: Handle leaves
-    channel.bind('pusher:member_removed', (member: any) => {
-      const currentRoom = roomRef.current;
-      if (currentRoom && member.id === currentRoom.host) {
-        alert("The Game Host has disconnected. The session is over.");
-        resetRoundState();
-        setRoomCode(null);
-        setRoom(null);
-      }
-    });
-
-    // ALL PLAYERS: Listen for "Truth" from Host
-    channel.bind('room-update', (updatedRoom: any) => {
-      setRoom(updatedRoom);
-      
-      const me = updatedRoom.players.find((p: any) => p.id === user.id);
-      if (me && me.role) setRole(me.role);
-
-      // Sync submissions from the Host's payload
-      if (updatedRoom.submissions) {
-        setSubmittedComics(updatedRoom.submissions);
-        if (updatedRoom.submissions.length === 0) {
-          setHasSubmitted(false);
-          setUsedHints(new Set());
-        }
-      }
-
-      setWinner(updatedRoom.winner || null);
-      if (updatedRoom.previewImage !== undefined) setPreviewImage(updatedRoom.previewImage);
-
-      if (updatedRoom.gameState === 'playing' && (updatedRoom.activeStripId || updatedRoom.activeStrip)) {
-        const strip = updatedRoom.activeStrip || history.find(h => h.id === updatedRoom.activeStripId);
-        if (strip) {
-          setActiveStrip(strip);
-          if (activeStripIdRef.current !== strip.id) {
-            activeStripIdRef.current = strip.id;
-            const profile = comics.find(c => c.id === strip.comicProfileId);
-            const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
-            setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
-            setSelectedComic({
-              id: `temp_${strip.id}`,
-              comicProfileId: strip.comicProfileId,
-              stripId: strip.id,
-              imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
-              rating: 0,
-              timestamp: Date.now(),
-              name: strip.name
-            });
           }
+        } else {
+          // If game state is playing but no active strip, ensure we are in waiting state
+          setSelectedComic(null);
+          setActiveStrip(null);
+          activeStripIdRef.current = null;
+          setLocalTextFields([]);
         }
-      } else if (updatedRoom.gameState === 'playing' && !updatedRoom.activeStripId && !updatedRoom.activeStrip) {
-        setSelectedComic(null);
-        setActiveStrip(null);
-        activeStripIdRef.current = null;
-        setLocalTextFields([]);
+      } catch (err) {
+        console.error("Failed to fetch room state:", err);
       }
     });
 
-    // ALL PLAYERS: Listen for single submissions
-    channel.bind('new-submission', (data: any) => {
-      setSubmittedComics(prev => {
-        if (prev.find(c => c.id === data.submission.id)) return prev; // Avoid dupe bug
-        const newSubs = [...prev, data.submission];
-        
-        // Host Duty: Officially append this to the room state so late-joiners see it
-        if (user.id === roomRef.current?.host) {
-          fetch('/api/game/update-state', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              roomCode,
-              newState: { ...roomRef.current, submissions: newSubs }
-            })
-          });
-        }
-        return newSubs;
-      });
+    channel.bind('new-submission', () => {
+      // Handled by room-update
     });
 
-    // ALL PLAYERS: Listen for Branch costs
-    channel.bind('branch-deduction', (data: any) => {
-      setRoom((prev: any) => {
-        if (!prev) return prev;
-        const newRoom = {
-          ...prev,
-          branches: {
-            ...prev.branches,
-            [data.playerId]: (prev.branches[data.playerId] || 30) - (data.cost || 5)
-          }
-        };
-        
-        if (user.id === roomRef.current?.host) {
-          fetch('/api/game/update-state', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomCode, newState: newRoom })
-          });
-        }
-        return newRoom;
-      });
+    channel.bind('branch-deduction', () => {
+      // Handled by room-update
     });
 
     return () => {
-      pusher.unsubscribe(`presence-room-${roomCode}`);
+      pusher.unsubscribe(`room-${roomCode}`);
       pusher.disconnect();
     };
-  }, [user.id, roomCode]); // Removed heavy dependencies so connection stays stable
+  }, [user, history, comics, roomCode]);
+
+  const handleCreateGame = async () => {
+    try {
+      const response = await fetch('/api/game/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostUser: user }),
+      });
+
+      const roomData = await response.json();
+      setRoomCode(roomData.roomCode);
+      setRoom(roomData);
+
+      // Update URL without reload
+      const newUrl = `${window.location.origin}${window.location.pathname}?game=${roomData.roomCode}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    } catch (error) {
+      console.error("Room creation failed:", error);
+    }
+  };
+  
+  const handleJoinGame = async () => {
+    if (!joinCodeInput) return;
+    const code = joinCodeInput.toUpperCase();
+    
+    try {
+      const response = await fetch('/api/game/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode: code, user }),
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Room not found. Please check the code and try again.");
+        }
+        throw new Error("Failed to join room");
+      }
+      
+      const roomData = await response.json();
+      setRoomCode(code);
+      setRoom(roomData);
+      const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    } catch (error: any) {
+      console.error("Join failed:", error);
+      alert(error.message || "Could not join room. Check the code.");
+    }
+  };
 
   const handleStartGame = async () => {
     if (!roomCode || room?.host !== user?.id) return;
@@ -458,7 +418,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         body: JSON.stringify({ 
           roomCode, 
           newState: { 
-            ...room, // VERY IMPORTANT: Always spread existing room!
             gameState: 'playing',
             players: updatedPlayers,
             timeLimit,
@@ -485,13 +444,18 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     setTimeout(() => setCopyFeedback(false), 2000);
   };
 
+  const [isSharing, setIsSharing] = useState(false);
+
   const handleShare = async () => {
     if (!winner) return;
+    
     const shareText = "Check out the comic I created for DiE-A-Log";
     const shareUrl = window.location.origin;
 
+    // Try Web Share API first (best for mobile/apps)
     if (navigator.share) {
       try {
+        // If the image is base64, try to convert to file for sharing
         let files: File[] = [];
         if (winner.imageUrl.startsWith('data:')) {
           const response = await fetch(winner.imageUrl);
@@ -500,7 +464,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           files = [file];
         }
 
-        const shareData: ShareData = { title: 'DiE-A-Log Comic', text: shareText, url: shareUrl };
+        const shareData: ShareData = {
+          title: 'DiE-A-Log Comic',
+          text: shareText,
+          url: shareUrl,
+        };
+
+        // Only add files if supported
         if (files.length > 0 && navigator.canShare && navigator.canShare({ files })) {
           shareData.files = files;
         }
@@ -511,39 +481,55 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         console.log('Share failed:', err);
       }
     }
+
+    // Fallback: Show custom share menu or just open X/FB
     setIsSharing(true);
   };
 
   const shareToSocial = (platform: 'x' | 'facebook') => {
     const text = "Check out the comic I created for DiE-A-Log";
     const url = window.location.origin;
+    
     let shareUrl = '';
-    if (platform === 'x') shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-    else if (platform === 'facebook') shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+    if (platform === 'x') {
+      shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    } else if (platform === 'facebook') {
+      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+    }
+    
     window.open(shareUrl, '_blank');
     setIsSharing(false);
   };
 
+  const [role, setRole] = useState<'select' | 'judge' | 'writer'>('select');
+  const [judgeImage, setJudgeImage] = useState<string>('');
+  const [writerImage, setWriterImage] = useState<string>('');
+
   useEffect(() => {
     const judges = ['judge_bf1.png', 'judge_wf1.png', 'judge_wm1.png', 'judge_wm2.png', 'judge_wm3.png', 'judge_wm4.png'];
     const writers = ['writer_wf1.png', 'writer_wf2.png', 'writer_wf3.png', 'writer_wm1.png', 'writer_wm2.png', 'writer_wm3.png', 'writer_wm4.png', 'writer_wm5.png'];
+    
     const randomJudge = judges[Math.floor(Math.random() * judges.length)];
     const randomWriter = writers[Math.floor(Math.random() * writers.length)];
+    
     setJudgeImage(`https://raw.githubusercontent.com/plasticarm/DieALogStudio/2f03333fc653eaf32446fa821b5e1aab598550ac/images/gameCharacters/judge/${randomJudge}`);
     setWriterImage(`https://raw.githubusercontent.com/plasticarm/DieALogStudio/2f03333fc653eaf32446fa821b5e1aab598550ac/images/gameCharacters/writers/${randomWriter}`);
   }, []);
+  const [selectedComic, setSelectedComic] = useState<RatedComic | null>(null);
+  const [submittedComics, setSubmittedComics] = useState<RatedComic[]>([]);
+  const [winner, setWinner] = useState<RatedComic | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [resolvedPreviewImage, setResolvedPreviewImage] = useState<string | null>(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [localTextFields, setLocalTextFields] = useState<TextField[]>([]);
+  const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
+  const [isSavingLocal, setIsSavingLocal] = useState(false);
+  const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
+  const activeStripIdRef = useRef<string | null>(null);
+  const [isEnlarged, setIsEnlarged] = useState(false);
+  const [preGameState, setPreGameState] = useState<'none' | 'cover' | 'go'>('none');
 
-  const validBinderPages = React.useMemo(() => {
-    return binderPages.filter(id => history.some(h => h.id === id));
-  }, [binderPages, history]);
-
-  const filteredBinderPages = React.useMemo(() => {
-    return validBinderPages.filter(id => {
-      const strip = history.find(h => h.id === id);
-      const profile = comics.find(c => c.id === strip?.comicProfileId);
-      return profile && selectedGenreIds.includes(profile.category);
-    });
-  }, [validBinderPages, history, comics, selectedGenreIds]);
+  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(GENRES.map(g => g.id));
 
   const filteredRatings = React.useMemo(() => {
     return ratings.filter(r => {
@@ -553,31 +539,21 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     });
   }, [ratings, history, comics, selectedGenreIds]);
 
-  useEffect(() => {
-    if (filteredBinderPages.length > 0) {
-      const poolChanged = lastWriterPool.current.length !== filteredBinderPages.length || 
-                          lastWriterPool.current.some(id => !filteredBinderPages.includes(id));
-      if (writerDeck.length === 0 || poolChanged) {
-        let newDeck = shuffleArray([...filteredBinderPages]);
-        if (newDeck.length > 1 && newDeck[newDeck.length - 1] === lastPickedWriterId.current) {
-          [newDeck[0], newDeck[newDeck.length - 1]] = [newDeck[newDeck.length - 1], newDeck[0]];
-        }
-        setWriterDeck(newDeck);
-        lastWriterPool.current = [...filteredBinderPages];
-      }
-    } else {
-      setWriterDeck([]);
-      lastWriterPool.current = [];
-    }
-  }, [filteredBinderPages, writerDeck.length]);
+  // Deck States
+  const [judgeDeck, setJudgeDeck] = useState<string[]>([]);
+  const lastJudgePool = useRef<string[]>([]);
+  const lastPickedJudgeId = useRef<string | null>(null);
 
+  // Initialize/Shuffle Decks
   useEffect(() => {
     const ratingIds = filteredRatings.map(r => r.id);
     if (ratingIds.length > 0) {
       const poolChanged = lastJudgePool.current.length !== ratingIds.length || 
                           lastJudgePool.current.some(id => !ratingIds.includes(id));
+      
       if (judgeDeck.length === 0 || poolChanged) {
         let newDeck = shuffleArray([...ratingIds]);
+        // Avoid immediate repeat if possible
         if (newDeck.length > 1 && newDeck[newDeck.length - 1] === lastPickedJudgeId.current) {
           [newDeck[0], newDeck[newDeck.length - 1]] = [newDeck[newDeck.length - 1], newDeck[0]];
         }
@@ -590,13 +566,27 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   }, [filteredRatings, judgeDeck.length]);
 
+  // Timer States
+  const [timeLimit, setTimeLimit] = useState(2); // Default 2 minutes
+  const [pointsToWin, setPointsToWin] = useState(3); // Default 3 points
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  // Video Rendering States
+  const [isRenderingVideo, setIsRenderingVideo] = useState(false);
+  const [videoProgress, setVideoProgress] = useState('');
+  const [renderedVideoUrl, setRenderedVideoUrl] = useState<string | null>(null);
+  const [selectedVeoModel, setSelectedVeoModel] = useState<'veo-3.1-fast-generate-preview' | 'veo-3.1-generate-preview'>('veo-3.1-fast-generate-preview');
+
   const handleRenderVideo = async () => {
     if (!winner) return;
+    
+    // Check for API key selection
     if (window.aistudio) {
       const hasKey = await window.aistudio.hasSelectedApiKey();
       if (!hasKey) {
         if (window.confirm("Veo video generation requires a paid Google Cloud project API key. Would you like to select one now?")) {
           await window.aistudio.openSelectKey();
+          // Proceed after key selection (assuming success as per guidelines)
         } else {
           return;
         }
@@ -634,9 +624,14 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         setTimeLeft(prev => (prev !== null && prev > 0) ? prev - 1 : 0);
       }, 1000);
     } else if (timeLeft === 0 && !hasSubmitted && !isSavingLocal && preGameState === 'none') {
+      // Set a flag or change timeLeft to prevent re-triggering if submission fails
       setTimeLeft(-1);
       if (role === 'writer') {
         handleSaveAndSubmit();
+      } else if (role === 'judge' && room?.host === user?.id) {
+        // If time runs out and judge is host, force transition to judging if needed
+        // Actually, the judge just waits for submissions. 
+        // If time is up, everyone should be forced to submit.
       }
     }
     return () => clearInterval(timer);
@@ -660,6 +655,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   }, [previewImage]);
 
+  // Start pre-game sequence for writer when activeStrip is set
   useEffect(() => {
     if (role === 'writer' && activeStrip && room?.gameState === 'playing' && !hasSubmitted) {
       setPreGameState('cover');
@@ -672,137 +668,77 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         }, 1000);
       }, 3000);
 
-      return () => clearTimeout(t1);
+      return () => {
+        clearTimeout(t1);
+      };
     }
   }, [activeStrip?.id, role, room?.gameState]);
 
-  const pickWriterComic = () => {
-    if (filteredBinderPages.length === 0) return;
+  const handlePickComic = () => {
+    if (filteredRatings.length === 0) return;
     
-    let currentDeck = [...writerDeck];
+    let currentDeck = [...judgeDeck];
     if (currentDeck.length === 0) {
-      currentDeck = shuffleArray([...filteredBinderPages]);
-      if (currentDeck.length > 1 && currentDeck[currentDeck.length - 1] === lastPickedWriterId.current) {
+      currentDeck = shuffleArray(filteredRatings.map(r => r.id));
+      if (currentDeck.length > 1 && currentDeck[currentDeck.length - 1] === lastPickedJudgeId.current) {
         [currentDeck[0], currentDeck[currentDeck.length - 1]] = [currentDeck[currentDeck.length - 1], currentDeck[0]];
       }
     }
     
     const nextId = currentDeck.pop()!;
-    lastPickedWriterId.current = nextId;
-    setWriterDeck(currentDeck);
+    lastPickedJudgeId.current = nextId;
+    setJudgeDeck(currentDeck);
     
-    const strip = history.find(h => h.id === nextId);
+    const randomComic = filteredRatings.find(r => r.id === nextId);
+    if (!randomComic) return;
+    
+    setSelectedComic(randomComic);
+    
+    const strip = history.find(h => h.id === randomComic.stripId);
     if (strip) {
       const profile = comics.find(c => c.id === strip.comicProfileId);
       const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
 
       setActiveStrip(strip);
+      // Initialize text fields as empty and use the series primary font
       setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
       setUsedHints(new Set());
-      
-      setSelectedComic({
-        id: `temp_${strip.id}`,
-        comicProfileId: strip.comicProfileId,
-        stripId: strip.id,
-        imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
-        rating: 0,
-        timestamp: Date.now(),
-        name: strip.name
-      });
-
-      setPreGameState('cover');
-      setTimeLeft(timeLimit * 60);
-
-      if (room?.host === user?.id && roomCode) {
-        fetch('/api/game/update-state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomCode,
-            newState: { 
-              ...room, // Important: keep existing players
-              gameState: 'playing',
-              activeStripId: strip.id,
-              activeStrip: strip,
-              timeLimit: timeLimit
-            }
-          })
-        });
-      }
-
-      setTimeout(() => {
-        setPreGameState('go');
-        setTimeout(() => setPreGameState('none'), 1000);
-      }, 3000);
     }
-  };
+    
+    // Simulate submitted comics for the judge from existing ratings if only 2 players
+    // Filter these as well to ensure they match the genre if needed, though they are just distractors
+    const isTwoPlayer = room?.players?.length === 2;
+    let submissionsToSync = [];
 
-  const handlePickComic = () => {
-    if (role === 'writer') {
-      pickWriterComic();
+    if (isTwoPlayer) {
+      const others = filteredRatings
+        .filter(r => r.id !== randomComic.id && r.stripId === randomComic.stripId)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 4); // Get up to 4 archived comics for the same strip
+      setSubmittedComics(others);
+      submissionsToSync = others;
     } else {
-      if (filteredRatings.length === 0) return;
-      
-      let currentDeck = [...judgeDeck];
-      if (currentDeck.length === 0) {
-        currentDeck = shuffleArray(filteredRatings.map(r => r.id));
-        if (currentDeck.length > 1 && currentDeck[currentDeck.length - 1] === lastPickedJudgeId.current) {
-          [currentDeck[0], currentDeck[currentDeck.length - 1]] = [currentDeck[currentDeck.length - 1], currentDeck[0]];
-        }
-      }
-      
-      const nextId = currentDeck.pop()!;
-      lastPickedJudgeId.current = nextId;
-      setJudgeDeck(currentDeck);
-      
-      const randomComic = filteredRatings.find(r => r.id === nextId);
-      if (!randomComic) return;
-      
-      setSelectedComic(randomComic);
-      
-      const strip = history.find(h => h.id === randomComic.stripId);
-      if (strip) {
-        const profile = comics.find(c => c.id === strip.comicProfileId);
-        const primaryFont = profile?.selectedFonts?.[0] || 'Amatic SC';
+      setSubmittedComics([]);
+      submissionsToSync = [];
+    }
 
-        setActiveStrip(strip);
-        setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
-        setUsedHints(new Set());
-      }
-      
-      const isTwoPlayer = room?.players?.length === 2;
-      let submissionsToSync = [];
-
-      if (isTwoPlayer) {
-        const others = filteredRatings
-          .filter(r => r.id !== randomComic.id && r.stripId === randomComic.stripId)
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 4);
-        setSubmittedComics(others);
-        submissionsToSync = others;
-      } else {
-        setSubmittedComics([]);
-        submissionsToSync = [];
-      }
-
-      if (role === 'judge' && roomCode) {
-        fetch('/api/game/update-state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomCode,
-            newState: { 
-              ...room, 
-              gameState: 'playing',
-              activeStripId: strip?.id,
-              activeStrip: strip,
-              selectedComic: randomComic,
-              submissions: submissionsToSync,
-              previewImage: null
-            }
-          })
-        });
-      }
+    // Sync to room if judge
+    if (role === 'judge' && roomCode) {
+      fetch('/api/game/update-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomCode,
+          newState: { 
+            gameState: 'playing',
+            activeStripId: strip?.id,
+            activeStrip: strip,
+            selectedComic: randomComic,
+            submissions: submissionsToSync,
+            previewImage: null
+          }
+        })
+      });
     }
   };
 
@@ -814,7 +750,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomCode,
-          newState: { ...room, previewImage: url }
+          newState: { previewImage: url }
         })
       });
     }
@@ -827,6 +763,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     
+    // Check if all writers have submitted (only for 3+ players)
     const isTwoPlayer = room?.players?.length === 2;
     const writersCount = room.players.filter((p: any) => p.role === 'writer').length;
     
@@ -854,6 +791,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       const isGameOver = winnerPlayerId && newScores[winnerPlayerId] >= (room.pointsToWin || pointsToWin);
       const newWinningComics = [...(room.winningComics || []), { ...winnerComic, winnerId: winnerPlayerId }];
 
+      // If it's a vault win in a 2-player game, pick a random next judge
       let nextJudgeId = null;
       if (isTwoPlayer && isVaultWin) {
         const players = room.players;
@@ -867,7 +805,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         body: JSON.stringify({
           roomCode,
           newState: { 
-            ...room,
             winner: winnerComic, 
             gameState: isGameOver ? 'game-over' : 'playing',
             scores: newScores,
@@ -903,7 +840,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         fetch('/api/game/use-hint', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomCode, playerId: user.id, cost: 5 })
+          body: JSON.stringify({ roomCode, playerId: user.id })
         });
       }
     }
@@ -912,8 +849,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const handleSaveAndSubmit = async () => {
     if (!activeStrip || isSavingLocal || !selectedComic) return;
     setIsSavingLocal(true);
+    
+    // Stop the timer loop immediately to prevent multiple alerts
     setHasSubmitted(true);
     
+    // Penalty for blank fields
     const blankFieldsCount = localTextFields.filter(tf => {
       let cleanText = tf.text;
       const nameMatch = cleanText.match(/^[^:]+:\s*/);
@@ -924,23 +864,30 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }).length;
 
     if (blankFieldsCount > 0 && roomCode) {
-      fetch('/api/game/use-hint', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomCode, playerId: user.id, cost: 5 * blankFieldsCount })
-      });
+      // Deduct branches for each blank field
+      for (let i = 0; i < blankFieldsCount; i++) {
+        fetch('/api/game/use-hint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomCode, playerId: user.id })
+        });
+      }
     }
 
     try {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error("Could not get canvas context");
+      if (!ctx) {
+        throw new Error("Could not get canvas context");
+      }
 
       const img = new Image();
       img.crossOrigin = "anonymous";
+      
       let imageUrl = activeStrip.exportImageUrl || activeStrip.finishedImageUrl;
-      const originalImageUrl = imageUrl;
+      const originalImageUrl = imageUrl; // Keep for fallback
 
+      // Try to get the image as a blob to avoid CORS issues with canvas
       try {
         let blobUrl = imageUrl;
         if (imageUrl.startsWith('vault:')) {
@@ -987,7 +934,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
           let cleanText = tf.text;
           const nameMatch = cleanText.match(/^[^:]+:\s*/);
-          if (nameMatch) cleanText = cleanText.substring(nameMatch[0].length);
+          if (nameMatch) {
+            cleanText = cleanText.substring(nameMatch[0].length);
+          }
+
           if (!cleanText.trim()) {
             ctx.restore();
             return;
@@ -996,7 +946,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           const fontName = tf.font || 'Inter';
           const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
           
-          let fontSize = h; 
+          let fontSize = h; // Start with the maximum possible height
           ctx.font = `${fontSize}px "${fontFamily}", sans-serif`;
           
           const wrapText = (text: string, maxWidth: number) => {
@@ -1019,6 +969,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             return lines;
           };
 
+          // Adjust font size to fit
           while (fontSize > 12) {
             ctx.font = `${fontSize}px "${fontFamily}", sans-serif`;
             const lines = wrapText(cleanText, w * 0.9);
@@ -1047,6 +998,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         const finalDataUrl = canvas.toDataURL('image/jpeg', 0.9);
         const downscaled = await downscaleImage(finalDataUrl, 1200);
         
+        // Upload the flattened image to the server so the judge can see it
         const uploadId = `flat_${user.id}_${Date.now()}`;
         const uploadResponse = await fetch('/api/upload-image', {
           method: 'POST',
@@ -1054,10 +1006,12 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           body: JSON.stringify({ id: uploadId, dataUrl: downscaled })
         });
         
-        if (!uploadResponse.ok) throw new Error('Failed to upload flattened image');
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload flattened image');
+        }
+        
         const { url: uploadedUrl } = await uploadResponse.json();
         submitToJudge(uploadedUrl, true);
-
       } catch (flattenError) {
         console.warn("Flattening failed, submitting original image instead:", flattenError);
         submitToJudge(originalImageUrl, false);
@@ -1065,37 +1019,58 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     } catch (error) {
       console.error("Failed to process submission:", error);
       alert("Failed to process submission. Please try again.");
-      setHasSubmitted(false); 
+      setHasSubmitted(false); // Allow retry if it was a high-level failure
     } finally {
       setIsSavingLocal(false);
     }
   };
 
-  const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => {
-    if (!activeStrip || !roomCode) return;
+const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => {
+  if (!activeStrip || !roomCode) return;
 
-    const newSubmission: RatedComic = {
-      id: `sub_${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      stripId: activeStrip.id,
-      comicProfileId: activeStrip.comicProfileId,
-      name: `Submission ${submittedComics.length + 1}`,
-      imageUrl: imageUrl,
-      rating: 0,
-      timestamp: Date.now(),
-      textFields: localTextFields,
-      playerId: user.id,
-      isFlattened: isFlattened
-    };
+  const newSubmission: RatedComic = {
+    id: `sub_${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    stripId: activeStrip.id,
+    comicProfileId: activeStrip.comicProfileId,
+    name: `Submission ${submittedComics.length + 1}`,
+    imageUrl: imageUrl,
+    rating: 0,
+    timestamp: Date.now(),
+    textFields: localTextFields,
+    playerId: user.id, // Using user.id since socket.id is less reliable in serverless
+    isFlattened: isFlattened
+  };
 
-    try {
-      await fetch('/api/game/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomCode, submission: newSubmission }),
-      });
-      // The Pusher 'new-submission' listener handles adding it to state and syncing for late-joiners
-      setHasSubmitted(true);
-      setRole('judge');
+  try {
+    // 1. Update Pusher via our Vercel API Route
+    const response = await fetch('/api/game/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomCode,
+        submission: newSubmission
+      }),
+    });
+
+    if (!response.ok) throw new Error('Failed to notify judge');
+
+    // 2. Local State Updates
+    let finalSubmissions = [...submittedComics, newSubmission];
+    
+    // Fill with archived data if needed (only for 2-player games)
+    const isTwoPlayer = room?.players?.length === 2;
+    if (isTwoPlayer && finalSubmissions.length < 4) {
+      const archived = ratings
+        .filter(r => !finalSubmissions.some(fs => fs.id === r.id) && r.stripId === activeStrip.id)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 4 - finalSubmissions.length);
+      finalSubmissions = [...finalSubmissions, ...archived];
+    }
+    
+    setSubmittedComics(finalSubmissions);
+    setHasSubmitted(true);
+    setRole('judge');
+
     } catch (error) {
       console.error("Submission Error:", error);
       alert("Could not reach the game relay. Check your connection.");
@@ -1164,7 +1139,8 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
               onClick={handleCreateGame}
               className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
             >
-              <i className="fa-solid fa-plus"></i> Start New Game
+              <i className="fa-solid fa-plus"></i>
+              Start New Game
             </button>
             
             <div className="relative py-4 flex items-center gap-4">
@@ -1246,6 +1222,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         
         <div className="relative z-10 w-full max-w-4xl px-8 flex flex-col lg:flex-row gap-12 items-center">
+          {/* Left Side: Game Info & QR */}
           <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left">
             <div className="inline-flex items-center gap-3 px-4 py-2 bg-amber-100 text-amber-700 rounded-full mb-6">
               <i className="fa-solid fa-tower-broadcast animate-pulse"></i>
@@ -1288,6 +1265,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             </div>
           </div>
 
+          {/* Right Side: Players & Start */}
           <div className="w-full lg:w-96 flex flex-col gap-8">
             <div className="bg-white/80 backdrop-blur p-8 rounded-[3rem] border border-slate-200 shadow-sm flex-1 flex flex-col min-h-[400px]">
               <div className="flex justify-between items-center mb-8">
@@ -1391,8 +1369,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   }
 
   if (room?.gameState === 'game-over') {
-    const sortedPlayers = [...room.players].sort((a: any, b: any) => (room.scores[b.id] || 0) - (room.scores[a.id] || 0));
+    const sortedPlayers = [...room.players].sort((a, b) => (room.scores[b.id] || 0) - (room.scores[a.id] || 0));
     const overallWinner = sortedPlayers[0];
+    const userScore = room.scores[user?.id || ''] || 0;
+    const isUserWinner = overallWinner.id === user?.id;
 
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 relative overflow-hidden p-8">
@@ -1441,7 +1421,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] p-10 border border-white/10 animate-in fade-in slide-in-from-right-8 duration-700 delay-400">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-8">Leaderboard</h3>
               <div className="space-y-4">
-                {sortedPlayers.map((p: any, idx: number) => (
+                {sortedPlayers.map((p, idx) => (
                   <div key={p.id} className={`flex items-center justify-between p-4 rounded-2xl border ${p.id === user?.id ? 'bg-amber-600/20 border-amber-500/30' : 'bg-white/5 border-white/5'}`}>
                     <div className="flex items-center gap-4">
                       <span className="text-xs font-black text-white/20 w-4">#{idx + 1}</span>
@@ -1461,25 +1441,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             <button 
               onClick={() => {
                 if (room.host === user?.id) {
-                  fetch('/api/game/update-state', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                      roomCode, 
-                      newState: { 
-                        ...roomRef.current,
-                        gameState: 'playing',
-                        activeStripId: null,
-                        activeStrip: null,
-                        submissions: [],
-                        winner: null,
-                        scores: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 0 }), {}),
-                        branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 30 }), {}),
-                        winningComics: [],
-                        nextJudgeId: null
-                      } 
-                    })
-                  });
+                  handleStartGame();
                 }
               }}
               disabled={room.host !== user?.id}
@@ -1488,7 +1450,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
               {room.host === user?.id ? 'Play Again' : 'Waiting for Host...'}
             </button>
             <button 
-              onClick={() => onExit()}
+              onClick={() => {
+                onExit();
+              }}
               className="px-12 py-5 bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-white/20 transition-all hover:scale-105 active:scale-95"
             >
               Return to Studio
@@ -1550,7 +1514,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                   fetch('/api/game/update-state', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ roomCode, newState: { ...roomRef.current, players: updatedPlayers } })
+                    body: JSON.stringify({ roomCode, newState: { players: updatedPlayers } })
                   });
                 }
               }}
@@ -1569,7 +1533,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                   fetch('/api/game/update-state', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ roomCode, newState: { ...roomRef.current, players: updatedPlayers } })
+                    body: JSON.stringify({ roomCode, newState: { players: updatedPlayers } })
                   });
                 }
               }}
@@ -1586,66 +1550,70 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   }
 
   const activeComicProfile = comics.find(c => c.id === activeStrip?.comicProfileId);
-  const bgColor = activeComicProfile?.backgroundColor || '#f8fafc';
+  const bgColor = activeComicProfile?.backgroundColor || '#f8fafc'; // Default to slate-50 hex
 
   return (
-    <div className="h-full flex flex-col overflow-hidden relative" style={{ backgroundColor: bgColor }}>
+    <div 
+      className="h-full flex flex-col overflow-hidden relative"
+      style={{ backgroundColor: bgColor }}
+    >
       <ProfileButton />
+      {/* Connection Badge */}
       <ConnectionBadge status={connectionStatus} />
 
       <div className="absolute top-6 left-6 z-50 flex gap-4">
-        <button 
-          onClick={() => {
-            resetRoundState();
-            setRole('select');
-          }} 
-          className="text-slate-500 hover:text-slate-800 font-black uppercase tracking-widest text-xs bg-white/80 backdrop-blur px-4 py-2 rounded-xl shadow-sm"
-        >
-          <i className="fa-solid fa-arrow-left mr-2"></i> Change Role
-        </button>
-        {onEdit && (
           <button 
-            onClick={onEdit}
+            onClick={() => {
+              resetRoundState();
+              setRole('select');
+            }} 
             className="text-slate-500 hover:text-slate-800 font-black uppercase tracking-widest text-xs bg-white/80 backdrop-blur px-4 py-2 rounded-xl shadow-sm"
           >
-            <i className="fa-solid fa-pen-to-square mr-2"></i> Edit
+            <i className="fa-solid fa-arrow-left mr-2"></i> Change Role
           </button>
-        )}
-      </div>
+          {onEdit && (
+            <button 
+              onClick={onEdit}
+              className="text-slate-500 hover:text-slate-800 font-black uppercase tracking-widest text-xs bg-white/80 backdrop-blur px-4 py-2 rounded-xl shadow-sm"
+            >
+              <i className="fa-solid fa-pen-to-square mr-2"></i> Edit
+            </button>
+          )}
+        </div>
 
-      {room?.scores && (
-        <div className="absolute top-6 right-6 z-50 flex flex-col items-end gap-2">
-          <div className="bg-white/80 backdrop-blur px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="flex -space-x-2">
-              {room.players.map((p: any) => (
-                <div key={p.id} className={`w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-slate-100 ${room.scores[p.id] > 0 ? 'ring-2 ring-amber-500 ring-offset-1' : ''}`}>
-                  {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-[10px] text-slate-300"></i>}
-                </div>
-              ))}
-            </div>
-            <div className="h-4 w-px bg-slate-200"></div>
-            <div className="flex gap-4">
-              {room.players.map((p: any) => (
-                <div key={p.id} className="flex flex-col items-center">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{p.name.split(' ')[0]}</span>
-                    <div className="flex items-center gap-0.5 text-[8px] font-black text-emerald-600">
-                      <i className="fa-solid fa-leaf scale-75"></i>
-                      {room.branches?.[p.id] ?? 30}
-                    </div>
+        {room?.scores && (
+          <div className="absolute top-6 right-6 z-50 flex flex-col items-end gap-2">
+            <div className="bg-white/80 backdrop-blur px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+              <div className="flex -space-x-2">
+                {room.players.map((p: any) => (
+                  <div key={p.id} className={`w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-slate-100 ${room.scores[p.id] > 0 ? 'ring-2 ring-amber-500 ring-offset-1' : ''}`}>
+                    {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-[10px] text-slate-300"></i>}
                   </div>
-                  <span className="text-xs font-black text-slate-800">{room.scores[p.id] || 0}</span>
-                </div>
-              ))}
-            </div>
-            <div className="h-4 w-px bg-slate-200"></div>
-            <div className="flex flex-col items-center">
-              <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Goal</span>
-              <span className="text-xs font-black text-amber-700">{room.pointsToWin}</span>
+                ))}
+              </div>
+              <div className="h-4 w-px bg-slate-200"></div>
+              <div className="flex gap-4">
+                {room.players.map((p: any) => (
+                  <div key={p.id} className="flex flex-col items-center">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{p.name.split(' ')[0]}</span>
+                      <div className="flex items-center gap-0.5 text-[8px] font-black text-emerald-600">
+                        <i className="fa-solid fa-leaf scale-75"></i>
+                        {room.branches?.[p.id] ?? 30}
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-slate-800">{room.scores[p.id] || 0}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="h-4 w-px bg-slate-200"></div>
+              <div className="flex flex-col items-center">
+                <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Goal</span>
+                <span className="text-xs font-black text-amber-700">{room.pointsToWin}</span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {role !== 'select' && !selectedComic && (
         <div className="flex-1 flex flex-col items-center justify-center p-8">
@@ -1669,9 +1637,17 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                   {GENRES.map(genre => (
                     <button
                       key={genre.id}
-                      onClick={() => setSelectedGenreIds(prev => prev.includes(genre.id) ? prev.filter(id => id !== genre.id) : [...prev, genre.id])}
+                      onClick={() => {
+                        setSelectedGenreIds(prev => 
+                          prev.includes(genre.id) 
+                            ? prev.filter(id => id !== genre.id)
+                            : [...prev, genre.id]
+                        );
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border ${
-                        selectedGenreIds.includes(genre.id) ? 'text-slate-900 shadow-md ring-2 ring-offset-1 ring-slate-900' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50 opacity-60'
+                        selectedGenreIds.includes(genre.id)
+                          ? 'text-slate-900 shadow-md ring-2 ring-offset-1 ring-slate-900'
+                          : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50 opacity-60'
                       }`}
                       style={selectedGenreIds.includes(genre.id) ? { backgroundColor: genre.color, borderColor: genre.color } : {}}
                     >
@@ -1687,7 +1663,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                 <i className="fa-solid fa-layer-group"></i>
               </div>
               <div className="text-left">
-                <span className="block text-3xl font-black text-slate-800">{filteredRatings.length}</span>
+                <span className="block text-3xl font-black text-slate-800">
+                  {filteredRatings.length}
+                </span>
                 <span className="block text-xs font-black uppercase tracking-widest text-slate-400">Comics Available</span>
               </div>
             </div>
@@ -1745,6 +1723,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                 <div className="relative w-full h-full p-2">
                   <CachedImage src={winner.imageUrl} className="w-full h-full object-cover rounded-2xl shadow-lg" />
                   
+                  {/* Fallback Text Overlay for Winner */}
                   {winner.textFields && winner.textFields.length > 0 && !winner.isFlattened && (
                     <div className="absolute inset-2 pointer-events-none rounded-2xl overflow-hidden">
                       {winner.textFields.map(tf => (
@@ -1811,7 +1790,8 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                         onClick={() => {
                           if (roomCode) {
                             const updatedPlayers = room.players.map((p: any) => ({
-                              ...p, role: p.id === user?.id ? 'judge' : 'writer'
+                              ...p,
+                              role: p.id === user?.id ? 'judge' : 'writer'
                             }));
                             
                             fetch('/api/game/update-state', {
@@ -1820,7 +1800,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                               body: JSON.stringify({
                                 roomCode,
                                 newState: { 
-                                  ...roomRef.current,
                                   gameState: 'playing',
                                   submissions: [], 
                                   winner: null,
@@ -1858,7 +1837,8 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                         onClick={() => {
                           if (roomCode) {
                             const updatedPlayers = room.players.map((p: any) => ({
-                              ...p, role: p.id === user?.id ? 'judge' : 'writer'
+                              ...p,
+                              role: p.id === user?.id ? 'judge' : 'writer'
                             }));
                             
                             fetch('/api/game/update-state', {
@@ -1867,7 +1847,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                               body: JSON.stringify({
                                 roomCode,
                                 newState: { 
-                                  ...roomRef.current,
                                   gameState: 'playing',
                                   submissions: [], 
                                   winner: null,
@@ -1891,7 +1870,8 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                         onClick={handleShare}
                         className="px-12 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-slate-800 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
                       >
-                        <i className="fa-solid fa-share-nodes"></i> Share Comic
+                        <i className="fa-solid fa-share-nodes"></i>
+                        Share Comic
                       </button>
                     </div>
                   </div>
@@ -1966,6 +1946,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                   </div>
                 )}
 
+                {/* Cinematic Render Section - Only for Winner */}
                 {winner.playerId === user?.id && (
                   <div className="flex flex-col items-center gap-4 bg-white/50 backdrop-blur p-6 rounded-3xl border border-amber-200 shadow-sm w-full max-w-2xl">
                     <div className="flex items-center gap-4 mb-2">
@@ -2079,9 +2060,17 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           >
                             <div 
                               className="w-full h-full flex items-center justify-center overflow-hidden"
-                              style={{ fontFamily: getFontFamily(tf.font || 'Inter'), color: 'black', lineHeight: 0.8 }}
+                              style={{
+                                fontFamily: getFontFamily(tf.font || 'Inter'),
+                                color: 'black',
+                                lineHeight: 0.8,
+                              }}
                             >
-                              <AutoResizingText text={tf.text.replace(/^[^:]+:\s*/, '')} alignment={tf.alignment || 'center'} font={tf.font || 'Inter'} />
+                              <AutoResizingText 
+                                text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                                alignment={tf.alignment || 'center'} 
+                                font={tf.font || 'Inter'} 
+                              />
                             </div>
                           </div>
                         ))}
@@ -2223,13 +2212,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                             fetch('/api/game/use-hint', {
                                               method: 'POST',
                                               headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({ roomCode, playerId: user.id, cost: 5 })
+                                              body: JSON.stringify({ roomCode, playerId: user.id })
                                             });
-                                          } else {
-                                            alert("Dialogue ID not found in script.");
                                           }
-                                        } else if (!tf.dialogueId) {
-                                          alert("No Dialogue ID associated with this field.");
                                         }
                                       }}
                                       disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
@@ -2333,7 +2318,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                                 fetch('/api/game/use-hint', {
                                                   method: 'POST',
                                                   headers: { 'Content-Type': 'application/json' },
-                                                  body: JSON.stringify({ roomCode, playerId: user.id, cost: 5 })
+                                                  body: JSON.stringify({ roomCode, playerId: user.id })
                                                 });
                                               } else {
                                                 alert("Dialogue ID not found in script.");
@@ -2406,6 +2391,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           <div className="relative max-w-8xl max-h-full">
             <img src={resolvedPreviewImage || null} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.4)] border-[12px] border-white animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
             
+            {/* Render text fields on preview if it matches a submitted comic */}
             {(() => {
               const previewComic = submittedComics.find(c => c.imageUrl === previewImage) || (winner?.imageUrl === previewImage ? winner : null);
               if (previewComic && previewComic.textFields && previewComic.textFields.length > 0 && !previewComic.isFlattened) {
