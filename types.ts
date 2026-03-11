@@ -10,6 +10,10 @@ export interface User {
   picture?: string;
   apiKeys: ApiKeys;
   guideEnabled?: boolean;
+  gamesWon?: number;
+  gamesLost?: number;
+  winningComics?: RatedComic[];
+  playedGames?: string[];
 }
 
 export interface AppSession {

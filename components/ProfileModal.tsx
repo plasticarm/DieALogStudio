@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, ComicProfile } from '../types';
 import { imageStore } from '../services/imageStore';
+import { CachedImage } from './CachedImage';
 
 interface ProfileModalProps {
   user: User;
@@ -52,20 +53,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[1100] modal-backdrop flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 overflow-hidden animate-in zoom-in-95 duration-300 border border-black/5" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-8">
+      <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 border border-black/5" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-6 shrink-0">
           <h2 className="text-slate-800 font-header text-4xl uppercase tracking-widest">Architect Profile</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-800 transition-all text-2xl">
             <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-8 overflow-y-auto pr-2 custom-scrollbar flex-1 pb-4">
           <div className="flex flex-col items-center gap-4">
             <div className="relative group">
               <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-slate-100 group-hover:border-slate-300 transition-all shadow-lg bg-slate-50 flex items-center justify-center relative">
                 {localUser.picture ? (
-                  <img src={localUser.picture} className="w-full h-full object-cover" />
+                  <CachedImage src={localUser.picture} className="w-full h-full object-cover" />
                 ) : (
                   <i className="fa-solid fa-user text-4xl text-slate-200"></i>
                 )}
@@ -113,7 +114,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                           }}
                           className="group relative aspect-square rounded-2xl overflow-hidden bg-slate-50 border-2 border-transparent hover:border-indigo-500 transition-all"
                         >
-                          <img src={avatar.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          <CachedImage src={avatar.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
                             <span className="text-[7px] font-black text-white uppercase truncate">{avatar.name}</span>
                             <span className="text-[5px] font-bold text-white/70 uppercase truncate">{avatar.series}</span>
@@ -146,6 +147,46 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-800 font-bold outline-none focus:ring-4 focus:ring-black/5"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col items-center justify-center">
+                <span className="text-3xl font-black text-amber-600 mb-1">{localUser.gamesWon || 0}</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-amber-800/60">Games Won</span>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center">
+                <span className="text-3xl font-black text-slate-600 mb-1">{localUser.gamesLost || 0}</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Games Lost</span>
+              </div>
+            </div>
+
+            {(localUser.winningComics && localUser.winningComics.length > 0) && (
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-3">Winning Comics</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {localUser.winningComics.map((comic, idx) => (
+                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 aspect-square bg-slate-50">
+                      <CachedImage src={comic.imageUrl} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button 
+                          onClick={async () => {
+                            const a = document.createElement('a');
+                            const url = comic.imageUrl.startsWith('vault:') ? await imageStore.getImage(comic.imageUrl) : comic.imageUrl;
+                            if (url) {
+                              a.href = url;
+                              a.download = `winning_comic_${comic.name.replace(/\s+/g, '_')}.png`;
+                              a.click();
+                            }
+                          }}
+                          className="bg-white text-slate-800 w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg"
+                        >
+                          <i className="fa-solid fa-share-nodes"></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="border border-slate-200 rounded-2xl overflow-hidden">
               <button 
@@ -200,7 +241,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </div>
           </div>
 
-          <div className="pt-4 flex flex-col gap-3">
+          <div className="pt-4 flex flex-col gap-3 shrink-0 border-t border-slate-100 mt-4">
             {hasLocalBackup && onRestoreFromLocal && (
               <button 
                 onClick={onRestoreFromLocal}

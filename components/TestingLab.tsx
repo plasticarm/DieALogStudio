@@ -4,7 +4,7 @@ import { downloadImage } from '../services/utils';
 import { downscaleImage } from '../utils/imageUtils';
 import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
-import { COMIC_FONTS } from '../constants';
+import { COMIC_FONTS, CANNED_PHRASES } from '../constants';
 
 const getFontFamily = (fontName: string) => {
   const font = COMIC_FONTS.find(f => f.name === fontName);
@@ -45,6 +45,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
   const [localTextFields, setLocalTextFields] = useState<TextField[]>([]);
   const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes in seconds
+  const [branches, setBranches] = useState(30);
   const [isSavingLocal, setIsSavingLocal] = useState(false);
 
   useEffect(() => {
@@ -80,10 +81,37 @@ export const TestingLab: React.FC<TestingLabProps> = ({
     setLocalTextFields(prev => prev.map(tf => tf.id === id ? { ...tf, text } : tf));
   };
 
+  const handleCanned = (tfId: string) => {
+    if (branches <= 0) return;
+    
+    const randomPhrase = CANNED_PHRASES[Math.floor(Math.random() * CANNED_PHRASES.length)];
+    const tf = localTextFields.find(t => t.id === tfId);
+    if (tf) {
+      const match = tf.text.match(/^[^:]+:\s*/);
+      const prefix = match ? match[0] : '';
+      handleUpdateText(tfId, prefix + randomPhrase);
+      setBranches(prev => Math.max(0, prev - 1));
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedStrip || isSavingLocal) return;
     setIsSavingLocal(true);
     
+    // Penalty for blank fields
+    const blankFieldsCount = localTextFields.filter(tf => {
+      let cleanText = tf.text;
+      const nameMatch = cleanText.match(/^[^:]+:\s*/);
+      if (nameMatch) {
+        cleanText = cleanText.substring(nameMatch[0].length);
+      }
+      return !cleanText.trim();
+    }).length;
+
+    if (blankFieldsCount > 0) {
+      setBranches(prev => Math.max(0, prev - blankFieldsCount));
+    }
+
     // Save the text fields first
     await onUpdateHistoryItem({
       ...selectedStrip,
@@ -360,14 +388,21 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
+            <div className={`flex flex-col items-center px-4 py-2 bg-white/20 rounded-2xl border border-white/10 backdrop-blur-sm ${branches <= 5 ? 'animate-pulse text-rose-500' : contrastColor}`}>
+              <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-50">Branches</span>
+              <span className="text-2xl font-mono font-bold tabular-nums">{branches}</span>
+            </div>
             <div className={`flex flex-col items-center px-4 py-2 bg-white/20 rounded-2xl border border-white/10 backdrop-blur-sm ${timeLeft < 30 ? 'animate-pulse text-rose-500' : contrastColor}`}>
               <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-50">Session Time</span>
               <span className="text-2xl font-mono font-bold tabular-nums">{formatTime(timeLeft)}</span>
             </div>
             <button 
-              onClick={() => setTimeLeft(180)}
+              onClick={() => {
+                setTimeLeft(180);
+                setBranches(30);
+              }}
               className={`w-10 h-10 rounded-full flex items-center justify-center bg-white/10 border border-white/10 hover:bg-white/20 transition-all ${contrastColor}`}
-              title="Restart Timer"
+              title="Restart Session"
             >
               <i className="fa-solid fa-rotate-right text-xs"></i>
             </button>
@@ -471,30 +506,46 @@ export const TestingLab: React.FC<TestingLabProps> = ({
                             )}
                             <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight truncate max-w-[80px]">{tf.characterName}</span>
                           </div>
-                          <button 
-                            onClick={() => {
-                              if (tf.dialogueId && selectedStrip.script) {
-                                const dialogue = selectedStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
-                                if (dialogue) {
-                                  handleUpdateText(tf.id, dialogue.text);
-                                  setUsedHints(prev => new Set(prev).add(tf.id));
-                                } else {
-                                  alert("Dialogue ID not found in script.");
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => {
+                                if (branches <= 0) return;
+                                if (tf.dialogueId && selectedStrip.script) {
+                                  const dialogue = selectedStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
+                                  if (dialogue) {
+                                    handleUpdateText(tf.id, dialogue.text);
+                                    setUsedHints(prev => new Set(prev).add(tf.id));
+                                    setBranches(prev => Math.max(0, prev - 1));
+                                  } else {
+                                    alert("Dialogue ID not found in script.");
+                                  }
+                                } else if (!tf.dialogueId) {
+                                  alert("No Dialogue ID associated with this field. Link it in the Studio first.");
                                 }
-                              } else if (!tf.dialogueId) {
-                                alert("No Dialogue ID associated with this field. Link it in the Studio first.");
-                              }
-                            }}
-                            className={`text-[8px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 shrink-0 ${
-                              isHintUsed 
-                                ? 'bg-slate-100 text-slate-400' 
-                                : 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
-                            }`}
-                            title="Fill with original script text"
-                          >
-                            <i className="fa-solid fa-lightbulb text-[7px]"></i>
-                            Hint
-                          </button>
+                              }}
+                              disabled={branches <= 0}
+                              className={`text-[8px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 shrink-0 ${
+                                isHintUsed 
+                                  ? 'bg-slate-100 text-slate-400' 
+                                  : branches <= 0 ? 'bg-slate-50 text-slate-300 cursor-not-allowed' : 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
+                              }`}
+                              title="Fill with original script text"
+                            >
+                              <i className="fa-solid fa-lightbulb text-[7px]"></i>
+                              Hint
+                            </button>
+                            <button 
+                              onClick={() => handleCanned(tf.id)}
+                              disabled={branches <= 0}
+                              className={`text-[8px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 shrink-0 ${
+                                branches <= 0 ? 'bg-slate-50 text-slate-300 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
+                              }`}
+                              title="Fill with random canned phrase"
+                            >
+                              <i className="fa-solid fa-comment-dots text-[7px]"></i>
+                              Canned
+                            </button>
+                          </div>
                         </div>
                         <textarea
                           value={tf.text}

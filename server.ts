@@ -195,43 +195,61 @@ app.get('/api/game/room/:code', (req, res) => {
 });
 
 app.post('/api/game/join', async (req, res) => {
-  const { roomCode, user } = req.body;
-  let room = rooms.get(roomCode);
-  
-  if (!room) {
-    return res.status(404).json({ error: "Room not found" });
-  }
-
-  const player = {
-    id: user.id,
-    name: user.name,
-    picture: user.picture,
-    role: room.host === user.id ? 'host' : null
-  };
-
-  // Check if player already in room by user.id
-  const existingPlayerIdx = room.players.findIndex((p: any) => p.id === user.id);
-  if (existingPlayerIdx === -1) {
-    room.players.push(player);
-    if (room.scores && !room.scores[user.id]) {
-      room.scores[user.id] = 0;
+  try {
+    const { roomCode, user } = req.body;
+    
+    if (!roomCode) {
+      return res.status(400).json({ error: "Room code is required" });
     }
-    if (room.branches && !room.branches[user.id]) {
-      room.branches[user.id] = 30;
+    
+    if (!user || !user.id) {
+      return res.status(400).json({ error: "Valid user data is required" });
     }
-  } else {
-    room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
-  }
 
-  if (pusher) {
-    try {
-      await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
-    } catch (pusherError) {
-      console.error("Pusher trigger failed:", pusherError);
+    let room = rooms.get(roomCode);
+    
+    if (!room) {
+      return res.status(404).json({ error: "Room not found" });
     }
-  }
 
-  res.json(room);
+    const player = {
+      id: user.id,
+      name: user.name || 'Unknown Player',
+      picture: user.picture,
+      role: room.host === user.id ? 'host' : null
+    };
+
+    // Check if player already in room by user.id
+    if (!room.players) room.players = [];
+    const existingPlayerIdx = room.players.findIndex((p: any) => p.id === user.id);
+    
+    if (existingPlayerIdx === -1) {
+      room.players.push(player);
+      if (!room.scores) room.scores = {};
+      if (!room.scores[user.id]) {
+        room.scores[user.id] = 0;
+      }
+      if (!room.branches) room.branches = {};
+      if (!room.branches[user.id]) {
+        room.branches[user.id] = 30;
+      }
+    } else {
+      room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
+    }
+
+    if (pusher) {
+      try {
+        await pusher.trigger(`room-${roomCode}`, 'room-update', { timestamp: Date.now() });
+      } catch (pusherError) {
+        console.error("Pusher trigger failed:", pusherError);
+      }
+    }
+
+    res.json(room);
+  } catch (error) {
+    console.error("Join room error:", error);
+    res.status(500).json({ error: "Failed to join room", details: error instanceof Error ? error.message : String(error) });
+  }
 });
 
   app.post('/api/game/leave', async (req, res) => {

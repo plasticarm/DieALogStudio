@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ComicProfile, Character, Environment, ArtModelType } from '../types';
 import { generateEnvironmentDescription, generateCharacterImage, generateCharacterSheet, generateExpressionSheet, getGeminiApiKey } from '../services/gemini';
 import { downscaleImage } from '../utils/imageUtils';
@@ -18,6 +18,33 @@ interface TrainingCenterProps {
   contrastColor: string;
   onAdvanceGuide?: (step: number) => void;
 }
+
+const VaultVideo: React.FC<{ src: string; className?: string }> = ({ src, className }) => {
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (src.startsWith('vault:')) {
+      imageStore.getImage(src).then(url => setResolvedUrl(url));
+    } else {
+      setResolvedUrl(src);
+    }
+  }, [src]);
+
+  if (!resolvedUrl) return <div className={className} />;
+
+  return (
+    <video 
+      ref={videoRef}
+      src={resolvedUrl}
+      autoPlay 
+      loop 
+      muted 
+      playsInline 
+      className={className}
+    />
+  );
+};
 
 export const TrainingCenter: React.FC<TrainingCenterProps> = ({ 
   editingComic, onUpdateComic, onPreviewImage, globalColor, onUpdateGlobalColor, contrastColor, onAdvanceGuide
@@ -39,6 +66,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
   const [isDragging, setIsDragging] = useState<string | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(editingComic.name);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (croppingCharacterId) {
@@ -708,18 +736,8 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Library Cinematic</h3>
                 <div className="relative aspect-video rounded-2xl bg-slate-900 overflow-hidden border border-slate-200 group shadow-2xl">
                   {localComic.libraryVideoUrl ? (
-                    <video 
-                      src={localComic.libraryVideoUrl.startsWith('vault:') ? null : (localComic.libraryVideoUrl || null)} 
-                      ref={async (el) => {
-                        if (el && localComic.libraryVideoUrl?.startsWith('vault:')) {
-                          const url = await imageStore.getImage(localComic.libraryVideoUrl);
-                          if (url) el.src = url;
-                        }
-                      }}
-                      autoPlay 
-                      loop 
-                      muted 
-                      playsInline 
+                    <VaultVideo 
+                      src={localComic.libraryVideoUrl} 
                       className="w-full h-full object-cover" 
                     />
                   ) : (

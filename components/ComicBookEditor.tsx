@@ -66,7 +66,23 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
   const getStrip = (id: string) => history.find(s => s.id === id);
 
   const handleLaunchReader = () => {
-    const pages = book.pages.map(id => getStrip(id)).filter((s): s is SavedComicStrip => !!s);
+    let pages = book.pages.map(id => getStrip(id)).filter((s): s is SavedComicStrip => !!s);
+    
+    if (book.coverImageUrl) {
+      const coverStrip: SavedComicStrip = {
+        id: 'cover-page',
+        arTargetId: '',
+        name: 'Cover Page',
+        comicProfileId: activeSeriesId || '',
+        prompt: 'Series Cover',
+        script: [],
+        finishedImageUrl: book.coverImageUrl,
+        timestamp: book.timestamp,
+        panelCount: 1
+      };
+      pages = [coverStrip, ...pages];
+    }
+
     if (pages.length === 0 && book.externalPageUrls.length === 0) return alert('Bind pages to the volume first!');
     onLaunchReader(pages, viewMode);
   };
@@ -209,7 +225,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
                 className="bg-transparent border-none text-slate-800 font-comic text-3xl outline-none focus:ring-0 w-80 uppercase tracking-widest"
                 placeholder="Volume Title..."
               />
-              <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em]">{book.pages.length} Pages Registered</span>
+              <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em]">{book.pages.length + (book.coverImageUrl ? 1 : 0)} Pages Registered</span>
             </div>
             <div className="flex items-center gap-3">
               <button 
@@ -253,6 +269,24 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-12 space-y-10">
+          {book.coverImageUrl && (
+            <div className="bg-slate-50/40 p-8 rounded-[2rem] border border-slate-100 flex gap-10 group shadow-sm hover:shadow-xl hover:border-slate-200 transition-all">
+              <div className="w-16 h-16 flex items-center justify-center bg-white border border-slate-200 rounded-3xl font-black text-slate-800 text-3xl font-header shadow-md">0</div>
+              <div className="w-80 aspect-[16/9] shrink-0 bg-white border border-slate-200 rounded-3xl overflow-hidden relative shadow-2xl">
+                <CachedImage 
+                  src={book.coverImageUrl} 
+                  className="w-full h-full object-cover cursor-zoom-in" 
+                  onClick={() => onPreviewImage(book.coverImageUrl!)} 
+                />
+              </div>
+              <div className="flex-1 flex flex-col justify-between py-2">
+                <h4 className="font-header text-5xl text-slate-800 uppercase tracking-tight">Cover Page</h4>
+                <div className="flex gap-10">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cover View Only</span>
+                </div>
+              </div>
+            </div>
+          )}
           {book.pages
             .map(id => ({ id, strip: getStrip(id) }))
             .filter(item => !!item.strip)

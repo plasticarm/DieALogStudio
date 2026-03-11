@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { AuthModal } from './components/AuthModal';
 import { ProfileModal } from './components/ProfileModal';
@@ -33,6 +33,33 @@ declare global {
 }
 
 const DEFAULT_BG_COLOR = '#dbdac8';
+
+const VaultVideo: React.FC<{ src: string; className?: string }> = ({ src, className }) => {
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (src.startsWith('vault:')) {
+      imageStore.getImage(src).then(url => setResolvedUrl(url));
+    } else {
+      setResolvedUrl(src);
+    }
+  }, [src]);
+
+  if (!resolvedUrl) return <div className={className} />;
+
+  return (
+    <video 
+      ref={videoRef}
+      src={resolvedUrl}
+      autoPlay 
+      loop 
+      muted 
+      playsInline 
+      className={className}
+    />
+  );
+};
 
 function getLuminance(hex: string) {
   if (!hex || typeof hex !== 'string') return 0;
@@ -78,6 +105,7 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSyncingToCloud, setIsSyncingToCloud] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [lastCloudSync, setLastCloudSync] = useState<number>(0);
@@ -370,11 +398,18 @@ export default function App() {
     return (activeSession.data.books || []).find(b => b.id === activeSession.data.activeSeriesId) || null;
   }, [activeSession]);
 
+  const lastValidBgColorRef = useRef(DEFAULT_BG_COLOR);
   const currentBackgroundColor = useMemo(() => {
-    if (activeComic?.backgroundColor) return activeComic.backgroundColor;
-    if (activeSession?.data.globalBackgroundColor) return activeSession.data.globalBackgroundColor;
-    return DEFAULT_BG_COLOR;
-  }, [activeComic, activeSession]);
+    let color = DEFAULT_BG_COLOR;
+    if (activeComic?.backgroundColor) color = activeComic.backgroundColor;
+    else if (activeSession?.data.globalBackgroundColor) color = activeSession.data.globalBackgroundColor;
+    
+    // Only update if we have a real color, otherwise stick to last valid
+    if (color) {
+      lastValidBgColorRef.current = color;
+    }
+    return lastValidBgColorRef.current;
+  }, [activeComic?.backgroundColor, activeSession?.data.globalBackgroundColor]);
 
   const uiContrastColor = useMemo(() => {
     return getLuminance(currentBackgroundColor) > 0.5 ? 'text-slate-800' : 'text-slate-100';
@@ -382,7 +417,11 @@ export default function App() {
 
   const handleUpdateSessionData = useCallback((newData: Partial<ProjectState>) => {
     if (!activeSession || !currentUser) return;
+    
+    // Use a more stable saving indicator
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     setIsSaving(true);
+    saveTimeoutRef.current = setTimeout(() => setIsSaving(false), 1000);
     
     setSessions(prevSessions => {
       let updatedSessions = prevSessions.map(s => {
@@ -483,7 +522,9 @@ export default function App() {
       return updatedSessions;
     });
     
-    setTimeout(() => setIsSaving(false), 500);
+    setTimeout(() => {
+      // setIsSaving is now handled by the stable timeout above
+    }, 500);
   }, [activeSession?.id, currentUser?.id]);
 
   const handleSaveHistory = useCallback(async (strip: SavedComicStrip) => {
@@ -675,12 +716,12 @@ export default function App() {
     setCurrentUser(user);
     setApiError(null); // Clear API errors when profile is updated
     try {
-      localStorage.setItem('app_user', JSON.stringify(user));
+      localStorage.setItem('die-a-log-user', JSON.stringify(user));
     } catch (e) {}
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('app_user');
+    localStorage.removeItem('die-a-log-user');
     setCurrentUser(null);
     setSessions([]);
     setActiveSessionId(null);
@@ -976,37 +1017,164 @@ export default function App() {
 
   const { comics = [], history = [], books = [], ratings = [], activeSeriesId = null, currentGuideStep = 0 } = activeSession.data;
 
+  const renderModals = () => (
+    <>
+      <GuideBuddy 
+        enabled={currentUser?.guideEnabled || false}
+        currentStepIndex={currentGuideStep}
+        onNext={() => handleUpdateSessionData({ currentGuideStep: currentGuideStep + 1 })}
+        onPrev={() => handleUpdateSessionData({ currentGuideStep: Math.max(0, currentGuideStep - 1) })}
+        onClose={toggleGuide}
+      />
+
+      {isProfileOpen && (
+        <ProfileModal 
+          user={currentUser} 
+          comics={activeSession.data.comics || []}
+          onUpdate={handleAuth} 
+          onLogout={handleLogout} 
+          onClose={() => setIsProfileOpen(false)} 
+          hasLocalBackup={!!localBackupSession}
+          onRestoreFromLocal={handleRestoreFromLocal}
+          onDeepScan={handleDeepScan}
+        />
+      )}
+
+      {isNamingNewSeries && (
+        <div className="fixed inset-0 z-[3000] modal-backdrop flex items-center justify-center p-6" onClick={() => setIsNamingNewSeries(false)}>
+          <div className="bg-white rounded-3xl p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+            <h3 className="text-3xl font-header uppercase tracking-widest mb-6 text-slate-800">New Production</h3>
+            <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Series Name</label>
+            <input 
+              autoFocus
+              type="text" 
+              value={newSeriesName} 
+              onChange={e => setNewSeriesName(e.target.value)} 
+              onKeyDown={e => e.key === 'Enter' && handleConfirmCreateSeries()}
+              placeholder="e.g. Neo Tokyo 2099" 
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-800 font-bold mb-8 outline-none focus:ring-4 focus:ring-black/5"
+            />
+            <div className="flex gap-4">
+               <button onClick={() => setIsNamingNewSeries(false)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600">Cancel</button>
+               <button onClick={handleConfirmCreateSeries} className="flex-1 bg-slate-800 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-900">Initialize</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSessionsOpen && (
+        <SessionModal 
+          sessions={sessions}
+          activeSessionId={activeSessionId!}
+          onLoad={handleSwitchSession}
+          onDelete={handleDeleteSession}
+          onNew={handleCreateSession}
+          onImport={handleImportSession}
+          onExport={handleExportSession}
+          onRename={handleRenameSession}
+          onClose={() => setIsSessionsOpen(false)}
+        />
+      )}
+
+      {previewImage && (
+        <div className="fixed inset-0 z-[2000] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-8xl max-h-full">
+            <img src={resolvedPreviewImage || null} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.4)] border-[12px] border-white animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
+            <button className="absolute -top-6 -right-6 bg-slate-800 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-110 transition-all shadow-2xl" onClick={() => setPreviewImage(null)}>
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {readModePages && activeBook && (
+        <div className="fixed inset-0 z-[2000] flex flex-col items-center overflow-hidden animate-in fade-in duration-500" style={{ backgroundColor: currentBackgroundColor }}>
+          <div className="w-full bg-white/80 backdrop-blur-xl border-b border-black/5 px-10 py-4 flex justify-between items-center shrink-0">
+             <div className="flex items-center gap-6">
+                <i className="fa-solid fa-book-open text-slate-800 text-2xl"></i>
+                <h2 className="text-slate-800 font-comic text-3xl tracking-widest uppercase">{activeBook.title}</h2>
+                <div className="px-3 py-1 bg-slate-800 text-white text-[8px] font-black uppercase tracking-widest rounded-full">
+                  {readModePages.mode === 'clean' ? 'Clean Edition' : 'Standard Edition'}
+                </div>
+             </div>
+             <button onClick={() => setReadModePages(null)} className="text-slate-500 text-4xl hover:text-white transition-all">×</button>
+          </div>
+          <div className="flex-1 w-full overflow-y-auto pb-96 space-y-60 py-32 px-10">
+            {readModePages.pages.map((page, idx) => {
+              const isCover = page.id === 'cover-page';
+              const hasCover = readModePages.pages[0].id === 'cover-page';
+              const pageNum = isCover ? 0 : (hasCover ? idx : idx + 1);
+              
+              return (
+                <div key={page.id} className="flex flex-col items-center space-y-8 max-w-6xl mx-auto">
+                  <div className="w-full flex justify-between items-center text-slate-500 font-black uppercase text-[10px] tracking-widest">
+                    <span>{isCover ? 'COVER' : `PAGE ${pageNum}`}</span>
+                    {page.arTargetId && <span className="opacity-30">{page.arTargetId}</span>}
+                  </div>
+                  <CachedImage 
+                    src={readModePages.mode === 'clean' ? (page.exportImageUrl || page.finishedImageUrl) : page.finishedImageUrl} 
+                    className="w-full rounded-[2rem] shadow-2xl border-[8px] border-white" 
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   if (appMode === 'select') {
     return (
-      <div className="h-screen w-screen bg-slate-50 flex flex-col items-center justify-center relative">
-        <button onClick={handleLogout} className="absolute top-8 right-8 text-slate-500 hover:text-slate-800 font-black uppercase tracking-widest text-xs">
-          Logout
-        </button>
-        <div className="h-40 w-40 mx-auto mb-6 float-animation">
-          <CachedImage 
-            src="https://raw.githubusercontent.com/plasticarm/DieALogStudio/main/images/DieALog_Logo1.png" 
-            alt="DiE-A-Log" 
-            className="w-full h-full object-contain drop-shadow-2xl" 
-          />
+      <>
+        <div className="h-screen w-screen bg-slate-50 flex flex-col items-center justify-center relative">
+          <div className="absolute top-8 right-8 flex items-center gap-6">
+            <button 
+              onClick={() => setIsProfileOpen(true)} 
+              className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors group"
+            >
+              <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-slate-200 group-hover:border-slate-400">
+                {currentUser.picture ? (
+                  <CachedImage src={currentUser.picture} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+                    <i className="fa-solid fa-user text-slate-400 text-xs"></i>
+                  </div>
+                )}
+              </div>
+              <span className="font-black uppercase tracking-widest text-xs">{currentUser.name}</span>
+            </button>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-rose-500 font-black uppercase tracking-widest text-xs transition-colors">
+              Logout
+            </button>
+          </div>
+          <div className="h-40 w-40 mx-auto mb-6 float-animation">
+            <CachedImage 
+              src="https://raw.githubusercontent.com/plasticarm/DieALogStudio/main/images/DieALog_Logo1.png" 
+              alt="DiE-A-Log" 
+              className="w-full h-full object-contain drop-shadow-2xl" 
+            />
+          </div>
+          <h1 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-12">Select Mode</h1>
+          <div className="flex gap-8">
+            <button 
+              onClick={() => setAppMode('edit')}
+              className="w-64 h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-500/50 transition-all group"
+            >
+              <i className="fa-solid fa-pen-ruler text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
+              <span className="text-2xl font-black uppercase tracking-widest text-slate-700">Edit</span>
+            </button>
+            <button 
+              onClick={() => setAppMode('play')}
+              className="w-64 h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-200 transition-all group"
+            >
+              <i className="fa-solid fa-gamepad text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
+              <span className="text-2xl font-black uppercase tracking-widest text-slate-700">Play</span>
+            </button>
+          </div>
         </div>
-        <h1 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-12">Select Mode</h1>
-        <div className="flex gap-8">
-          <button 
-            onClick={() => setAppMode('edit')}
-            className="w-64 h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-500/50 transition-all group"
-          >
-            <i className="fa-solid fa-pen-ruler text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
-            <span className="text-2xl font-black uppercase tracking-widest text-slate-700">Edit</span>
-          </button>
-          <button 
-            onClick={() => setAppMode('play')}
-            className="w-64 h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-200 transition-all group"
-          >
-            <i className="fa-solid fa-gamepad text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
-            <span className="text-2xl font-black uppercase tracking-widest text-slate-700">Play</span>
-          </button>
-        </div>
-      </div>
+        {renderModals()}
+      </>
     );
   }
 
@@ -1015,23 +1183,28 @@ export default function App() {
     const binderPages = Array.from(new Set((activeSession?.data.books || []).flatMap(b => b.pages)));
     
     return (
-      <PlayMode 
-        user={currentUser}
-        ratings={ratings} 
-        history={history} 
-        comics={comics} 
-        books={activeSession.data.books || []}
-        binderPages={binderPages}
-        onExit={() => setAppMode('select')} 
-        onAddSubmission={(submission) => {
-          const currentRatings = activeSession.data.ratings || [];
-          handleUpdateSessionData({ ratings: [submission, ...currentRatings] });
-        }}
-        onEdit={() => {
-          setAppMode('select');
-          setCurrentTab('generate');
-        }}
-      />
+      <>
+        <PlayMode 
+          user={currentUser}
+          ratings={ratings} 
+          history={history} 
+          comics={comics} 
+          books={activeSession.data.books || []}
+          binderPages={binderPages}
+          onExit={() => setAppMode('select')} 
+          onAddSubmission={(submission) => {
+            const currentRatings = activeSession.data.ratings || [];
+            handleUpdateSessionData({ ratings: [submission, ...currentRatings] });
+          }}
+          onEdit={() => {
+            setAppMode('select');
+            setCurrentTab('generate');
+          }}
+          onUserUpdate={handleAuth}
+          onOpenProfile={() => setIsProfileOpen(true)}
+        />
+        {renderModals()}
+      </>
     );
   }
 
@@ -1080,7 +1253,7 @@ export default function App() {
       />
       
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-20 bg-white/40 backdrop-blur-md border-r border-black/5 flex flex-col items-center py-8 gap-8 shrink-0">
+        <aside className="w-20 bg-white border-r border-slate-200 flex flex-col items-center py-8 gap-8 shrink-0 z-20">
           {[
             { id: 'books', icon: 'fa-layer-group', label: 'Library' },
             { id: 'train', icon: 'fa-dna', label: 'Genome' },
@@ -1095,25 +1268,15 @@ export default function App() {
               className={`flex flex-col items-center gap-2 group transition-all ${currentTab === tab.id ? 'text-brand-800' : 'text-slate-400 hover:text-slate-600'}`}
             >
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all relative overflow-hidden ${
-                currentTab === tab.id ? 'bg-white shadow-lg border border-black/5' : 'hover:bg-black/5'
+                currentTab === tab.id ? 'bg-slate-100 shadow-inner border border-black/5' : 'hover:bg-black/5'
               }`}>
                 {tab.id === 'books' && activeComic?.libraryVideoUrl && (
-                  <video 
-                    src={activeComic.libraryVideoUrl.startsWith('vault:') ? null : (activeComic.libraryVideoUrl || null)}
-                    ref={async (el) => {
-                      if (el && activeComic.libraryVideoUrl?.startsWith('vault:')) {
-                        const url = await imageStore.getImage(activeComic.libraryVideoUrl);
-                        if (url) el.src = url;
-                      }
-                    }}
-                    autoPlay 
-                    loop 
-                    muted 
-                    playsInline 
-                    className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity"
+                  <VaultVideo 
+                    src={activeComic.libraryVideoUrl} 
+                    className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity" 
                   />
                 )}
-                <i className={`fa-solid ${tab.icon} relative z-10 ${tab.id === 'books' && activeComic?.libraryVideoUrl ? 'text-white drop-shadow-md' : ''}`}></i>
+                <i className={`fa-solid ${tab.icon} relative z-10 ${tab.id === 'books' && activeComic?.libraryVideoUrl ? 'text-slate-800 drop-shadow-sm' : ''}`}></i>
               </div>
               <span className={`text-[8px] font-black uppercase tracking-widest ${currentTab === tab.id ? 'text-slate-800' : 'text-slate-400'}`}>{tab.label}</span>
             </button>
@@ -1277,107 +1440,7 @@ export default function App() {
         </main>
       </div>
 
-      <GuideBuddy 
-        enabled={currentUser?.guideEnabled || false}
-        currentStepIndex={currentGuideStep}
-        onNext={() => handleUpdateSessionData({ currentGuideStep: currentGuideStep + 1 })}
-        onPrev={() => handleUpdateSessionData({ currentGuideStep: Math.max(0, currentGuideStep - 1) })}
-        onClose={toggleGuide}
-      />
-
-      {isProfileOpen && (
-        <ProfileModal 
-          user={currentUser} 
-          comics={activeSession.data.comics || []}
-          onUpdate={handleAuth} 
-          onLogout={handleLogout} 
-          onClose={() => setIsProfileOpen(false)} 
-          hasLocalBackup={!!localBackupSession}
-          onRestoreFromLocal={handleRestoreFromLocal}
-          onDeepScan={handleDeepScan}
-        />
-      )}
-
-      {isNamingNewSeries && (
-        <div className="fixed inset-0 z-[3000] modal-backdrop flex items-center justify-center p-6" onClick={() => setIsNamingNewSeries(false)}>
-          <div className="bg-white rounded-3xl p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-            <h3 className="text-3xl font-header uppercase tracking-widest mb-6 text-slate-800">New Production</h3>
-            <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Series Name</label>
-            <input 
-              autoFocus
-              type="text" 
-              value={newSeriesName} 
-              onChange={e => setNewSeriesName(e.target.value)} 
-              onKeyDown={e => e.key === 'Enter' && handleConfirmCreateSeries()}
-              placeholder="e.g. Neo Tokyo 2099" 
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-800 font-bold mb-8 outline-none focus:ring-4 focus:ring-black/5"
-            />
-            <div className="flex gap-4">
-               <button onClick={() => setIsNamingNewSeries(false)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600">Cancel</button>
-               <button onClick={handleConfirmCreateSeries} className="flex-1 bg-slate-800 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-900">Initialize</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isSessionsOpen && (
-        <SessionModal 
-          sessions={sessions}
-          activeSessionId={activeSessionId!}
-          onLoad={handleSwitchSession}
-          onDelete={handleDeleteSession}
-          onNew={handleCreateSession}
-          onImport={handleImportSession}
-          onExport={handleExportSession}
-          onRename={handleRenameSession}
-          onClose={() => setIsSessionsOpen(false)}
-        />
-      )}
-
-      {previewImage && (
-        <div className="fixed inset-0 z-[2000] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => setPreviewImage(null)}>
-          <div className="relative max-w-8xl max-h-full">
-            <img src={resolvedPreviewImage || null} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.4)] border-[12px] border-white animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
-            <button className="absolute -top-6 -right-6 bg-slate-800 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-110 transition-all shadow-2xl" onClick={() => setPreviewImage(null)}>
-              <i className="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {readModePages && activeBook && (
-        <div className="fixed inset-0 z-[2000] flex flex-col items-center overflow-hidden animate-in fade-in duration-500" style={{ backgroundColor: currentBackgroundColor }}>
-          <div className="w-full bg-white/80 backdrop-blur-xl border-b border-black/5 px-10 py-4 flex justify-between items-center shrink-0">
-             <div className="flex items-center gap-6">
-                <i className="fa-solid fa-book-open text-slate-800 text-2xl"></i>
-                <h2 className="text-slate-800 font-comic text-3xl tracking-widest uppercase">{activeBook.title}</h2>
-                <div className="px-3 py-1 bg-slate-800 text-white text-[8px] font-black uppercase tracking-widest rounded-full">
-                  {readModePages.mode === 'clean' ? 'Clean Edition' : 'Standard Edition'}
-                </div>
-             </div>
-             <button onClick={() => setReadModePages(null)} className="text-slate-500 text-4xl hover:text-white transition-all">×</button>
-          </div>
-          <div className="flex-1 w-full overflow-y-auto pb-96 space-y-60 py-32 px-10">
-            {activeBook.coverImageUrl && (
-              <div className="max-w-5xl mx-auto flex flex-col items-center">
-                <CachedImage src={activeBook.coverImageUrl} className="w-full rounded-[2rem] shadow-2xl border-[8px] border-white" />
-              </div>
-            )}
-            {readModePages.pages.map((page, idx) => (
-              <div key={page.id} className="flex flex-col items-center space-y-8 max-w-6xl mx-auto">
-                <div className="w-full flex justify-between items-center text-slate-500 font-black uppercase text-[10px] tracking-widest">
-                  <span>PAGE {idx + 1}</span>
-                  <span className="opacity-30">{page.arTargetId}</span>
-                </div>
-                <CachedImage 
-                  src={readModePages.mode === 'clean' ? (page.exportImageUrl || page.finishedImageUrl) : page.finishedImageUrl} 
-                  className="w-full rounded-[2rem] shadow-2xl border-[8px] border-white" 
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {renderModals()}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
 import { downscaleImage } from '../utils/imageUtils';
 import { generateVeoVideo } from '../services/gemini';
-import { COMIC_FONTS, GENRES } from '../constants';
+import { COMIC_FONTS, GENRES, CANNED_PHRASES } from '../constants';
 import Pusher from 'pusher-js';
 
 const getFontFamily = (fontName: string) => {
@@ -153,15 +153,52 @@ interface PlayModeProps {
   onExit: () => void;
   onAddSubmission: (submission: RatedComic) => void;
   onEdit?: () => void;
+  onUserUpdate?: (user: User) => void;
+  onOpenProfile?: () => void;
 }
 
-export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comics, books, binderPages, onExit, onAddSubmission, onEdit }) => {
+export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comics, books, binderPages, onExit, onAddSubmission, onEdit, onUserUpdate, onOpenProfile }) => {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [room, setRoom] = useState<any>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'unavailable'>('connecting');
+  const processedGameOverRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (room?.gameState === 'game-over' && !processedGameOverRef.current && onUserUpdate) {
+      processedGameOverRef.current = true;
+      
+      const lastWinningComic = room.winningComics?.[room.winningComics.length - 1];
+      const gameId = lastWinningComic ? lastWinningComic.id : `${roomCode}-${Date.now()}`;
+      
+      if (user.playedGames?.includes(gameId)) {
+        return; // Already processed this game
+      }
+
+      const overallWinnerId = Object.keys(room.scores || {}).reduce((a, b) => room.scores[a] > room.scores[b] ? a : b, '');
+      const isWinner = overallWinnerId === user.id;
+      
+      const myWinningComics = (room.winningComics || []).filter((c: any) => c.winnerId === user.id);
+      
+      // Only add comics that aren't already in user's winning comics
+      const existingComicIds = new Set((user.winningComics || []).map(c => c.id));
+      const newWinningComics = myWinningComics.filter((c: any) => !existingComicIds.has(c.id));
+      
+      const updatedUser = {
+        ...user,
+        gamesWon: (user.gamesWon || 0) + (isWinner ? 1 : 0),
+        gamesLost: (user.gamesLost || 0) + (isWinner ? 0 : 1),
+        winningComics: [...(user.winningComics || []), ...newWinningComics],
+        playedGames: [...(user.playedGames || []), gameId]
+      };
+      
+      onUserUpdate(updatedUser);
+    } else if (room?.gameState === 'lobby') {
+      processedGameOverRef.current = false;
+    }
+  }, [room?.gameState, room?.scores, room?.winningComics, user.id, onUserUpdate, roomCode, user.playedGames, user.winningComics]);
 
   const ConnectionBadge: React.FC<{ status: string }> = ({ status }) => {
     const statusConfig: Record<string, { color: string; icon: string; label: string }> = {
@@ -202,12 +239,18 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         body: JSON.stringify({ roomCode: code, user }),
       });
       
-      if (!response.ok) throw new Error("Failed to join room");
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Room not found. The game may have ended or the server restarted.");
+        }
+        throw new Error("Failed to join room");
+      }
       
       const roomData = await response.json();
       setRoom(roomData);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Auto-join failed:", error);
+      alert(error.message || "Could not join room automatically.");
       // If auto-join fails, clear the room code so they see the join screen
       setRoomCode(null);
       const newUrl = `${window.location.origin}${window.location.pathname}`;
@@ -342,16 +385,21 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         body: JSON.stringify({ roomCode: code, user }),
       });
       
-      if (!response.ok) throw new Error("Failed to join room");
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("Room not found. Please check the code and try again.");
+        }
+        throw new Error("Failed to join room");
+      }
       
       const roomData = await response.json();
       setRoomCode(code);
       setRoom(roomData);
       const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
       window.history.pushState({ path: newUrl }, '', newUrl);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Join failed:", error);
-      alert("Could not join room. Check the code.");
+      alert(error.message || "Could not join room. Check the code.");
     }
   };
 
@@ -657,13 +705,22 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       setUsedHints(new Set());
     }
     
-    // Simulate submitted comics for the judge from existing ratings
+    // Simulate submitted comics for the judge from existing ratings if only 2 players
     // Filter these as well to ensure they match the genre if needed, though they are just distractors
-    const others = filteredRatings
-      .filter(r => r.id !== randomComic.id && r.stripId === randomComic.stripId)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 4); // Get up to 4 archived comics for the same strip
-    setSubmittedComics(others);
+    const isTwoPlayer = room?.players?.length === 2;
+    let submissionsToSync = [];
+
+    if (isTwoPlayer) {
+      const others = filteredRatings
+        .filter(r => r.id !== randomComic.id && r.stripId === randomComic.stripId)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 4); // Get up to 4 archived comics for the same strip
+      setSubmittedComics(others);
+      submissionsToSync = others;
+    } else {
+      setSubmittedComics([]);
+      submissionsToSync = [];
+    }
 
     // Sync to room if judge
     if (role === 'judge' && roomCode) {
@@ -677,6 +734,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             activeStripId: strip?.id,
             activeStrip: strip,
             selectedComic: randomComic,
+            submissions: submissionsToSync,
             previewImage: null
           }
         })
@@ -705,9 +763,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     
-    // Check if all writers have submitted
+    // Check if all writers have submitted (only for 3+ players)
+    const isTwoPlayer = room?.players?.length === 2;
     const writersCount = room.players.filter((p: any) => p.role === 'writer').length;
-    if (submittedComics.length < writersCount) {
+    
+    if (!isTwoPlayer && submittedComics.length < writersCount) {
       alert(`Wait for all ${writersCount} writers to submit! (${submittedComics.length}/${writersCount} submitted)`);
       return;
     }
@@ -715,18 +775,29 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     const comicId = e.dataTransfer.getData('comicId');
     const comic = submittedComics.find(c => c.id === comicId);
     if (comic && roomCode && room) {
-      setWinner(comic);
+      const isVaultWin = !comic.playerId;
+      const winnerComic = { ...comic, isVaultWin };
+      setWinner(winnerComic);
       
       const newScores = { ...room.scores };
       const newBranches = { ...room.branches };
       const winnerPlayerId = comic.playerId;
+      
       if (winnerPlayerId) {
         newScores[winnerPlayerId] = (newScores[winnerPlayerId] || 0) + 1;
         newBranches[winnerPlayerId] = (newBranches[winnerPlayerId] || 0) + 5;
       }
 
       const isGameOver = winnerPlayerId && newScores[winnerPlayerId] >= (room.pointsToWin || pointsToWin);
-      const newWinningComics = [...(room.winningComics || []), { ...comic, winnerId: winnerPlayerId }];
+      const newWinningComics = [...(room.winningComics || []), { ...winnerComic, winnerId: winnerPlayerId }];
+
+      // If it's a vault win in a 2-player game, pick a random next judge
+      let nextJudgeId = null;
+      if (isTwoPlayer && isVaultWin) {
+        const players = room.players;
+        const randomIdx = Math.floor(Math.random() * players.length);
+        nextJudgeId = players[randomIdx].id;
+      }
 
       fetch('/api/game/update-state', {
         method: 'POST',
@@ -734,11 +805,12 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         body: JSON.stringify({
           roomCode,
           newState: { 
-            winner: comic, 
-            gameState: isGameOver ? 'game-over' : 'playing', // Stay in playing but with a winner
+            winner: winnerComic, 
+            gameState: isGameOver ? 'game-over' : 'playing',
             scores: newScores,
             branches: newBranches,
             winningComics: newWinningComics,
+            nextJudgeId: nextJudgeId,
             previewImage: null
           }
         })
@@ -754,6 +826,26 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     setLocalTextFields(prev => prev.map(tf => tf.id === id ? { ...tf, text } : tf));
   };
 
+  const handleCanned = (tfId: string) => {
+    if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
+    
+    const randomPhrase = CANNED_PHRASES[Math.floor(Math.random() * CANNED_PHRASES.length)];
+    const tf = localTextFields.find(t => t.id === tfId);
+    if (tf) {
+      const match = tf.text.match(/^[^:]+:\s*/);
+      const prefix = match ? match[0] : '';
+      handleUpdateText(tfId, prefix + randomPhrase);
+      
+      if (roomCode) {
+        fetch('/api/game/use-hint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomCode, playerId: user.id })
+        });
+      }
+    }
+  };
+
   const handleSaveAndSubmit = async () => {
     if (!activeStrip || isSavingLocal || !selectedComic) return;
     setIsSavingLocal(true);
@@ -761,6 +853,27 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     // Stop the timer loop immediately to prevent multiple alerts
     setHasSubmitted(true);
     
+    // Penalty for blank fields
+    const blankFieldsCount = localTextFields.filter(tf => {
+      let cleanText = tf.text;
+      const nameMatch = cleanText.match(/^[^:]+:\s*/);
+      if (nameMatch) {
+        cleanText = cleanText.substring(nameMatch[0].length);
+      }
+      return !cleanText.trim();
+    }).length;
+
+    if (blankFieldsCount > 0 && roomCode) {
+      // Deduct branches for each blank field
+      for (let i = 0; i < blankFieldsCount; i++) {
+        fetch('/api/game/use-hint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomCode, playerId: user.id })
+        });
+      }
+    }
+
     try {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -944,8 +1057,9 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
     // 2. Local State Updates
     let finalSubmissions = [...submittedComics, newSubmission];
     
-    // Fill with archived data if needed (as per your original logic)
-    if (finalSubmissions.length < 4) {
+    // Fill with archived data if needed (only for 2-player games)
+    const isTwoPlayer = room?.players?.length === 2;
+    if (isTwoPlayer && finalSubmissions.length < 4) {
       const archived = ratings
         .filter(r => !finalSubmissions.some(fs => fs.id === r.id) && r.stripId === activeStrip.id)
         .sort(() => 0.5 - Math.random())
@@ -978,9 +1092,28 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
     setPreGameState('none');
   };
 
+  const ProfileButton = () => (
+    <button 
+      onClick={onOpenProfile} 
+      className="absolute top-8 right-8 z-[100] flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors group bg-white/50 backdrop-blur px-3 py-1.5 rounded-full shadow-sm border border-slate-200 hover:border-slate-400"
+    >
+      <div className="w-6 h-6 rounded-full overflow-hidden border border-slate-200 group-hover:border-slate-400">
+        {user.picture ? (
+          <CachedImage src={user.picture} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+            <i className="fa-solid fa-user text-slate-400 text-[8px]"></i>
+          </div>
+        )}
+      </div>
+      <span className="font-black uppercase tracking-widest text-[10px]">{user.name}</span>
+    </button>
+  );
+
   if (!roomCode) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         <button 
@@ -1041,6 +1174,7 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
   if (roomCode && !room) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         <div className="relative z-10 flex flex-col items-center">
@@ -1066,6 +1200,7 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
   if (room && !room.players.find((p: any) => p.id === user?.id)) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         <div className="relative z-10 flex flex-col items-center">
@@ -1082,6 +1217,7 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
 
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+        <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         
@@ -1240,6 +1376,7 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
 
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 relative overflow-hidden p-8">
+        <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 via-slate-900 to-black opacity-50"></div>
         
@@ -1329,6 +1466,7 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
   if (role === 'writer' && room?.gameState === 'playing' && (room?.branches?.[user?.id || ''] ?? 30) <= 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-8 relative overflow-hidden">
+        <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
         
@@ -1357,6 +1495,7 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
   if (room?.gameState === 'playing' && role === 'select') {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-8 relative overflow-hidden">
+        <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
         <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center">
@@ -1418,6 +1557,7 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
       className="h-full flex flex-col overflow-hidden relative"
       style={{ backgroundColor: bgColor }}
     >
+      <ProfileButton />
       {/* Connection Badge */}
       <ConnectionBadge status={connectionStatus} />
 
@@ -1638,7 +1778,54 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
 
             {winner && (
               <div className="mt-8 flex flex-col items-center gap-6">
-                {winner.playerId === user?.id ? (
+                {winner.isVaultWin ? (
+                  <div className="flex flex-col items-center gap-6 w-full">
+                    <div className="bg-rose-50 text-rose-700 px-8 py-4 rounded-2xl border border-rose-100 flex items-center gap-3">
+                      <i className="fa-solid fa-face-frown text-2xl"></i>
+                      <span className="font-black uppercase tracking-widest text-sm">Sorry, You Didn’t Win.</span>
+                    </div>
+                    
+                    {room.nextJudgeId === user?.id ? (
+                      <button 
+                        onClick={() => {
+                          if (roomCode) {
+                            const updatedPlayers = room.players.map((p: any) => ({
+                              ...p,
+                              role: p.id === user?.id ? 'judge' : 'writer'
+                            }));
+                            
+                            fetch('/api/game/update-state', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                roomCode,
+                                newState: { 
+                                  gameState: 'playing',
+                                  submissions: [], 
+                                  winner: null,
+                                  activeStripId: null,
+                                  activeStrip: null,
+                                  players: updatedPlayers,
+                                  previewImage: null,
+                                  nextJudgeId: null
+                                }
+                              })
+                            });
+                          }
+                          resetRoundState();
+                        }}
+                        className="px-12 py-4 bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-amber-800 transition-all hover:scale-105 active:scale-95 z-50"
+                      >
+                        <i className="fa-solid fa-forward mr-2"></i> You are the next Judge
+                      </button>
+                    ) : (
+                      <div className="flex items-center justify-center gap-3 text-slate-400 font-black uppercase tracking-widest text-xs">
+                        <i className="fa-solid fa-circle-notch fa-spin"></i>
+                        Waiting for next judge to start...
+                      </div>
+                    )}
+                  </div>
+                ) : winner.playerId === user?.id ? (
                   <div className="flex flex-col items-center gap-6 w-full">
                     <div className="bg-emerald-50 text-emerald-700 px-8 py-4 rounded-2xl border border-emerald-100 flex items-center gap-3 animate-bounce">
                       <i className="fa-solid fa-trophy text-2xl"></i>
@@ -1666,7 +1853,8 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
                                   activeStripId: null,
                                   activeStrip: null,
                                   players: updatedPlayers,
-                                  previewImage: null
+                                  previewImage: null,
+                                  nextJudgeId: null
                                 }
                               })
                             });
@@ -1916,13 +2104,27 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
           {preGameState === 'cover' && activeStrip && (
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
               <h2 className="text-4xl font-header uppercase tracking-widest text-slate-800 mb-8">Get Ready!</h2>
-              <div className="w-full max-w-2xl aspect-[3/4] rounded-[3rem] overflow-hidden shadow-2xl border-[12px] border-white bg-white">
-                {(() => {
-                  const book = books.find(b => b.id === activeStrip.comicProfileId);
-                  const coverUrl = book?.coverImageUrl || activeStrip.finishedImageUrl;
-                  return <CachedImage src={coverUrl} className="w-full h-full object-cover" />;
-                })()}
-              </div>
+              {(() => {
+                const book = books.find(b => b.id === activeStrip.comicProfileId);
+                const hasCover = !!book?.coverImageUrl;
+                const coverUrl = book?.coverImageUrl || activeStrip.finishedImageUrl;
+                
+                const aspectRatioStyle = hasCover && book.width && book.height 
+                  ? { aspectRatio: `${book.width}/${book.height}` } 
+                  : { aspectRatio: 'auto' };
+
+                return (
+                  <div 
+                    className="w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl border-[12px] border-white bg-white flex items-center justify-center"
+                    style={aspectRatioStyle}
+                  >
+                    <CachedImage 
+                      src={coverUrl} 
+                      className={hasCover ? "w-full h-full object-cover" : "w-full h-auto object-contain"} 
+                    />
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1999,7 +2201,7 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
                                     <button 
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (room?.branches?.[user?.id || ''] <= 0) return;
+                                        if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
                                         if (tf.dialogueId && activeStrip.script) {
                                           const dialogue = activeStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
                                           if (dialogue) {
@@ -2015,14 +2217,27 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
                                           }
                                         }
                                       }}
-                                      disabled={room?.branches?.[user?.id || ''] <= 0}
+                                      disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
                                       className={`text-[9px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 ${
                                         isHintUsed ? 'bg-slate-600 text-slate-400' : 
-                                        room?.branches?.[user?.id || ''] <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' :
+                                        (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' :
                                         'bg-amber-600 text-white hover:bg-amber-500'
                                       }`}
                                     >
                                       <i className="fa-solid fa-lightbulb"></i> Hint
+                                    </button>
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCanned(tf.id);
+                                      }}
+                                      disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
+                                      className={`text-[9px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 ${
+                                        (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' :
+                                        'bg-emerald-600 text-white hover:bg-emerald-500'
+                                      }`}
+                                    >
+                                      <i className="fa-solid fa-comment-dots"></i> Canned
                                     </button>
                                   </div>
                                 </div>
@@ -2089,40 +2304,54 @@ const submitToJudge = async (imageUrl: string, isFlattened: boolean = false) => 
                                         )}
                                         <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight truncate max-w-[80px]">{tf.characterName}</span>
                                       </div>
-                                      <button 
-                                        onClick={() => {
-                                          if (room?.branches?.[user?.id || ''] <= 0) return;
-                                          if (tf.dialogueId && activeStrip.script) {
-                                            const dialogue = activeStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
-                                            if (dialogue) {
-                                              const match = tf.text.match(/^[^:]+:\s*/);
-                                              const prefix = match ? match[0] : '';
-                                              handleUpdateText(tf.id, prefix + dialogue.text);
-                                              setUsedHints(prev => new Set(prev).add(tf.id));
-                                              fetch('/api/game/use-hint', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ roomCode, playerId: user.id })
-                                              });
-                                            } else {
-                                              alert("Dialogue ID not found in script.");
+                                      <div className="flex items-center gap-1">
+                                        <button 
+                                          onClick={() => {
+                                            if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
+                                            if (tf.dialogueId && activeStrip.script) {
+                                              const dialogue = activeStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
+                                              if (dialogue) {
+                                                const match = tf.text.match(/^[^:]+:\s*/);
+                                                const prefix = match ? match[0] : '';
+                                                handleUpdateText(tf.id, prefix + dialogue.text);
+                                                setUsedHints(prev => new Set(prev).add(tf.id));
+                                                fetch('/api/game/use-hint', {
+                                                  method: 'POST',
+                                                  headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ roomCode, playerId: user.id })
+                                                });
+                                              } else {
+                                                alert("Dialogue ID not found in script.");
+                                              }
+                                            } else if (!tf.dialogueId) {
+                                              alert("No Dialogue ID associated with this field.");
                                             }
-                                          } else if (!tf.dialogueId) {
-                                            alert("No Dialogue ID associated with this field.");
-                                          }
-                                        }}
-                                        disabled={room?.branches?.[user?.id || ''] <= 0}
-                                        className={`text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
-                                          isHintUsed 
-                                            ? 'bg-slate-200 text-slate-500' 
-                                            : room?.branches?.[user?.id || ''] <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
-                                            'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
-                                        }`}
-                                        title={room?.branches?.[user?.id || ''] <= 0 ? "Out of branches" : "Fill with original script text"}
-                                      >
-                                        <i className="fa-solid fa-lightbulb text-[7px]"></i>
-                                        Hint
-                                      </button>
+                                          }}
+                                          disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
+                                          className={`text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
+                                            isHintUsed 
+                                              ? 'bg-slate-200 text-slate-500' 
+                                              : (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
+                                              'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
+                                          }`}
+                                          title={(room?.branches?.[user?.id || ''] ?? 30) <= 0 ? "Out of branches" : "Fill with original script text"}
+                                        >
+                                          <i className="fa-solid fa-lightbulb text-[7px]"></i>
+                                          Hint
+                                        </button>
+                                        <button 
+                                          onClick={() => handleCanned(tf.id)}
+                                          disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
+                                          className={`text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
+                                            (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
+                                            'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
+                                          }`}
+                                          title={(room?.branches?.[user?.id || ''] ?? 30) <= 0 ? "Out of branches" : "Fill with random canned phrase"}
+                                        >
+                                          <i className="fa-solid fa-comment-dots text-[7px]"></i>
+                                          Canned
+                                        </button>
+                                      </div>
                                     </div>
                                     <textarea
                                       value={tf.text.replace(/^[^:]+:\s*/, '')}
