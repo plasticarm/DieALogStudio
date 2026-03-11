@@ -169,18 +169,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [isSharing, setIsSharing] = useState(false);
 
   const processedGameOverRef = useRef<boolean>(false);
-  const roomRef = useRef<any>(null);
-  const submissionsRef = useRef<RatedComic[]>([]);
   const activeStripIdRef = useRef<string | null>(null);
   const lastWriterPool = useRef<string[]>([]);
   const lastJudgePool = useRef<string[]>([]);
   const lastPickedWriterId = useRef<string | null>(null);
   const lastPickedJudgeId = useRef<string | null>(null);
-
-  useEffect(() => {
-    roomRef.current = room;
-    submissionsRef.current = submittedComics;
-  }, [room, submittedComics]);
 
   useEffect(() => {
     if (room?.gameState === 'game-over' && !processedGameOverRef.current && onUserUpdate) {
@@ -229,61 +222,80 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     );
   };
 
-  // 1. COMPLETELY DECOUPLED ROOM JOINING (NO SERVER MEMORY)
+  // --- NEW REDIS JOIN LOGIC ---
+  const joinGameViaAPI = async (code: string) => {
+    try {
+      const response = await fetch('/api/game/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode: code, user }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to connect to room");
+      
+      const roomData = await response.json();
+      setRoomCode(code);
+      setRoom(roomData);
+
+      // Sync existing state from Redis immediately
+      if (roomData.submissions) setSubmittedComics(roomData.submissions);
+      if (roomData.winner) setWinner(roomData.winner);
+      if (roomData.previewImage) setPreviewImage(roomData.previewImage);
+      if (roomData.activeStrip) setActiveStrip(roomData.activeStrip);
+
+    } catch (error) {
+      console.error("Join failed:", error);
+      alert("Could not connect to the room. It may have expired.");
+      setRoomCode(null);
+    }
+  };
+
+  // Auto-join from URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlRoomCode = params.get('game');
     if (urlRoomCode && !roomCode) {
-      setRoomCode(urlRoomCode.toUpperCase());
+      joinGameViaAPI(urlRoomCode.toUpperCase());
     }
   }, []);
 
-  const handleCreateGame = () => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    // We create the room entirely locally. No API call needed to risk a 500 error.
-    const initialRoom = {
-      roomCode: code,
-      host: user.id,
-      gameState: 'lobby',
-      players: [{ id: user.id, name: user.name, picture: user.picture, role: 'host' }],
-      scores: { [user.id]: 0 },
-      branches: { [user.id]: 30 },
-      submissions: [],
-      pointsToWin: 3,
-      timeLimit: 2
-    };
-    
-    setRoomCode(code);
-    setRoom(initialRoom);
+  const handleCreateGame = async () => {
+    try {
+      const response = await fetch('/api/game/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostUser: user }),
+      });
 
-    const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
-    window.history.pushState({ path: newUrl }, '', newUrl);
+      const roomData = await response.json();
+      setRoomCode(roomData.roomCode);
+      setRoom(roomData);
+
+      const newUrl = `${window.location.origin}${window.location.pathname}?game=${roomData.roomCode}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    } catch (error) {
+      console.error("Room creation failed:", error);
+      alert("Failed to create room on the database.");
+    }
   };
   
   const handleJoinGame = () => {
     if (!joinCodeInput) return;
     const code = joinCodeInput.toUpperCase();
-    setRoomCode(code); // Trigger Pusher subscription below
+    joinGameViaAPI(code);
     
     const newUrl = `${window.location.origin}${window.location.pathname}?game=${code}`;
     window.history.pushState({ path: newUrl }, '', newUrl);
   };
 
-  // 2. THE PUSHER ENGINE & HOST-AS-DATABASE LOGIC
+  // --- PUSHER SUBSCRIPTION ---
   useEffect(() => {
     if (!roomCode || !user) return;
 
     const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
       cluster: import.meta.env.VITE_PUSHER_CLUSTER,
-      authEndpoint: '/api/pusher/auth', // Required for presence channels
-      auth: {
-        params: {
-          user_id: user.id,
-          user_name: user.name,
-          user_picture: user.picture || ''
-        }
-      }
+      authEndpoint: '/api/pusher/auth',
+      auth: { params: { user_id: user.id, user_name: user.name, user_picture: user.picture || '' } }
     });
 
     pusher.connection.bind('state_change', (states: any) => {
@@ -293,67 +305,14 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       else setConnectionStatus('disconnected');
     });
 
-    // Use Presence channel to easily detect joins/leaves
-    const channel = pusher.subscribe(`presence-room-${roomCode}`);
+    const channel = pusher.subscribe(`room-${roomCode}`);
 
-    // HOST DUTY: When someone joins, add them to roster and broadcast state
-    channel.bind('pusher:member_added', (member: any) => {
-      const currentRoom = roomRef.current;
-      if (currentRoom && currentRoom.host === user.id) {
-        const playerExists = currentRoom.players.find((p: any) => p.id === member.id);
-        
-        let updatedPlayers = currentRoom.players;
-        let updatedScores = { ...currentRoom.scores };
-        let updatedBranches = { ...currentRoom.branches };
-
-        if (!playerExists) {
-          updatedPlayers = [...currentRoom.players, {
-            id: member.id,
-            name: member.info?.name || 'Player',
-            picture: member.info?.picture || '',
-            role: 'select'
-          }];
-          if (!(member.id in updatedScores)) updatedScores[member.id] = 0;
-          if (!(member.id in updatedBranches)) updatedBranches[member.id] = 30;
-        }
-
-        // Host pushes their "Truth" (including submissions!) down to the new player
-        fetch('/api/game/update-state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomCode,
-            newState: {
-              ...currentRoom,
-              players: updatedPlayers,
-              scores: updatedScores,
-              branches: updatedBranches,
-              submissions: submissionsRef.current 
-            }
-          })
-        });
-      }
-    });
-
-    // HOST DUTY: Handle leaves
-    channel.bind('pusher:member_removed', (member: any) => {
-      const currentRoom = roomRef.current;
-      if (currentRoom && member.id === currentRoom.host) {
-        alert("The Game Host has disconnected. The session is over.");
-        resetRoundState();
-        setRoomCode(null);
-        setRoom(null);
-      }
-    });
-
-    // ALL PLAYERS: Listen for "Truth" from Host
-    channel.bind('room-update', (updatedRoom: any) => {
+    const updateLocalStateFromRoom = (updatedRoom: any) => {
       setRoom(updatedRoom);
       
-      const me = updatedRoom.players.find((p: any) => p.id === user.id);
+      const me = updatedRoom.players?.find((p: any) => p.id === user.id);
       if (me && me.role) setRole(me.role);
 
-      // Sync submissions from the Host's payload
       if (updatedRoom.submissions) {
         setSubmittedComics(updatedRoom.submissions);
         if (updatedRoom.submissions.length === 0) {
@@ -391,57 +350,37 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         activeStripIdRef.current = null;
         setLocalTextFields([]);
       }
+    };
+
+    // Listen for database updates pushed from the Vercel API
+    channel.bind('room-update', (updatedRoom: any) => {
+      // If the payload just has timestamp, we need to fetch the full state
+      if (updatedRoom.timestamp && !updatedRoom.gameState) {
+        fetch(`/api/game/room/${roomCode}`)
+          .then(res => res.json())
+          .then(fullRoom => {
+            updateLocalStateFromRoom(fullRoom);
+          })
+          .catch(err => console.error("Failed to fetch room state:", err));
+      } else {
+        updateLocalStateFromRoom(updatedRoom);
+      }
     });
 
-    // ALL PLAYERS: Listen for single submissions
     channel.bind('new-submission', (data: any) => {
-      setSubmittedComics(prev => {
-        if (prev.find(c => c.id === data.submission.id)) return prev; // Avoid dupe bug
-        const newSubs = [...prev, data.submission];
-        
-        // Host Duty: Officially append this to the room state so late-joiners see it
-        if (user.id === roomRef.current?.host) {
-          fetch('/api/game/update-state', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              roomCode,
-              newState: { ...roomRef.current, submissions: newSubs }
-            })
-          });
-        }
-        return newSubs;
-      });
-    });
-
-    // ALL PLAYERS: Listen for Branch costs
-    channel.bind('branch-deduction', (data: any) => {
-      setRoom((prev: any) => {
-        if (!prev) return prev;
-        const newRoom = {
-          ...prev,
-          branches: {
-            ...prev.branches,
-            [data.playerId]: (prev.branches[data.playerId] || 30) - (data.cost || 5)
-          }
-        };
-        
-        if (user.id === roomRef.current?.host) {
-          fetch('/api/game/update-state', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomCode, newState: newRoom })
-          });
-        }
-        return newRoom;
-      });
+      if (data.submission) {
+        setSubmittedComics(prev => {
+          if (prev.find(c => c.id === data.submission.id)) return prev;
+          return [...prev, data.submission];
+        });
+      }
     });
 
     return () => {
-      pusher.unsubscribe(`presence-room-${roomCode}`);
+      pusher.unsubscribe(`room-${roomCode}`);
       pusher.disconnect();
     };
-  }, [user.id, roomCode]); // Removed heavy dependencies so connection stays stable
+  }, [user.id, roomCode, history, comics]);
 
   const handleStartGame = async () => {
     if (!roomCode || room?.host !== user?.id) return;
@@ -458,7 +397,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         body: JSON.stringify({ 
           roomCode, 
           newState: { 
-            ...room, // VERY IMPORTANT: Always spread existing room!
+            ...room,
             gameState: 'playing',
             players: updatedPlayers,
             timeLimit,
@@ -1088,14 +1027,18 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     };
 
     try {
-      await fetch('/api/game/submit', {
+      fetch('/api/game/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomCode, submission: newSubmission }),
+      }).then(() => {
+        setHasSubmitted(true);
+        setRole('judge');
+      }).catch(error => {
+        console.error("Submission Error:", error);
+        alert("Could not reach the game relay. Check your connection.");
+        setHasSubmitted(false);
       });
-      // The Pusher 'new-submission' listener handles adding it to state and syncing for late-joiners
-      setHasSubmitted(true);
-      setRole('judge');
     } catch (error) {
       console.error("Submission Error:", error);
       alert("Could not reach the game relay. Check your connection.");
@@ -1467,7 +1410,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                     body: JSON.stringify({ 
                       roomCode, 
                       newState: { 
-                        ...roomRef.current,
+                        ...room,
                         gameState: 'playing',
                         activeStripId: null,
                         activeStrip: null,
@@ -1550,7 +1493,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                   fetch('/api/game/update-state', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ roomCode, newState: { ...roomRef.current, players: updatedPlayers } })
+                    body: JSON.stringify({ roomCode, newState: { ...room, players: updatedPlayers } })
                   });
                 }
               }}
@@ -1569,7 +1512,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                   fetch('/api/game/update-state', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ roomCode, newState: { ...roomRef.current, players: updatedPlayers } })
+                    body: JSON.stringify({ roomCode, newState: { ...room, players: updatedPlayers } })
                   });
                 }
               }}
@@ -1820,7 +1763,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                               body: JSON.stringify({
                                 roomCode,
                                 newState: { 
-                                  ...roomRef.current,
+                                  ...room,
                                   gameState: 'playing',
                                   submissions: [], 
                                   winner: null,
@@ -1867,7 +1810,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                               body: JSON.stringify({
                                 roomCode,
                                 newState: { 
-                                  ...roomRef.current,
+                                  ...room,
                                   gameState: 'playing',
                                   submissions: [], 
                                   winner: null,

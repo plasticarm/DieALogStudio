@@ -354,11 +354,12 @@ app.post('/api/game/join', async (req, res) => {
   });
 
   app.post('/api/game/use-hint', async (req, res) => {
-    const { roomCode, playerId } = req.body;
+    const { roomCode, playerId, cost } = req.body;
     const room = await getRoom(roomCode);
     if (room && room.branches) {
       const currentBranches = room.branches[playerId] ?? 30;
-      const newBranchCount = Math.max(0, currentBranches - 1);
+      const deduction = cost || 1;
+      const newBranchCount = Math.max(0, currentBranches - deduction);
       room.branches[playerId] = newBranchCount;
       
       await saveRoom(roomCode, room);
