@@ -65,7 +65,7 @@ export const generateComicScript = async (
   userPrompt: string,
   isRandom: boolean,
   panelCount: number
-): Promise<GeneratedPanelScript[]> => {
+): Promise<{ title: string; plotDescription: string; script: GeneratedPanelScript[] }> => {
   try {
     const ai = getAiClient();
     const characterContext = (profile.characters || []).map(c => `${c.name}: ${c.description}`).join('\n');
@@ -76,15 +76,20 @@ export const generateComicScript = async (
     SERIES CONTEXT:
     Art Style: ${profile.artStyle}
     Style Description: ${profile.styleDescription || 'Not specified'}
+    Archetypes: ${profile.archetypes || 'Not specified'}
     Environments: ${environmentContext}
     Characters: ${characterContext}
     
     EPISODE DIRECTIVE:
-    Task: ${isRandom ? "Create a random funny or dramatic situation" : `Plot: ${userPrompt}`}
+    Task: ${isRandom ? "Create a random funny or dramatic situation based on the characters and archetypes" : `Plot: ${userPrompt}`}
     
     OUTPUT SPECIFICATION:
-    Return a JSON array of exactly ${panelCount} objects.
-    Each object must have:
+    Return a JSON object with:
+    - title (string, a catchy title for this comic strip)
+    - plotDescription (string, a brief description of the plot)
+    - script (array of exactly ${panelCount} objects)
+    
+    Each script object must have:
     - panelNumber (integer)
     - visualDescription (string, detailed for image generation)
     - dialogue (array of objects with {character: string, text: string})
@@ -97,34 +102,46 @@ export const generateComicScript = async (
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              panelNumber: { type: Type.INTEGER },
-              visualDescription: { type: Type.STRING },
-              dialogue: { 
-                type: Type.ARRAY, 
-                items: { 
-                  type: Type.OBJECT, 
-                  properties: { 
-                    id: { type: Type.STRING, description: "A unique short ID for this dialogue line, e.g. 'D1', 'D2'" },
-                    character: { type: Type.STRING }, 
-                    text: { type: Type.STRING } 
-                  },
-                  required: ["id", "character", "text"]
-                } 
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            plotDescription: { type: Type.STRING },
+            script: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  panelNumber: { type: Type.INTEGER },
+                  visualDescription: { type: Type.STRING },
+                  dialogue: { 
+                    type: Type.ARRAY, 
+                    items: { 
+                      type: Type.OBJECT, 
+                      properties: { 
+                        id: { type: Type.STRING, description: "A unique short ID for this dialogue line, e.g. 'D1', 'D2'" },
+                        character: { type: Type.STRING }, 
+                        text: { type: Type.STRING } 
+                      },
+                      required: ["id", "character", "text"]
+                    } 
+                  }
+                },
+                required: ["panelNumber", "visualDescription", "dialogue"]
               }
-            },
-            required: ["panelNumber", "visualDescription", "dialogue"]
-          }
+            }
+          },
+          required: ["title", "plotDescription", "script"]
         }
       }
     });
 
-    const text = response.text || '[]';
+    const text = response.text || '{}';
     const parsed = JSON.parse(text);
-    return Array.isArray(parsed) ? parsed : [];
+    return {
+      title: parsed.title || 'Untitled',
+      plotDescription: parsed.plotDescription || '',
+      script: Array.isArray(parsed.script) ? parsed.script : []
+    };
   } catch (error) {
     return handleApiError(error);
   }

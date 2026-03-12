@@ -190,10 +190,17 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
 
     try {
       // Script generation with 60s timeout
-      const s = await Promise.race([
+      const result = await Promise.race([
         generateComicScript(activeComic, prompt, isRandom, panelCount),
         timeout(60000)
-      ]) as GeneratedPanelScript[];
+      ]) as { title: string; plotDescription: string; script: GeneratedPanelScript[] };
+      
+      const s = result.script;
+      
+      if (isRandom) {
+        setStripName(result.title);
+        setPrompt(result.plotDescription);
+      }
       
       setScript(s);
       setStatusMessage('Rendering Visuals...');
@@ -229,9 +236,9 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       const newStrip: SavedComicStrip = {
         id: newId, 
         arTargetId: newArId,
-        name: stripName, 
+        name: isRandom ? result.title : stripName, 
         comicProfileId: activeComic.id, 
-        prompt, 
+        prompt: isRandom ? result.plotDescription : prompt, 
         script: s,
         finishedImageUrl: vaultedImg, 
         timestamp: Date.now(), 
