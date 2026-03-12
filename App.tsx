@@ -17,6 +17,7 @@ import { PlayMode } from './components/PlayMode';
 import { INITIAL_COMICS } from './constants';
 import { User, AppSession, ProjectState, ComicProfile, SavedComicStrip, ComicBook, RatedComic } from './types';
 import { imageStore } from './services/imageStore';
+import { getRandomComicAvatar } from './utils/avatarUtils';
 import { firebaseService } from './services/firebaseService';
 import { auth } from './services/firebase';
 import { signInAnonymously } from 'firebase/auth';
@@ -128,10 +129,11 @@ export default function App() {
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
     } else {
+      const randomAvatar = getRandomComicAvatar();
       const defaultUser: User = {
         id: Math.random().toString(36).substring(2, 11),
         name: `Player ${Math.floor(Math.random() * 9000) + 1000}`,
-        picture: `https://picsum.photos/seed/${Math.random()}/200`,
+        picture: randomAvatar || `https://picsum.photos/seed/${Math.random()}/200`,
         guideEnabled: true,
         apiKeys: {}
       };
@@ -1395,8 +1397,8 @@ export default function App() {
               </div>
             )}
 
-            {activeComic && (
-              <div className={currentTab === 'test' ? 'h-full' : 'hidden'}>
+            {activeComic && currentTab === 'test' && (
+              <div className="h-full">
                 <TestingLab 
                   activeComic={activeComic}
                   history={history}

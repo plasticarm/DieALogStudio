@@ -187,7 +187,7 @@ app.get('/api/health', (req, res) => {
 
   app.post('/api/game/create', async (req, res) => {
     try {
-      const { hostUser } = req.body;
+      const { hostUser, avatarPool } = req.body;
       console.log(`Creating room for user: ${hostUser?.name} (${hostUser?.id})`);
       
       if (!hostUser || !hostUser.id) {
@@ -201,6 +201,7 @@ app.get('/api/health', (req, res) => {
         roomCode,
         host: hostUser.id,
         players: [{ ...hostUser, role: 'host' }],
+        avatarPool: avatarPool || [],
         gameState: 'lobby',
         activeStripId: null,
         submissions: [],
@@ -255,10 +256,19 @@ app.post('/api/game/join', async (req, res) => {
       return res.status(404).json({ error: "Room not found" });
     }
 
+    const isGuest = user.id.startsWith('guest_') || user.name.startsWith('Player ');
+    let picture = user.picture;
+
+    // If guest and has a default/missing picture, try to pick from pool
+    if (isGuest && (!picture || picture.includes('picsum.photos')) && room.avatarPool && room.avatarPool.length > 0) {
+      const randomIndex = Math.floor(Math.random() * room.avatarPool.length);
+      picture = room.avatarPool[randomIndex];
+    }
+
     const player = {
       id: user.id,
       name: user.name || 'Unknown Player',
-      picture: user.picture,
+      picture: picture,
       role: room.host === user.id ? 'host' : null
     };
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { User } from '../types';
 import { CachedImage } from './CachedImage';
+import { getRandomComicAvatar } from '../utils/avatarUtils';
 
 interface AuthModalProps {
   onAuth: (user: User) => void;
@@ -24,9 +25,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuth }) => {
   };
 
   const handleGuestSignIn = () => {
+    const randomAvatar = getRandomComicAvatar();
     const guestUser: User = {
-      id: 'guest_123',
-      name: 'Guest Architect',
+      id: `guest_${Math.random().toString(36).substr(2, 5)}`,
+      name: `Guest Architect ${Math.floor(Math.random() * 1000)}`,
+      picture: randomAvatar || undefined,
       apiKeys: {}
     };
     onAuth(guestUser);

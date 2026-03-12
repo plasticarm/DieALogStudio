@@ -262,12 +262,23 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   }, []);
 
+  const avatarPool = React.useMemo(() => {
+    const avatars: string[] = [];
+    comics.forEach(c => {
+      c.characters.forEach(char => {
+        if (char.avatarUrl) avatars.push(char.avatarUrl);
+        else if (char.imageUrl) avatars.push(char.imageUrl);
+      });
+    });
+    return Array.from(new Set(avatars));
+  }, [comics]);
+
   const handleCreateGame = async () => {
     try {
       const response = await fetch('/api/game/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hostUser: user }),
+        body: JSON.stringify({ hostUser: user, avatarPool }),
       });
 
       const roomData = await response.json();
