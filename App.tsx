@@ -1156,20 +1156,20 @@ export default function App() {
             />
           </div>
           <h1 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-12">Select Mode</h1>
-          <div className="flex flex-col sm:flex-row gap-8 w-full max-w-sm sm:max-w-none px-6 sm:px-0 justify-center">
+          <div className="flex flex-row gap-4 sm:gap-8 w-full max-w-md sm:max-w-none px-6 sm:px-0 justify-center">
             <button 
               onClick={() => setAppMode('edit')}
-              className="w-full sm:w-64 h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-500/50 transition-all group"
+              className="flex-1 sm:w-64 h-48 sm:h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-4 sm:gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-500/50 transition-all group"
             >
-              <i className="fa-solid fa-pen-ruler text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
-              <span className="text-2xl font-black uppercase tracking-widest text-slate-700">Edit</span>
+              <i className="fa-solid fa-pen-ruler text-4xl sm:text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
+              <span className="text-xl sm:text-2xl font-black uppercase tracking-widest text-slate-700">Edit</span>
             </button>
             <button 
               onClick={() => setAppMode('play')}
-              className="w-full sm:w-64 h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-200 transition-all group"
+              className="flex-1 sm:w-64 h-48 sm:h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-4 sm:gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-200 transition-all group"
             >
-              <i className="fa-solid fa-gamepad text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
-              <span className="text-2xl font-black uppercase tracking-widest text-slate-700">Play</span>
+              <i className="fa-solid fa-gamepad text-4xl sm:text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
+              <span className="text-xl sm:text-2xl font-black uppercase tracking-widest text-slate-700">Play</span>
             </button>
           </div>
         </div>

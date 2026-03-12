@@ -168,6 +168,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [selectedVeoModel, setSelectedVeoModel] = useState<'veo-3.1-fast-generate-preview' | 'veo-3.1-generate-preview'>('veo-3.1-fast-generate-preview');
   const [isSharing, setIsSharing] = useState(false);
 
+  const writersCount = room?.players.filter((p: any) => p.role === 'writer').length || 0;
+  const allSubmitted = submittedComics.length >= writersCount && writersCount > 0;
+
   const processedGameOverRef = useRef<boolean>(false);
   const activeStripIdRef = useRef<string | null>(null);
   const lastWriterPool = useRef<string[]>([]);
@@ -568,7 +571,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (room?.gameState === 'playing' && activeStrip && !hasSubmitted && timeLeft !== null && timeLeft > 0 && preGameState === 'none') {
+    if (room?.gameState === 'playing' && activeStrip && !hasSubmitted && timeLeft !== null && timeLeft > 0 && preGameState === 'none' && !allSubmitted) {
       timer = setInterval(() => {
         setTimeLeft(prev => (prev !== null && prev > 0) ? prev - 1 : 0);
       }, 1000);
@@ -579,7 +582,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       }
     }
     return () => clearInterval(timer);
-  }, [room?.gameState, activeStrip, hasSubmitted, timeLeft, isSavingLocal, role, room?.host, user?.id]);
+  }, [room?.gameState, activeStrip, hasSubmitted, timeLeft, isSavingLocal, role, room?.host, user?.id, allSubmitted, preGameState]);
 
   useEffect(() => {
     if (room?.gameState === 'playing' && activeStrip && !hasSubmitted && (timeLeft === null || timeLeft === -1)) {
@@ -600,19 +603,25 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   }, [previewImage]);
 
   useEffect(() => {
-    if (role === 'writer' && activeStrip && room?.gameState === 'playing' && !hasSubmitted) {
+    let t1: NodeJS.Timeout;
+    let t2: NodeJS.Timeout;
+    
+    if ((role === 'writer' || role === 'judge') && activeStrip && room?.gameState === 'playing' && !hasSubmitted) {
       setPreGameState('cover');
       setTimeLeft((room.timeLimit || timeLimit) * 60);
 
-      const t1 = setTimeout(() => {
+      t1 = setTimeout(() => {
         setPreGameState('go');
-        const t2 = setTimeout(() => {
+        t2 = setTimeout(() => {
           setPreGameState('none');
         }, 1000);
       }, 3000);
-
-      return () => clearTimeout(t1);
     }
+    
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [activeStrip?.id, role, room?.gameState]);
 
   const pickWriterComic = () => {
@@ -649,9 +658,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         name: strip.name
       });
 
-      setPreGameState('cover');
-      setTimeLeft(timeLimit * 60);
-
       if (room?.host === user?.id && roomCode) {
         fetch('/api/game/update-state', {
           method: 'POST',
@@ -668,11 +674,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           })
         });
       }
-
-      setTimeout(() => {
-        setPreGameState('go');
-        setTimeout(() => setPreGameState('none'), 1000);
-      }, 3000);
     }
   };
 
@@ -847,7 +848,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         fetch('/api/game/use-hint', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomCode, playerId: user.id, cost: 5 })
+          body: JSON.stringify({ roomCode, playerId: user.id, cost: 1 })
         });
       }
     }
@@ -1088,7 +1089,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
   if (!roomCode) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-y-auto py-12">
+      <div className="h-[100dvh] w-full flex flex-col items-center bg-slate-50 relative overflow-y-auto py-12">
         <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
@@ -1108,7 +1109,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             <i className="fa-solid fa-gamepad"></i>
           </div>
           <h1 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-2">DiE-A-Log</h1>
-          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-12">Multiplayer Studio</p>
+          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-12">The Game</p>
           
           <div className="w-full space-y-4">
             <button 
@@ -1148,11 +1149,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
   if (roomCode && !room) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-y-auto py-12">
+      <div className="h-[100dvh] w-full flex flex-col items-center bg-slate-50 relative overflow-y-auto py-12">
         <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
-        <div className="relative z-10 flex flex-col items-center">
+        <div className="relative z-10 flex flex-col items-center my-auto">
           <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-6"></div>
           <p className="text-slate-400 font-black uppercase tracking-widest text-xs animate-pulse">Connecting to Game Server...</p>
           <p className="text-[10px] text-slate-300 mt-4 font-black uppercase tracking-widest">Room: {roomCode}</p>
@@ -1174,11 +1175,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
   if (room && !room.players.find((p: any) => p.id === user?.id)) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-y-auto py-12">
+      <div className="h-[100dvh] w-full flex flex-col items-center bg-slate-50 relative overflow-y-auto py-12">
         <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
-        <div className="relative z-10 flex flex-col items-center">
+        <div className="relative z-10 flex flex-col items-center my-auto">
           <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-6"></div>
           <p className="text-slate-400 font-black uppercase tracking-widest text-xs animate-pulse">Joining Room...</p>
         </div>
@@ -1191,7 +1192,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     const shareLink = `${window.location.origin}${window.location.pathname}?game=${roomCode}`;
 
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-50 relative overflow-y-auto py-12">
+      <div className="h-[100dvh] w-full flex flex-col items-center bg-slate-50 relative overflow-y-auto py-12">
         <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
@@ -1252,7 +1253,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                 </div>
               </div>
 
-              <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="flex-1 min-h-0 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
                 {room.players.map((p: any) => (
                   <div key={p.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-4">
@@ -1306,7 +1307,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                     disabled={room.players.length < 1}
                     className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
                   >
-                    Start Game Protocol
+                    Start Game
                   </button>
                 ) : (
                   <div className="text-center py-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
@@ -1346,30 +1347,30 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     const overallWinner = sortedPlayers[0];
 
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-900 relative overflow-y-auto p-8 py-12">
+      <div className="h-[100dvh] w-full flex flex-col items-center bg-[#dbdac8] relative overflow-y-auto p-8 py-12">
         <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 via-slate-900 to-black opacity-50"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/20 via-transparent to-black/5 opacity-50"></div>
         
         <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
           <div className="mb-12 text-center animate-in fade-in slide-in-from-top-8 duration-700">
             <div className="w-24 h-24 bg-amber-600 rounded-[2rem] flex items-center justify-center text-white text-4xl shadow-2xl mb-6 mx-auto">
               <i className="fa-solid fa-trophy"></i>
             </div>
-            <h1 className="text-6xl font-header uppercase tracking-widest text-white mb-2">Game Over</h1>
-            <p className="text-amber-500 font-black uppercase tracking-[0.2em] text-xs">Final Standings</p>
+            <h1 className="text-6xl font-header uppercase tracking-widest text-slate-900 mb-2">Game Over</h1>
+            <p className="text-amber-700 font-black uppercase tracking-[0.2em] text-xs">Final Standings</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full mb-16">
             {/* Winner Spotlight */}
-            <div className="lg:col-span-2 bg-white/5 backdrop-blur-xl rounded-[3rem] p-10 border border-white/10 flex flex-col items-center animate-in fade-in slide-in-from-left-8 duration-700 delay-200">
+            <div className="lg:col-span-2 bg-white/40 backdrop-blur-xl rounded-[3rem] p-10 border border-black/5 flex flex-col items-center animate-in fade-in slide-in-from-left-8 duration-700 delay-200">
               <div className="flex items-center gap-6 mb-10 w-full">
                 <div className="w-20 h-20 rounded-full border-4 border-amber-500 overflow-hidden shadow-2xl">
-                  {overallWinner.picture ? <img src={overallWinner.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-2xl text-white/20"></i>}
+                  {overallWinner.picture ? <img src={overallWinner.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-2xl text-slate-400"></i>}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-1">Grand Champion</span>
-                  <h2 className="text-4xl font-header uppercase tracking-widest text-white">{overallWinner.name}</h2>
+                  <span className="text-amber-700 text-[10px] font-black uppercase tracking-widest mb-1">Grand Champion</span>
+                  <h2 className="text-4xl font-header uppercase tracking-widest text-slate-900">{overallWinner.name}</h2>
                 </div>
                 <div className="ml-auto bg-amber-600 text-white px-6 py-3 rounded-2xl font-black text-2xl shadow-xl">
                   {room.scores[overallWinner.id]} pts
@@ -1377,10 +1378,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
               </div>
 
               <div className="w-full">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-6">Winning Comics</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-900/40 mb-6">Winning Comics</h3>
                 <div className="flex flex-wrap gap-6 justify-center">
                   {(room.winningComics || []).filter((c: any) => c.winnerId === overallWinner.id).map((comic: any, idx: number) => (
-                    <div key={idx} className="w-48 aspect-square rounded-2xl overflow-hidden border-4 border-white/10 shadow-2xl hover:scale-105 transition-transform cursor-pointer" onClick={() => handlePreviewImage(comic.imageUrl)}>
+                    <div key={idx} className="w-48 aspect-square rounded-2xl overflow-hidden border-4 border-white shadow-2xl hover:scale-105 transition-transform cursor-pointer" onClick={() => handlePreviewImage(comic.imageUrl)}>
                       <CachedImage src={comic.imageUrl} className="w-full h-full object-cover" />
                     </div>
                   ))}
@@ -1389,19 +1390,19 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             </div>
 
             {/* Leaderboard */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-[3rem] p-10 border border-white/10 animate-in fade-in slide-in-from-right-8 duration-700 delay-400">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-8">Leaderboard</h3>
+            <div className="bg-white/40 backdrop-blur-xl rounded-[3rem] p-10 border border-black/5 animate-in fade-in slide-in-from-right-8 duration-700 delay-400">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-900/40 mb-8">Leaderboard</h3>
               <div className="space-y-4">
                 {sortedPlayers.map((p: any, idx: number) => (
-                  <div key={p.id} className={`flex items-center justify-between p-4 rounded-2xl border ${p.id === user?.id ? 'bg-amber-600/20 border-amber-500/30' : 'bg-white/5 border-white/5'}`}>
+                  <div key={p.id} className={`flex items-center justify-between p-4 rounded-2xl border ${p.id === user?.id ? 'bg-amber-600/10 border-amber-500/30' : 'bg-white/20 border-black/5'}`}>
                     <div className="flex items-center gap-4">
-                      <span className="text-xs font-black text-white/20 w-4">#{idx + 1}</span>
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-white/10">
-                        {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-xs text-white/20"></i>}
+                      <span className="text-xs font-black text-slate-900/20 w-4">#{idx + 1}</span>
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200">
+                        {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-xs text-slate-400"></i>}
                       </div>
-                      <span className="text-xs font-black text-white uppercase tracking-tight">{p.name}</span>
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-tight">{p.name}</span>
                     </div>
-                    <span className="text-lg font-black text-white">{room.scores[p.id] || 0}</span>
+                    <span className="text-lg font-black text-slate-900">{room.scores[p.id] || 0}</span>
                   </div>
                 ))}
               </div>
@@ -1440,19 +1441,72 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             </button>
             <button 
               onClick={() => onExit()}
-              className="px-12 py-5 bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-white/20 transition-all hover:scale-105 active:scale-95"
+              className="px-12 py-5 bg-slate-800 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-slate-900 transition-all hover:scale-105 active:scale-95"
             >
               Return to Studio
             </button>
           </div>
         </div>
+
+        {previewImage && (
+          <div className="fixed inset-0 z-[2000] modal-backdrop flex items-center justify-center p-12 cursor-zoom-out" onClick={() => handlePreviewImage(null)}>
+            <div className="relative max-w-8xl max-h-full">
+              <img src={resolvedPreviewImage || null} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.4)] border-[12px] border-white animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
+              
+              {(() => {
+                const previewComic = submittedComics.find(c => c.imageUrl === previewImage) || 
+                                     (winner?.imageUrl === previewImage ? winner : null) ||
+                                     (room?.winningComics || []).find((c: any) => c.imageUrl === previewImage);
+                if (previewComic && previewComic.textFields && previewComic.textFields.length > 0 && !previewComic.isFlattened) {
+                  return (
+                    <div className="absolute inset-0 pointer-events-none rounded-3xl overflow-hidden animate-in zoom-in-95" style={{ margin: '12px' }}>
+                      {previewComic.textFields.map(tf => (
+                        <div 
+                          key={tf.id}
+                          className="absolute flex items-center justify-center pointer-events-none"
+                          style={{
+                            left: `${tf.x}%`,
+                            top: `${tf.y}%`,
+                            width: `${tf.width}%`,
+                            height: `${tf.height}%`,
+                            textAlign: tf.alignment || 'center',
+                          }}
+                        >
+                          <div 
+                            className="w-full h-full flex items-center justify-center overflow-hidden"
+                            style={{
+                              fontFamily: getFontFamily(tf.font || 'Inter'),
+                              color: 'black',
+                              lineHeight: 0.8,
+                            }}
+                          >
+                            <AutoResizingText 
+                              text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                              alignment={tf.alignment || 'center'} 
+                              font={tf.font || 'Inter'} 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              <button className="absolute -top-6 -right-6 bg-slate-800 text-white w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-110 transition-all shadow-2xl" onClick={() => handlePreviewImage(null)}>
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   if (room?.gameState === 'playing' && role === 'select') {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-900 text-white p-8 relative overflow-y-auto py-12">
+      <div className="h-[100dvh] w-full flex flex-col items-center bg-slate-900 text-white p-8 relative overflow-y-auto py-12">
         <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
@@ -1511,11 +1565,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const bgColor = activeComicProfile?.backgroundColor || '#f8fafc';
 
   return (
-    <div className="h-full flex flex-col overflow-hidden relative" style={{ backgroundColor: bgColor }}>
+    <div className="h-[100dvh] w-full flex flex-col overflow-y-auto relative" style={{ backgroundColor: bgColor }}>
       <ProfileButton />
       <ConnectionBadge status={connectionStatus} />
 
-      <div className="absolute top-6 left-6 z-50 flex gap-4">
+      <div className="fixed top-6 left-6 z-50 flex gap-4">
         <button 
           onClick={onExit}
           className="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-slate-800 bg-white/80 backdrop-blur rounded-full shadow-sm hover:scale-105 transition-all"
@@ -1525,7 +1579,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       </div>
 
       {room?.scores && (
-        <div className="absolute top-6 right-6 z-50 flex flex-col items-end gap-2">
+        <div className="fixed top-6 right-6 z-50 flex flex-col items-end gap-2">
           <div className="bg-white/80 backdrop-blur px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
             <div className="flex -space-x-2">
               {room.players.map((p: any) => (
@@ -1559,7 +1613,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {role !== 'select' && !selectedComic && (
-        <div className="flex-1 flex flex-col items-center justify-center pt-[160px] px-8 pb-8 overflow-y-auto">
+        <div className="flex-1 flex flex-col items-center pt-32 px-8 pb-12">
           {role === 'writer' && !activeStrip ? (
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
                <div className="w-24 h-24 bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-400 text-4xl mb-8 animate-pulse">
@@ -1626,7 +1680,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         </div>
       )}
 
-      {room?.gameState === 'playing' && timeLeft !== null && !hasSubmitted && (
+      {room?.gameState === 'playing' && timeLeft !== null && timeLeft > 0 && !hasSubmitted && !allSubmitted && (
         <div className={`fixed z-[60] px-6 py-3 rounded-2xl shadow-xl border-2 flex items-center gap-3 transition-all duration-500 ${
           preGameState === 'cover' 
             ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-150 bg-white border-slate-200 text-slate-800' 
@@ -1640,7 +1694,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {selectedComic && (role === 'judge' || hasSubmitted) && (
-        <div className="flex-1 flex flex-col pt-[160px] px-8 pb-8 overflow-y-auto">
+        <div className="flex-1 flex flex-col pt-32 px-8 pb-12">
           <div className="w-full max-w-4xl mx-auto mb-12">
             <h2 className="text-center text-2xl font-header uppercase tracking-widest text-slate-800 mb-6">
               {winner ? 'Winning Comic' : 'Winner Selection'}
@@ -1960,7 +2014,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1">
             <h3 className="text-center text-sm font-black uppercase tracking-widest text-slate-400 mb-8">Submitted Comics</h3>
             <div className="flex flex-wrap justify-center gap-8 pb-20">
               {submittedComics.map((comic, idx) => (
@@ -2035,7 +2089,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {role === 'writer' && selectedComic && !hasSubmitted && (
-        <div className="flex-1 flex flex-col pt-[160px] px-8 pb-8 items-center justify-center overflow-y-auto relative">
+        <div className="flex-1 flex flex-col pt-32 px-8 pb-12 items-center relative">
           {preGameState === 'cover' && activeStrip && (
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500">
               <h2 className="text-4xl font-header uppercase tracking-widest text-slate-800 mb-8">Get Ready!</h2>
@@ -2208,7 +2262,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                     {!isEnlarged && (
                       <div className="w-full lg:w-96 flex flex-col gap-4 max-h-[60vh]">
                         <h3 className="font-header uppercase tracking-widest text-xl text-slate-800 mb-2 shrink-0">DiE-A-Log</h3>
-                        <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                           {localTextFields
                             .sort((a, b) => {
                               if (!activeStrip?.script) return 0;
@@ -2331,7 +2385,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             <img src={resolvedPreviewImage || null} className="max-w-full max-h-[90vh] rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.4)] border-[12px] border-white animate-in zoom-in-95" onClick={(e) => e.stopPropagation()} />
             
             {(() => {
-              const previewComic = submittedComics.find(c => c.imageUrl === previewImage) || (winner?.imageUrl === previewImage ? winner : null);
+              const previewComic = submittedComics.find(c => c.imageUrl === previewImage) || 
+                                   (winner?.imageUrl === previewImage ? winner : null) ||
+                                   (room?.winningComics || []).find((c: any) => c.imageUrl === previewImage);
               if (previewComic && previewComic.textFields && previewComic.textFields.length > 0 && !previewComic.isFlattened) {
                 return (
                   <div className="absolute inset-0 pointer-events-none rounded-3xl overflow-hidden animate-in zoom-in-95" style={{ margin: '12px' }}>
