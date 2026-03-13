@@ -131,16 +131,42 @@ export const TestingLab: React.FC<TestingLabProps> = ({
       img.crossOrigin = "anonymous";
       
       let imageUrl = selectedStrip.exportImageUrl || selectedStrip.finishedImageUrl;
-      if (imageUrl.startsWith('vault:')) {
-        const resolved = await imageStore.getImage(imageUrl);
-        if (resolved) imageUrl = resolved;
+      if (!imageUrl) {
+        throw new Error("No image URL found for this strip.");
       }
       
-      img.src = imageUrl;
+      try {
+        let blobUrl = imageUrl;
+        if (imageUrl.startsWith('vault:')) {
+          const resolved = await imageStore.getImage(imageUrl);
+          if (resolved) blobUrl = resolved;
+        } else if (!imageUrl.startsWith('data:')) {
+          try {
+            const response = await fetch(imageUrl, { mode: 'cors' });
+            if (!response.ok) throw new Error('CORS fetch failed');
+            const blob = await response.blob();
+            blobUrl = URL.createObjectURL(blob);
+          } catch (corsError) {
+            console.warn("CORS fetch failed in handleSave, trying proxy...", corsError);
+            const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error('Proxy fetch failed');
+            const blob = await response.blob();
+            blobUrl = URL.createObjectURL(blob);
+          }
+        }
+        img.src = blobUrl;
+      } catch (e) {
+        console.warn("Failed to fetch image as blob in handleSave, falling back to direct src:", e);
+        img.src = imageUrl;
+      }
 
       await new Promise((resolve, reject) => {
         img.onload = resolve;
-        img.onerror = reject;
+        img.onerror = (e) => {
+          console.error("Image load error in handleSave:", e);
+          reject(new Error("Image failed to load"));
+        };
       });
 
       canvas.width = img.width;
@@ -223,8 +249,9 @@ export const TestingLab: React.FC<TestingLabProps> = ({
       await onAddRating(newRating);
       alert("Successfully submitted to Play Mode!");
     } catch (err) {
-      console.error("Failed to generate composite for rating:", err);
-      alert("Failed to submit to Play Mode.");
+      console.error("Critical failure in handleSave (TestingLab):", err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      alert(`Failed to submit to Play Mode. Error: ${errorMessage}`);
     } finally {
       setIsSavingLocal(false);
     }

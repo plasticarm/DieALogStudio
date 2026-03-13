@@ -116,7 +116,7 @@ export const BooksLibrary: React.FC<BooksLibraryProps> = ({
               className="w-full sm:w-auto bg-slate-800 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-slate-900 transition-all active:scale-95 flex items-center justify-center gap-3"
             >
               <i className="fa-solid fa-plus"></i>
-              New Production
+              New Comic Series
             </button>
           </div>
         </div>
