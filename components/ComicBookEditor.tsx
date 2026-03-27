@@ -103,7 +103,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
       
       const exportData: any = {
         profile: activeComic ? JSON.parse(JSON.stringify(activeComic)) : undefined,
-        book: book,
+        books: JSON.parse(JSON.stringify(booksForSeries)),
         strips: []
       };
 
@@ -115,7 +115,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
         try {
           const response = await fetch(safeUrl);
           const blob = await response.blob();
-          const fileName = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.png`;
+          const fileName = `assets/${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.png`;
           zip.file(fileName, blob);
           if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl);
           return fileName;
@@ -125,6 +125,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
         }
       };
 
+      // Process Profile Assets
       if (exportData.profile) {
         const p = exportData.profile;
         if (p.styleReferenceImageUrl) {
@@ -151,67 +152,66 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
         }
       }
 
-      const processPage = async (id: string, index: number) => {
-        const strip = getStrip(id);
-        if (strip) {
-          const stripClone = JSON.parse(JSON.stringify(strip));
-          
-          if (stripClone.finishedImageUrl) {
-            stripClone.finishedImageUrl = await processImage(stripClone.finishedImageUrl, `strip_${index}_finished`) || stripClone.finishedImageUrl;
-          }
-          if (stripClone.exportImageUrl) {
-            stripClone.exportImageUrl = await processImage(stripClone.exportImageUrl, `strip_${index}_export`) || stripClone.exportImageUrl;
-          }
-          if (stripClone.imageHistory) {
-            stripClone.imageHistory = await Promise.all(stripClone.imageHistory.map((url: string, i: number) => processImage(url, `strip_${index}_history_${i}`)));
-            stripClone.imageHistory = stripClone.imageHistory.filter(Boolean);
-          }
-          
-          // Also export the currently viewed image as a separate file for convenience
-          const imgUrl = (viewMode === 'clean' && strip.exportImageUrl) ? strip.exportImageUrl : strip.finishedImageUrl;
-          const safeUrl = await imageStore.getSafeUrl(imgUrl);
-          if (safeUrl) {
-            try {
-              const response = await fetch(safeUrl);
-              const blob = await response.blob();
-              const fileName = `${(index + 1).toString().padStart(3, '0')}_${strip.name.replace(/\s+/g, '_')}.png`;
-              zip.file(fileName, blob);
-              if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl);
-            } catch (e) {
-              console.error("Failed to process convenience image:", imgUrl, e);
-            }
-          }
-          
-          exportData.strips.push({
-            strip: stripClone
-          });
+      // Process All Books in Series
+      for (let i = 0; i < exportData.books.length; i++) {
+        const b = exportData.books[i];
+        if (b.coverImageUrl) {
+          b.coverImageUrl = await processImage(b.coverImageUrl, `book_${i}_cover`) || b.coverImageUrl;
         }
-      };
-
-      await Promise.all(book.pages.map((id, index) => processPage(id, index)));
-
-      if (book.coverImageUrl) {
-        const safeCoverUrl = await imageStore.getSafeUrl(book.coverImageUrl);
-        if (safeCoverUrl) {
-          const response = await fetch(safeCoverUrl);
-          const blob = await response.blob();
-          const coverFileName = '000_COVER.png';
-          zip.file(coverFileName, blob);
-          exportData.coverFileName = coverFileName;
-          if (safeCoverUrl.startsWith('blob:')) URL.revokeObjectURL(safeCoverUrl);
+        if (b.logoUrl) {
+          b.logoUrl = await processImage(b.logoUrl, `book_${i}_logo`) || b.logoUrl;
         }
       }
 
-      if (book.logoUrl) {
-        const safeLogoUrl = await imageStore.getSafeUrl(book.logoUrl);
-        if (safeLogoUrl) {
-          const response = await fetch(safeLogoUrl);
-          const blob = await response.blob();
-          const logoFileName = '000_LOGO.png';
-          zip.file(logoFileName, blob);
-          exportData.logoFileName = logoFileName;
-          if (safeLogoUrl.startsWith('blob:')) URL.revokeObjectURL(safeLogoUrl);
+      // Process All History Strips for Series
+      for (let i = 0; i < filteredHistory.length; i++) {
+        const strip = filteredHistory[i];
+        const stripClone = JSON.parse(JSON.stringify(strip));
+        
+        if (stripClone.finishedImageUrl) {
+          stripClone.finishedImageUrl = await processImage(stripClone.finishedImageUrl, `strip_${i}_finished`) || stripClone.finishedImageUrl;
         }
+        if (stripClone.exportImageUrl) {
+          stripClone.exportImageUrl = await processImage(stripClone.exportImageUrl, `strip_${i}_export`) || stripClone.exportImageUrl;
+        }
+        if (stripClone.imageHistory) {
+          stripClone.imageHistory = await Promise.all(stripClone.imageHistory.map((url: string, j: number) => processImage(url, `strip_${i}_history_${j}`)));
+          stripClone.imageHistory = stripClone.imageHistory.filter(Boolean);
+        }
+        
+        exportData.strips.push({ strip: stripClone });
+
+        // Convenience Export: Organise into folders
+        // Check which books this strip belongs to
+        const booksContainingStrip = booksForSeries.filter(b => b.pages.includes(strip.id));
+        
+        const exportConvenience = async (url: string | undefined, suffix: string) => {
+          if (!url) return;
+          const safeUrl = await imageStore.getSafeUrl(url);
+          if (!safeUrl) return;
+          try {
+            const response = await fetch(safeUrl);
+            const blob = await response.blob();
+            
+            if (booksContainingStrip.length > 0) {
+              for (const b of booksContainingStrip) {
+                const pageIdx = b.pages.indexOf(strip.id) + 1;
+                const folderName = b.title.replace(/\s+/g, '_');
+                const fileName = `${folderName}/${pageIdx.toString().padStart(3, '0')}_${strip.name.replace(/\s+/g, '_')}${suffix}.png`;
+                zip.file(fileName, blob);
+              }
+            } else {
+              const fileName = `History/${strip.name.replace(/\s+/g, '_')}_${strip.id.substring(0, 5)}${suffix}.png`;
+              zip.file(fileName, blob);
+            }
+            if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl);
+          } catch (e) {
+            console.error("Failed convenience export:", url, e);
+          }
+        };
+
+        await exportConvenience(strip.finishedImageUrl, '');
+        await exportConvenience(strip.exportImageUrl, '_CLEAN');
       }
 
       zip.file('series_data.json', JSON.stringify(exportData, null, 2));
@@ -219,7 +219,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
       const content = await zip.generateAsync({ type: 'blob' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(content);
-      link.download = `${book.title.replace(/\s+/g, '_')}_assets.zip`;
+      link.download = `${(activeComic?.name || 'Series').replace(/\s+/g, '_')}_Full_Export.zip`;
       link.click();
     } catch (e) {
       console.error("ZIP generation failed:", e);
@@ -227,6 +227,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
     } finally {
       setIsZipping(false);
     }
+
   };
 
   const handleImportZip = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,16 +293,21 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
         }
       }
 
-      // Process cover image
-      if (seriesData.coverFileName) {
-        const coverUrl = await processImportImage(seriesData.coverFileName);
-        if (coverUrl) seriesData.book.coverImageUrl = coverUrl;
+      // Process All Books
+      const importedBooks = seriesData.books || (seriesData.book ? [seriesData.book] : []);
+      for (const b of importedBooks) {
+        if (b.coverImageUrl) b.coverImageUrl = await processImportImage(b.coverImageUrl);
+        if (b.logoUrl) b.logoUrl = await processImportImage(b.logoUrl);
       }
-
-      // Process logo image
-      if (seriesData.logoFileName) {
+      
+      // Backwards compatibility for legacy cover/logo filenames
+      if (seriesData.coverFileName && importedBooks.length > 0) {
+        const coverUrl = await processImportImage(seriesData.coverFileName);
+        if (coverUrl) importedBooks[0].coverImageUrl = coverUrl;
+      }
+      if (seriesData.logoFileName && importedBooks.length > 0) {
         const logoUrl = await processImportImage(seriesData.logoFileName);
-        if (logoUrl) seriesData.book.logoUrl = logoUrl;
+        if (logoUrl) importedBooks[0].logoUrl = logoUrl;
       }
 
       // Process strips
@@ -324,7 +330,8 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
         }
       }
 
-      onImportZip(seriesData);
+      onImportZip({ ...seriesData, books: importedBooks });
+
       alert('Import successful!');
     } catch (err) {
       console.error("Import failed:", err);

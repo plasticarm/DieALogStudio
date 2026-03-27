@@ -1419,7 +1419,7 @@ export default function App() {
                       });
                     }}
                     onImportZip={(data) => {
-                      const { profile, book: importedBook, strips } = data;
+                      const { profile, books: importedBooks, strips } = data;
                       
                       const newComics = [...comics];
                       if (profile) {
@@ -1432,12 +1432,14 @@ export default function App() {
                       }
 
                       const newBooks = [...books];
-                      if (importedBook) {
-                        const index = newBooks.findIndex(b => b.id === importedBook.id);
-                        if (index === -1) {
-                          newBooks.push(importedBook);
-                        } else {
-                          newBooks[index] = importedBook;
+                      if (importedBooks && Array.isArray(importedBooks)) {
+                        for (const b of importedBooks) {
+                          const index = newBooks.findIndex(existing => existing.id === b.id);
+                          if (index === -1) {
+                            newBooks.push(b);
+                          } else {
+                            newBooks[index] = b;
+                          }
                         }
                       }
 
@@ -1459,7 +1461,7 @@ export default function App() {
                         books: newBooks,
                         history: newHistory,
                         activeSeriesId: profile ? profile.id : activeSeriesId,
-                        activeBookId: importedBook ? importedBook.id : activeSession.data.activeBookId,
+                        activeBookId: (importedBooks && importedBooks.length > 0) ? importedBooks[0].id : activeSession.data.activeBookId,
                       });
                     }}
                     onUpdateBook={(updatedBook) => handleUpdateSessionData({ 
