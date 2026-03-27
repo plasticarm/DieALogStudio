@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ComicProfile, GeneratedPanelScript, SavedComicStrip, ArtModelType, TextField } from '../types';
-import { generateComicScript, generateComicArt, removeTextFromComic } from '../services/gemini';
+import { ComicProfile, GeneratedPanelScript, SavedComicStrip, ArtModelType, TextField, PanelLayout } from '../types';
+import { generateComicScript, generateComicArt, removeTextFromComic, detectComicPanels } from '../services/gemini';
 import { downloadImage, downloadJSON } from '../services/utils';
 import { downscaleImage } from '../utils/imageUtils';
 import { imageStore } from '../services/imageStore';
@@ -25,6 +25,58 @@ const getFontFamily = (fontName: string) => {
   return font ? font.family : 'Inter, sans-serif';
 };
 
+const EditableBubble: React.FC<{ 
+  text: string, 
+  alignment: string, 
+  font: string, 
+  fontSize: number,
+  rounding?: number,
+  onChange: (text: string) => void,
+  onFocus?: () => void
+}> = ({ text, alignment, font, fontSize, rounding, onChange, onFocus }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current && containerRef.current.innerText !== text) {
+      if (document.activeElement !== containerRef.current) {
+        containerRef.current.innerText = text;
+      }
+    }
+  }, [text]);
+
+  return (
+    <div 
+      ref={containerRef}
+      contentEditable
+      suppressContentEditableWarning
+      onBlur={(e) => onChange(e.currentTarget.innerText)}
+      onFocus={onFocus}
+      className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden outline-none transition-all cursor-text"
+      style={{ 
+        textAlign: alignment as any, 
+        padding: '8%', 
+        lineHeight: 0.9,
+        fontSize: `${fontSize}px`,
+        fontFamily: getFontFamily(font),
+        borderRadius: rounding ? `${rounding}px` : '0px',
+        color: '#000'
+      }}
+    >
+      <div className="w-full relative pointer-events-none">
+        <div 
+          className="float-left h-full w-[15%] pointer-events-none" 
+          style={{ shapeOutside: 'polygon(100% 0, 0 50%, 100% 100%)' }}
+        />
+        <div 
+          className="float-right h-full w-[15%] pointer-events-none" 
+          style={{ shapeOutside: 'polygon(0 0, 100% 50%, 0 100%)' }}
+        />
+        {text}
+      </div>
+    </div>
+  );
+};
+
 export const ComicGenerator: React.FC<ComicGeneratorProps> = ({ 
   activeComic, allComics, onSwitchComic, initialStrip, onPreviewImage, onSaveHistory, onDeleteHistoryItem, history, contrastColor, onAdvanceGuide
 }) => {
@@ -46,13 +98,18 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
   const [currentArTargetId, setCurrentArTargetId] = useState<string | null>(initialStrip?.arTargetId || null);
 
   const [textFields, setTextFields] = useState<TextField[]>(initialStrip?.textFields || []);
+  const [panelLayout, setPanelLayout] = useState<PanelLayout[]>(initialStrip?.panelLayout || []);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   
   const [interactionType, setInteractionType] = useState<'none' | 'drawing' | 'moving' | 'resizing' | 'painting'>('none');
   const [interactionStart, setInteractionStart] = useState<{ x: number, y: number, fieldX: number, fieldY: number, fieldW: number, fieldH: number } | null>(null);
   const [drawCurrent, setDrawCurrent] = useState<{ x: number, y: number } | null>(null);
-  const [toolMode, setToolMode] = useState<'select' | 'text' | 'eraser'>('select');
+  const [toolMode, setToolMode] = useState<'select' | 'text' | 'eraser' | 'pan'>('select');
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [removeSpeechBubbles, setRemoveSpeechBubbles] = useState(false);
   const [showCharacterRef, setShowCharacterRef] = useState(false);
 
@@ -79,6 +136,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       setFinishedImage(initialStrip.finishedImageUrl);
       setExportImage(initialStrip.exportImageUrl || null);
       setTextFields(initialStrip.textFields || []);
+      setPanelLayout(initialStrip.panelLayout || []);
       setPrompt(initialStrip.prompt);
       setPanelCount(initialStrip.panelCount);
     }
@@ -92,23 +150,35 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
 
       const loadImage = async () => {
         try {
-          const imageUrl = await imageStore.getImage(finishedImage);
-          if (!imageUrl) throw new Error('Could not resolve image from vault.');
+          const imageUrl = await imageStore.getSafeUrl(finishedImage);
+          if (!imageUrl) throw new Error('Could not resolve image.');
 
           const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = imageUrl;
-          img.onload = () => {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-          };
-          img.onerror = () => {
-            throw new Error('Failed to load image onto canvas.');
+          if (imageUrl.startsWith('http') || imageUrl.startsWith('blob:')) {
+            img.crossOrigin = "anonymous";
           }
+          
+          await new Promise((resolve, reject) => {
+            img.onload = () => {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0);
+              // If we created a blob URL, revoke it to free memory
+              if (imageUrl.startsWith('blob:') && !finishedImage?.startsWith('vault:')) {
+                URL.revokeObjectURL(imageUrl);
+              }
+              resolve(null);
+            };
+            img.onerror = () => {
+              const msg = `Failed to load image from ${imageUrl.substring(0, 60)}... This may be due to CORS restrictions on the source bucket.`;
+              reject(new Error(msg));
+            };
+            img.src = imageUrl;
+          });
         } catch (err) {
-          console.error(err);
-          alert('Failed to load image for cleaning. It might be corrupted.');
+          console.error("Image loading error:", err);
+          setError(`Image loading error: ${err instanceof Error ? err.message : String(err)}`);
           setIsManualCleaning(false);
         }
       };
@@ -129,10 +199,33 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         e.preventDefault();
         undoCleaning();
       }
+      
+      // Zoom shortcuts
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        setZoom(prev => Math.min(5, prev + 0.1));
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        setZoom(prev => Math.max(0.2, prev - 0.1));
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+      }
+
+      // Tool shortcuts
+      if (activeTab === 'export') {
+        if (e.key === 'h' || e.key === 'H') setToolMode('pan');
+        if (e.key === 's' || e.key === 'S') setToolMode('select');
+        if (e.key === 't' || e.key === 'T') setToolMode('text');
+        if (e.key === 'e' || e.key === 'E') setToolMode('eraser');
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isManualCleaning, cleaningTool, polygonPoints]);
+  }, [isManualCleaning, cleaningTool, polygonPoints, activeTab]);
 
   const saveCleaningState = () => {
     if (!manualCanvasRef.current) return;
@@ -147,14 +240,14 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     if (!ctx) return;
 
     const newHistory = [...cleaningHistory];
-    newHistory.pop(); // Remove current state
-    const prevState = newHistory[newHistory.length - 1];
+    const prevState = newHistory.pop();
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (prevState) {
       const img = new Image();
-      img.src = prevState;
       img.onload = () => ctx.drawImage(img, 0, 0);
+      img.onerror = () => console.error('Failed to load previous state image.');
+      img.src = prevState;
     }
     setCleaningHistory(newHistory);
   };
@@ -219,6 +312,17 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       setImageHistory(prev => [vaultedImg, ...prev].slice(0, 10));
       setExportImage(null);
       setTextFields([]);
+
+      // Detect panels
+      setStatusMessage('Analyzing Panel Layout...');
+      let detectedLayout: PanelLayout[] = [];
+      try {
+        detectedLayout = await detectComicPanels(img);
+      } catch (panelErr) {
+        console.warn("Panel detection failed:", panelErr);
+      }
+      setPanelLayout(detectedLayout);
+
       setActiveTab('finished');
       setIsManualCleaning(false);
       if (manualCanvasRef.current) {
@@ -243,7 +347,8 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         finishedImageUrl: vaultedImg, 
         timestamp: Date.now(), 
         panelCount,
-        textFields: []
+        textFields: [],
+        panelLayout: detectedLayout
       };
       onSaveHistory(newStrip);
     } catch (e: any) { 
@@ -264,15 +369,13 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         const ctx = canvas.getContext('2d');
         if (!ctx || !manualCanvasRef.current) return;
 
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        
         // Resolve vault URL if necessary
-        let resolvedSrc = finishedImage;
-        if (finishedImage.startsWith('vault:')) {
-          const url = await imageStore.getImage(finishedImage);
-          if (!url) throw new Error('Could not resolve image from vault.');
-          resolvedSrc = url;
+        const resolvedSrc = await imageStore.getSafeUrl(finishedImage);
+        if (!resolvedSrc) throw new Error('Could not resolve image.');
+
+        const img = new Image();
+        if (resolvedSrc.startsWith('http') || resolvedSrc.startsWith('blob:')) {
+          img.crossOrigin = "anonymous";
         }
         
         img.src = resolvedSrc;
@@ -282,6 +385,11 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
         ctx.drawImage(manualCanvasRef.current, 0, 0);
+
+        // Cleanup blob URL if created
+        if (resolvedSrc.startsWith('blob:') && !finishedImage.startsWith('vault:')) {
+          URL.revokeObjectURL(resolvedSrc);
+        }
 
         const flattened = canvas.toDataURL('image/png');
         const imgDownscaled = await downscaleImage(flattened, 1024, 0.8);
@@ -322,6 +430,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     setPrompt(s.prompt);
     setPanelCount(s.panelCount);
     setTextFields(s.textFields || []);
+    setPanelLayout(s.panelLayout || []);
     setCurrentStripId(s.id);
     setCurrentArTargetId(s.arTargetId);
     setActiveTab('finished');
@@ -341,7 +450,8 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       exportImageUrl: exportImage || undefined, 
       timestamp: Date.now(), 
       panelCount,
-      textFields
+      textFields,
+      panelLayout
     };
     onSaveHistory(newStrip);
     if (!currentStripId) setCurrentStripId(newStrip.id);
@@ -379,37 +489,52 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     // Fallback: draw image to offscreen canvas and get pixel
     try {
       const coords = getRelativeCoords(e);
-      const imageUrl = await imageStore.getImage(finishedImage);
+      const imageUrl = await imageStore.getSafeUrl(finishedImage);
       if (!imageUrl) return;
 
       const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = imageUrl;
+      if (imageUrl.startsWith('http') || imageUrl.startsWith('blob:')) {
+        img.crossOrigin = "anonymous";
+      }
       
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        ctx.drawImage(img, 0, 0);
-        
-        // Also draw the manual cleaning canvas over it to pick up any existing edits
-        if (manualCanvasRef.current) {
-          ctx.drawImage(manualCanvasRef.current, 0, 0);
-        }
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+          
+          ctx.drawImage(img, 0, 0);
+          
+          // Also draw the manual cleaning canvas over it to pick up any existing edits
+          if (manualCanvasRef.current) {
+            ctx.drawImage(manualCanvasRef.current, 0, 0);
+          }
 
-        const x = Math.floor((coords.x / 100) * canvas.width);
-        const y = Math.floor((coords.y / 100) * canvas.height);
-        
-        const pixel = ctx.getImageData(x, y, 1, 1).data;
-        const rgbToHex = (r: number, g: number, b: number) => {
-          return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
+          const x = Math.floor((coords.x / 100) * canvas.width);
+          const y = Math.floor((coords.y / 100) * canvas.height);
+          
+          const pixel = ctx.getImageData(x, y, 1, 1).data;
+          const rgbToHex = (r: number, g: number, b: number) => {
+            return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1);
+          };
+          setCleaningColor(rgbToHex(pixel[0], pixel[1], pixel[2]));
+          setCleaningTool('brush');
+          
+          if (imageUrl.startsWith('blob:') && !finishedImage?.startsWith('vault:')) {
+            URL.revokeObjectURL(imageUrl);
+          }
+          resolve(null);
         };
-        setCleaningColor(rgbToHex(pixel[0], pixel[1], pixel[2]));
-        setCleaningTool('brush');
-      };
+        img.onerror = () => {
+          reject(new Error('Failed to load image for color picking.'));
+        };
+        img.src = imageUrl;
+      });
     } catch (err) {
       console.error("Failed to pick color:", err);
     }
@@ -473,6 +598,12 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
   const [isDragging, setIsDragging] = useState(false);
 
   const handleContainerMouseDown = (e: React.MouseEvent) => {
+    if (toolMode === 'pan' || (e.button === 1)) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      return;
+    }
+
     const coords = getRelativeCoords(e);
 
     if (isManualCleaning && activeTab === 'finished') {
@@ -546,11 +677,17 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
   };
 
   const handleContainerMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setPan({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y
+      });
+      return;
+    }
+
     if (isManualCleaning) {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-      }
+      const coords = getRelativeCoords(e);
+      setMousePos({ x: coords.x, y: coords.y });
     }
     if (interactionType === 'none' || !interactionStart) {
       if (interactionType === 'painting' && isManualCleaning) {
@@ -581,17 +718,19 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
   };
 
   const handleContainerMouseUp = () => {
+    setIsPanning(false);
     if (interactionType === 'drawing' && interactionStart && drawCurrent) {
       const x = Math.min(interactionStart.x, drawCurrent.x);
       const y = Math.min(interactionStart.y, drawCurrent.y);
       const width = Math.abs(interactionStart.x - drawCurrent.x);
       const height = Math.abs(interactionStart.y - drawCurrent.y);
 
-      if (width > 2 && height > 2) {
+        if (width > 2 && height > 2) {
         const newId = `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
         const newField: TextField = {
           id: newId, text: 'New Dialogue', x, y, width, height,
-          font: activeComic.selectedFonts?.[0] || 'Amatic SC', fontSize: 12, alignment: 'center', characterName: 'Unknown'
+          font: activeComic.selectedFonts?.[0] || 'Amatic SC', fontSize: 12, alignment: 'center', characterName: 'Unknown',
+          order: textFields.length + 1
         };
         setTextFields(prev => [...prev, newField]);
         setSelectedFieldId(newId);
@@ -640,9 +779,14 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
     if (!ctx) return;
 
     try {
+      const imageUrl = await imageStore.getSafeUrl(exportImage);
+      if (!imageUrl) throw new Error('Could not resolve image.');
+
       const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = exportImage;
+      if (imageUrl.startsWith('http') || imageUrl.startsWith('blob:')) {
+        img.crossOrigin = "anonymous";
+      }
+      img.src = imageUrl;
       await img.decode();
 
       canvas.width = img.width;
@@ -691,6 +835,10 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
 
       const flattened = canvas.toDataURL('image/png');
       downloadImage(flattened, `${stripName.replace(/\s+/g, '_')}_final.png`);
+      
+      if (imageUrl.startsWith('blob:') && !exportImage.startsWith('vault:')) {
+        URL.revokeObjectURL(imageUrl);
+      }
     } catch (e) {
       console.error(e);
       alert("Flattening failed.");
@@ -715,37 +863,37 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
   const selectedField = useMemo(() => textFields.find(f => f.id === selectedFieldId), [textFields, selectedFieldId]);
 
   return (
-    <div className={`h-full flex flex-col transition-all overflow-hidden bg-white ${isMaximized ? 'p-0' : 'p-6'}`}>
+    <div className={`h-full flex flex-col transition-all overflow-hidden bg-white ${isMaximized ? 'p-0' : 'p-2 sm:p-6'}`}>
       {/* Universal Property Bar */}
-      <div className={`bg-white border-b border-slate-200 px-6 py-4 flex gap-6 items-center shrink-0 shadow-sm z-[200]`}>
+      <div className={`bg-white border-b border-slate-200 px-3 sm:px-6 py-2 sm:py-4 flex gap-2 sm:gap-6 items-center shrink-0 shadow-sm z-[200]`}>
         <div className="flex-1 flex items-center gap-4 overflow-hidden">
            <div className="flex flex-col shrink-0">
-             <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Production Series</label>
+             <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1 hidden sm:block">Production Series</label>
              <select 
                value={activeComic.id}
                onChange={(e) => onSwitchComic(e.target.value)}
-               className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 text-xs font-black uppercase text-slate-800 outline-none focus:ring-2 focus:ring-slate-200 transition-all max-w-[180px]"
+               className="bg-slate-50 border border-slate-200 rounded-lg px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-black uppercase text-slate-800 outline-none focus:ring-2 focus:ring-slate-200 transition-all max-w-[100px] sm:max-w-[180px]"
              >
                {allComics?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
              </select>
            </div>
            <div className="h-6 w-[1px] bg-slate-200 shrink-0"></div>
            <div className="flex flex-col flex-1 min-w-0">
-             <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1">Episode Title</label>
-             <div className="flex items-center gap-3">
+             <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-1 hidden sm:block">Episode Title</label>
+             <div className="flex items-center gap-1 sm:gap-3">
                <input 
                  type="text" 
                  value={stripName} 
                  onChange={e => setStripName(e.target.value)}
-                 className="bg-transparent font-bold text-sm outline-none text-slate-800 focus:text-slate-900 border-b border-transparent focus:border-slate-200 flex-1"
+                 className="bg-transparent font-bold text-xs sm:text-sm outline-none text-slate-800 focus:text-slate-900 border-b border-transparent focus:border-slate-200 flex-1 min-w-0"
                  placeholder="Untitled Project"
                />
                <button 
                  onClick={() => setShowCharacterRef(true)}
-                 className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2 shrink-0"
+                 className="px-2 sm:px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-[8px] sm:text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-1 sm:gap-2 shrink-0"
                >
                  <i className="fa-solid fa-users"></i>
-                 Characters
+                 <span className="hidden sm:inline">Characters</span>
                </button>
                {filteredHistory.length > 0 && (
                  <select
@@ -754,9 +902,9 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                      if (selected) loadStrip(selected);
                    }}
                    value={currentStripId || ''}
-                   className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] font-black uppercase text-slate-500 outline-none focus:ring-2 focus:ring-slate-200 transition-all max-w-[120px]"
+                   className="bg-slate-50 border border-slate-200 rounded-lg px-1 sm:px-2 py-1 text-[8px] sm:text-[9px] font-black uppercase text-slate-500 outline-none focus:ring-2 focus:ring-slate-200 transition-all max-w-[80px] sm:max-w-[120px]"
                  >
-                   <option key="switch-page-default" value="">Switch Page...</option>
+                   <option key="switch-page-default" value="">Page...</option>
                    {filteredHistory.map(h => (
                      <option key={h.id} value={h.id}>{h.name}</option>
                    ))}
@@ -766,26 +914,28 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
            </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
            <button 
              onClick={() => setIsMaximized(!isMaximized)} 
-             className={`flex items-center gap-3 px-6 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border ${isMaximized ? 'bg-slate-800 text-white border-transparent' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
+             className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all border ${isMaximized ? 'bg-slate-800 text-white border-transparent' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
              title={isMaximized ? 'Standard View' : 'Focus Mode'}
            >
              <i className={`fa-solid ${isMaximized ? 'fa-compress' : 'fa-expand'}`}></i>
-             {isMaximized ? 'Exit Focus' : 'Focus'}
+             <span className="hidden sm:inline">{isMaximized ? 'Exit Focus' : 'Focus'}</span>
            </button>
            <button 
              data-guide="studio-save"
              onClick={saveToHistory} 
-             className="bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-emerald-800 transition-all active:scale-95 flex items-center gap-2"
+             className="bg-emerald-700 text-white px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-emerald-800 transition-all active:scale-95 flex items-center gap-2"
            >
-             Save Changes
+             <i className="fa-solid fa-cloud-arrow-up sm:hidden"></i>
+             <span className="hidden sm:inline">Save Changes</span>
+             <span className="sm:hidden">Save</span>
            </button>
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Studio Sidebar */}
         <div className="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0 overflow-y-auto">
            {/* Directives Panel */}
@@ -1004,13 +1154,13 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
 
                 <div className="w-[1px] h-6 bg-white/10"></div>
 
-                {cleaningTool === 'brush' && (
+                {(cleaningTool === 'brush' || cleaningTool === 'eraser') && (
                   <div className="flex items-center gap-3 px-2">
                     <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest">Size</label>
                     <input 
                       type="range" 
                       min="4" 
-                      max="20" 
+                      max="100" 
                       value={brushSize} 
                       onChange={(e) => setBrushSize(parseInt(e.target.value))}
                       className="w-32 accent-white"
@@ -1067,6 +1217,13 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                     <i className="fa-solid fa-arrow-pointer"></i>
                   </button>
                   <button 
+                    onClick={() => setToolMode('pan')} 
+                    className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${toolMode === 'pan' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                    title="Pan Tool (H)"
+                  >
+                    <i className="fa-solid fa-hand"></i>
+                  </button>
+                  <button 
                     onClick={() => setToolMode('text')} 
                     className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${toolMode === 'text' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
                     title="Add New Textbox (T)"
@@ -1088,6 +1245,32 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                   >
                     <i className="fa-solid fa-trash-can"></i>
                   </button>
+                  <div className="w-[1px] h-6 bg-slate-200 mx-2"></div>
+                  
+                  {/* Zoom Controls */}
+                  <div className="flex items-center gap-1 px-2">
+                    <button 
+                      onClick={() => setZoom(prev => Math.max(0.2, prev - 0.1))}
+                      className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-all"
+                      title="Zoom Out"
+                    >
+                      <i className="fa-solid fa-magnifying-glass-minus"></i>
+                    </button>
+                    <button 
+                      onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                      className="px-2 py-1 text-[9px] font-black uppercase text-slate-400 hover:text-slate-800 transition-all"
+                      title="Reset Zoom"
+                    >
+                      {Math.round(zoom * 100)}%
+                    </button>
+                    <button 
+                      onClick={() => setZoom(prev => Math.min(5, prev + 0.1))}
+                      className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-all"
+                      title="Zoom In"
+                    >
+                      <i className="fa-solid fa-magnifying-glass-plus"></i>
+                    </button>
+                  </div>
                   <div className="w-[1px] h-6 bg-slate-200 mx-2"></div>
                   <button onClick={handleExportManifest} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-white hover:bg-slate-50 rounded-xl border border-slate-200 shadow-sm transition-all">Manifest</button>
                   <button onClick={handleFlattenExport} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-emerald-700 text-white hover:bg-emerald-800 rounded-xl shadow-lg transition-all ml-1">Export PNG</button>
@@ -1168,6 +1351,32 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                 </div>
                 <div className="w-[1px] h-6 bg-white/10"></div>
                 <div className="flex flex-col px-2">
+                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Rounding</label>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        value={selectedField.rounding || 0} 
+                        onChange={(e) => updateField(selectedField.id, { rounding: parseInt(e.target.value) })}
+                        className="w-16 accent-emerald-500"
+                      />
+                      <span className="text-[10px] font-black w-6 text-center">{selectedField.rounding || 0}</span>
+                    </div>
+                </div>
+                <div className="w-[1px] h-6 bg-white/10"></div>
+                <div className="flex flex-col px-2">
+                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Order</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={selectedField.order || 1} 
+                      onChange={(e) => updateField(selectedField.id, { order: parseInt(e.target.value) || 1 })}
+                      className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer w-12 border-b border-white/20 focus:border-emerald-500"
+                    />
+                </div>
+                <div className="w-[1px] h-6 bg-white/10"></div>
+                <div className="flex flex-col px-2">
                     <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Script Link</label>
                     <select 
                       value={selectedField.dialogueId || ''}
@@ -1191,16 +1400,65 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
               </div>
             )}
 
+            {/* Floating Zoom Controls - Always Visible in Workspace */}
+            <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-50">
+              <div className="bg-white/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200 shadow-xl flex flex-col items-center">
+                <button 
+                  onClick={() => setZoom(prev => Math.min(5, prev + 0.1))}
+                  className="w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-all"
+                  title="Zoom In"
+                >
+                  <i className="fa-solid fa-plus"></i>
+                </button>
+                <div className="h-[1px] w-6 bg-slate-100 my-1"></div>
+                <button 
+                  onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                  className="w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-800 flex items-center justify-center transition-all text-[10px] font-black"
+                  title="Reset Zoom"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <div className="h-[1px] w-6 bg-slate-100 my-1"></div>
+                <button 
+                  onClick={() => setZoom(prev => Math.max(0.2, prev - 0.1))}
+                  className="w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-all"
+                  title="Zoom Out"
+                >
+                  <i className="fa-solid fa-minus"></i>
+                </button>
+              </div>
+              
+              <button 
+                onClick={() => setToolMode(toolMode === 'pan' ? 'select' : 'pan')}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-xl transition-all ${toolMode === 'pan' ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+                title="Pan Tool (H)"
+              >
+                <i className="fa-solid fa-hand"></i>
+              </button>
+            </div>
+
            {/* EXTENDED SCROLL AREA */}
            <div className="flex-1 overflow-auto relative scroll-smooth bg-slate-50/50">
               <div className="min-h-[250%] w-full flex flex-col items-center pt-12">
                 <div 
                   ref={containerRef}
-                  className={`relative bg-white shadow-[0_40px_120px_rgba(0,0,0,0.2)] select-none transition-all ${activeTab === 'export' ? (toolMode === 'text' ? 'cursor-crosshair' : 'cursor-default') : 'cursor-zoom-in'}`}
-                  style={{ width: '90%', maxWidth: isMaximized ? '1400px' : '1000px' }}
+                  className={`relative bg-white shadow-[0_40px_120px_rgba(0,0,0,0.2)] select-none transition-all ${activeTab === 'export' ? (toolMode === 'text' ? 'cursor-crosshair' : toolMode === 'pan' ? 'cursor-grab active:cursor-grabbing' : 'cursor-default') : 'cursor-zoom-in'}`}
+                  style={{ 
+                    width: '90%', 
+                    maxWidth: isMaximized ? '1400px' : '1000px',
+                    transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                    transformOrigin: 'center top'
+                  }}
                   onMouseDown={handleContainerMouseDown}
                   onMouseMove={handleContainerMouseMove}
                   onMouseUp={handleContainerMouseUp}
+                  onWheel={(e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                      e.preventDefault();
+                      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                      setZoom(prev => Math.max(0.2, Math.min(5, prev + delta)));
+                    }
+                  }}
                   onClick={() => { if(activeTab === 'finished' && finishedImage && !isManualCleaning) onPreviewImage(finishedImage); }}
                 >
                   {isProcessing && (
@@ -1227,31 +1485,48 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                   )}
 
                   {(finishedImage || exportImage) ? (
-                    <CachedImage 
-                      src={activeTab === 'export' ? (exportImage || finishedImage)! : finishedImage!} 
-                      className="w-full h-auto block pointer-events-none rounded-sm" 
-                      alt="Workspace Art"
-                    />
+                    <div className="relative w-full h-auto block">
+                      <CachedImage 
+                        src={activeTab === 'export' ? (exportImage || finishedImage)! : finishedImage!} 
+                        className="w-full h-auto block pointer-events-none rounded-sm" 
+                        alt="Workspace Art"
+                      />
+                    </div>
                   ) : (
                     <div style={{ aspectRatio: '16/9' }}></div>
                   )}
 
+                  {/* Panel Layout Overlay */}
+                  {activeTab === 'finished' && panelLayout.length > 0 && !isManualCleaning && (
+                    <div className="absolute inset-0 z-10 pointer-events-none">
+                      {panelLayout.map(panel => (
+                        <div
+                          key={panel.panelNumber}
+                          className="absolute border border-emerald-500/30 bg-emerald-500/5 flex items-center justify-center"
+                          style={{ left: `${panel.x}%`, top: `${panel.y}%`, width: `${panel.width}%`, height: `${panel.height}%` }}
+                        >
+                          <span className="text-[8px] font-black text-emerald-600/50 uppercase tracking-tighter">Panel {panel.panelNumber}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Manual Cleaning Overlay */}
                   {activeTab === 'finished' && isManualCleaning && (
-                    <div className={`absolute inset-0 z-40 pointer-events-auto ${cleaningTool === 'brush' ? 'cursor-none' : cleaningTool === 'eyedropper' ? 'cursor-[url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Im0yIDIyIDEuNS0xLjUiLz48cGF0aCBkPSJtMi41IDIuNSAyMCAyMCIvPjxwYXRoIGQ9Im0yMS41IDIuNS0yIDIuNSIvPjxwYXRoIGQ9Ik0yMS41IDIuNSAyMCA0LjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48L3N2Zz4=)_0_24,crosshair]' : 'cursor-crosshair'}`}>
+                    <div className={`absolute inset-0 z-40 pointer-events-auto ${(cleaningTool === 'brush' || cleaningTool === 'eraser') ? 'cursor-none' : cleaningTool === 'eyedropper' ? 'cursor-[url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Im0yIDIyIDEuNS0xLjUiLz48cGF0aCBkPSJtMi41IDIuNSAyMCAyMCIvPjxwYXRoIGQ9Im0yMS41IDIuNS0yIDIuNSIvPjxwYXRoIGQ9Ik0yMS41IDIuNSAyMCA0LjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48cGF0aCBkPSJtMjEuNSAyLjUtMiAyLjUiLz48L3N2Zz4=)_0_24,crosshair]' : 'cursor-crosshair'}`}>
                       <canvas 
                         ref={manualCanvasRef}
-                        className="w-full h-full object-contain pointer-events-none"
+                        className="w-full h-full pointer-events-none"
                       />
                       {/* Custom Brush Cursor */}
-                      {cleaningTool === 'brush' && (
+                      {(cleaningTool === 'brush' || cleaningTool === 'eraser') && (
                         <div 
-                          className="fixed pointer-events-none border border-white/50 bg-white/20 rounded-full z-[1000] mix-blend-difference"
+                          className="absolute pointer-events-none border border-white/50 bg-white/20 rounded-full z-[1000] mix-blend-difference"
                           style={{
-                            left: mousePos.x + (containerRef.current?.getBoundingClientRect().left || 0),
-                            top: mousePos.y + (containerRef.current?.getBoundingClientRect().top || 0),
-                            width: brushSize * ((containerRef.current?.clientWidth || 1) / (manualCanvasRef.current?.width || 1)),
-                            height: brushSize * ((containerRef.current?.clientWidth || 1) / (manualCanvasRef.current?.width || 1)),
+                            left: `${mousePos.x}%`,
+                            top: `${mousePos.y}%`,
+                            width: `${brushSize / 5}%`,
+                            aspectRatio: '1 / 1',
                             transform: 'translate(-50%, -50%)'
                           }}
                         />
@@ -1287,14 +1562,19 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                             onMouseDown={(e) => handleFieldInteractionStart(e, field, 'moving')}
                           ></div>
                           
-                          <textarea
-                            value={field.text}
-                            onChange={(e) => updateField(field.id, { text: e.target.value })}
-                            onFocus={() => setSelectedFieldId(field.id)}
-                            className="absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] bg-transparent outline-none font-bold resize-none leading-tight overflow-hidden caret-emerald-500 z-10 pointer-events-auto"
-                            style={{ fontFamily: getFontFamily(field.font), fontSize: `${field.fontSize}px`, textAlign: field.alignment, color: '#000', lineHeight: 0.8 }}
-                            placeholder="..."
-                          />
+                          <div 
+                            className="absolute inset-2 w-[calc(100%-16px)] h-[calc(100%-16px)] z-10 pointer-events-auto"
+                          >
+                            <EditableBubble
+                              text={field.text}
+                              alignment={field.alignment}
+                              font={field.font}
+                              fontSize={field.fontSize}
+                              rounding={field.rounding}
+                              onChange={(newText) => updateField(field.id, { text: newText })}
+                              onFocus={() => setSelectedFieldId(field.id)}
+                            />
+                          </div>
 
                           {selectedFieldId === field.id && (
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-50 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-lg z-20 cursor-move border-2 border-white">
@@ -1314,6 +1594,11 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                           <div className="absolute -top-3 -left-3 bg-slate-800 text-white text-[8px] font-black px-2 py-0.5 rounded shadow-sm z-20 pointer-events-none uppercase tracking-widest">
                             {field.characterName || 'Unknown'}
                           </div>
+                          {field.order && (
+                            <div className="absolute -top-3 -right-3 bg-emerald-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-lg z-20 pointer-events-none border-2 border-white">
+                              {field.order}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

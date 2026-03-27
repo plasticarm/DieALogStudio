@@ -5,6 +5,7 @@ import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
 import { downscaleImage } from '../utils/imageUtils';
 import { generateVeoVideo } from '../services/gemini';
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { COMIC_FONTS, GENRES, CANNED_PHRASES } from '../constants';
 import Pusher from 'pusher-js';
 
@@ -22,7 +23,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
-const AutoResizingText: React.FC<{ text: string, alignment: string, font: string }> = ({ text, alignment, font }) => {
+const AutoResizingText: React.FC<{ text: string, alignment: string, font: string, rounding?: number }> = ({ text, alignment, font, rounding }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,9 +56,24 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
     <div 
       ref={containerRef}
       className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden"
-      style={{ textAlign: alignment as any, padding: '6%', lineHeight: 0.8 }}
+      style={{ 
+        textAlign: alignment as any, 
+        padding: '8%', 
+        lineHeight: 0.9,
+        borderRadius: rounding ? `${rounding}px` : '1rem'
+      }}
     >
-      {text}
+      <div className="w-full relative">
+        <div 
+          className="float-left h-full w-[15%] pointer-events-none" 
+          style={{ shapeOutside: 'polygon(100% 0, 0 50%, 100% 100%)' }}
+        />
+        <div 
+          className="float-right h-full w-[15%] pointer-events-none" 
+          style={{ shapeOutside: 'polygon(0 0, 100% 50%, 0 100%)' }}
+        />
+        {text}
+      </div>
     </div>
   );
 };
@@ -66,8 +82,9 @@ const EditableBubble: React.FC<{
   text: string, 
   alignment: string, 
   font: string, 
+  rounding?: number,
   onChange: (text: string) => void 
-}> = ({ text, alignment, font, onChange }) => {
+}> = ({ text, alignment, font, rounding, onChange }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,9 +131,26 @@ const EditableBubble: React.FC<{
       contentEditable
       suppressContentEditableWarning
       onBlur={(e) => onChange(e.currentTarget.innerText)}
-      className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden outline-none focus:ring-4 focus:ring-amber-600/50 rounded-xl bg-white/20 hover:bg-white/40 focus:bg-white/80 transition-all cursor-text shadow-inner"
-      style={{ textAlign: alignment as any, padding: '6%', lineHeight: 0.8 }}
-    />
+      className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden outline-none focus:ring-4 focus:ring-amber-600/50 bg-white/20 hover:bg-white/40 focus:bg-white/80 transition-all cursor-text shadow-inner"
+      style={{ 
+        textAlign: alignment as any, 
+        padding: '8%', 
+        lineHeight: 0.9,
+        borderRadius: rounding ? `${rounding}px` : '1rem'
+      }}
+    >
+      <div className="w-full relative pointer-events-none">
+        <div 
+          className="float-left h-full w-[15%] pointer-events-none" 
+          style={{ shapeOutside: 'polygon(100% 0, 0 50%, 100% 100%)' }}
+        />
+        <div 
+          className="float-right h-full w-[15%] pointer-events-none" 
+          style={{ shapeOutside: 'polygon(0 0, 100% 50%, 0 100%)' }}
+        />
+        {text}
+      </div>
+    </div>
   );
 };
 
@@ -167,6 +201,133 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [renderedVideoUrl, setRenderedVideoUrl] = useState<string | null>(null);
   const [selectedVeoModel, setSelectedVeoModel] = useState<'veo-3.1-fast-generate-preview' | 'veo-3.1-generate-preview'>('veo-3.1-fast-generate-preview');
   const [isSharing, setIsSharing] = useState(false);
+
+  const [viewMode, setViewMode] = useState<'panel' | 'full'>('panel');
+  const [currentTargetIndex, setCurrentTargetIndex] = useState(0);
+
+  const navigationTargets = React.useMemo(() => {
+    if (!activeStrip) return [];
+    // If we have text fields, use them as primary navigation targets, sorted by order
+    if (localTextFields.length > 0) {
+      return [...localTextFields]
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map(tf => ({ x: tf.x, y: tf.y, width: tf.width, height: tf.height, id: tf.id, overridePanZoom: tf.overridePanZoom }));
+    }
+    // Fallback to panel layout if no text fields
+    if (activeStrip.panelLayout && activeStrip.panelLayout.length > 0) {
+      return activeStrip.panelLayout.map(p => ({ x: p.x, y: p.y, width: p.width, height: p.height, id: `panel-${p.panelNumber}`, overridePanZoom: p.overridePanZoom }));
+    }
+    return [];
+  }, [activeStrip, localTextFields]);
+
+  const focusTarget = React.useMemo(() => {
+    if (viewMode !== 'panel' || navigationTargets.length === 0) return null;
+    return navigationTargets[currentTargetIndex] || null;
+  }, [viewMode, navigationTargets, currentTargetIndex]);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const transformComponentRef = useRef<any>(null);
+
+  const handleNext = () => {
+    if (navigationTargets.length === 0) return;
+    if (viewMode === 'full') {
+      setViewMode('panel');
+      setCurrentTargetIndex(0);
+    } else if (currentTargetIndex === navigationTargets.length - 1) {
+      setViewMode('full');
+    } else {
+      setCurrentTargetIndex(prev => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (navigationTargets.length === 0) return;
+    if (viewMode === 'full') {
+      setViewMode('panel');
+      setCurrentTargetIndex(navigationTargets.length - 1);
+    } else if (currentTargetIndex === 0) {
+      setViewMode('full');
+    } else {
+      setCurrentTargetIndex(prev => prev - 1);
+    }
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (role !== 'writer' || hasSubmitted) return;
+      if (document.activeElement?.tagName === 'TEXTAREA' || document.activeElement?.tagName === 'INPUT' || document.activeElement?.getAttribute('contenteditable') === 'true') {
+        return;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        handleNext();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        handlePrev();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, navigationTargets.length, role, hasSubmitted, currentTargetIndex]);
+
+  useEffect(() => {
+    if (viewMode === 'panel' && focusTarget && transformComponentRef.current) {
+      const { zoomToElement, setTransform } = transformComponentRef.current;
+      if (focusTarget.overridePanZoom) {
+        const { positionX, positionY, scale } = focusTarget.overridePanZoom;
+        setTimeout(() => {
+          setTransform(positionX, positionY, scale, 500, "easeOut");
+        }, 50);
+      } else {
+        const scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
+        setTimeout(() => {
+          zoomToElement(`target-${focusTarget.id}`, scale, 500, "easeOut");
+        }, 50);
+      }
+    } else if (viewMode === 'full' && transformComponentRef.current) {
+      const { resetTransform } = transformComponentRef.current;
+      resetTransform(500, "easeOut");
+    }
+  }, [focusTarget, viewMode]);
+
+  useEffect(() => {
+    if (viewMode === 'panel' && focusTarget && listRef.current) {
+      let targetTfId: string | null = null;
+      if (focusTarget.id.startsWith('panel-')) {
+        const panelNum = parseInt(focusTarget.id.replace('panel-', ''));
+        const tf = localTextFields.find(t => {
+          const pNum = activeStrip?.script?.find(p => p.dialogue.some(d => d.id === t.dialogueId))?.panelNumber;
+          return pNum === panelNum;
+        });
+        if (tf) targetTfId = tf.id;
+      } else {
+        targetTfId = focusTarget.id;
+      }
+
+      if (targetTfId) {
+        const el = document.getElementById(`tf-${targetTfId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+  }, [focusTarget, localTextFields, activeStrip, viewMode]);
+
+  const handleFieldClick = (tf: TextField) => {
+    if (viewMode === 'panel') {
+      const pNum = activeStrip?.script?.find(p => p.dialogue.some(d => d.id === tf.dialogueId))?.panelNumber;
+      if (pNum && activeStrip?.panelLayout) {
+        const panelIdx = activeStrip.panelLayout.findIndex(p => p.panelNumber === pNum);
+        if (panelIdx !== -1) {
+          setCurrentTargetIndex(panelIdx);
+          return;
+        }
+      }
+      const tfIdx = navigationTargets.findIndex(t => t.id === tf.id);
+      if (tfIdx !== -1) {
+        setCurrentTargetIndex(tfIdx);
+      }
+    }
+  };
 
   const writersCount = room?.players.filter((p: any) => p.role === 'writer').length || 0;
   const allSubmitted = submittedComics.length >= writersCount && writersCount > 0;
@@ -893,7 +1054,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       if (!ctx) throw new Error("Could not get canvas context");
 
       const img = new Image();
-      img.crossOrigin = "anonymous";
       let imageUrl = activeStrip.exportImageUrl || activeStrip.finishedImageUrl;
       const originalImageUrl = imageUrl;
 
@@ -917,9 +1077,15 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             blobUrl = URL.createObjectURL(blob);
           }
         }
+        if (!blobUrl.startsWith('data:') && !blobUrl.startsWith('blob:')) {
+          img.crossOrigin = "anonymous";
+        }
         img.src = blobUrl;
       } catch (e) {
         console.warn("Failed to fetch image as blob, falling back to direct src:", e);
+        if (!imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:')) {
+          img.crossOrigin = "anonymous";
+        }
         img.src = imageUrl;
       }
 
@@ -2158,11 +2324,57 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                     
                     <div className={isEnlarged ? 'flex-1 flex flex-col items-center justify-center min-h-0' : 'flex-1 flex flex-col'}>
                       <div 
-                        className={`relative w-full aspect-video rounded-3xl overflow-hidden shadow-xl border-8 ${isEnlarged ? 'border-slate-800 max-h-full max-w-full' : 'border-slate-50 cursor-zoom-in hover:border-amber-500/30 transition-colors'}`}
-                        onClick={() => !isEnlarged && setIsEnlarged(true)}
+                        className={`relative w-full aspect-video rounded-3xl overflow-hidden shadow-xl border-8 ${isEnlarged ? 'border-slate-800 max-h-full max-w-full' : 'border-slate-50 hover:border-amber-500/30 transition-colors'}`}
                       >
-                        <CachedImage src={activeStrip.exportImageUrl || activeStrip.finishedImageUrl} className="w-full h-full object-contain bg-black" />
-                        {localTextFields.map(tf => {
+                        {navigationTargets.length > 0 && !isEnlarged && (
+                          <div className="absolute top-4 right-4 flex gap-2 z-50">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                              className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center shadow-lg transition-all"
+                            >
+                              <i className="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                              className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center shadow-lg transition-all"
+                            >
+                              <i className="fa-solid fa-chevron-right"></i>
+                            </button>
+                          </div>
+                        )}
+                        <TransformWrapper
+                          initialScale={1}
+                          minScale={0.5}
+                          maxScale={10}
+                          centerOnInit
+                          wheel={{ step: 0.1 }}
+                          ref={transformComponentRef}
+                          disabled={isEnlarged || viewMode === 'full'}
+                        >
+                          {() => (
+                            <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
+                              <div
+                                className={`w-full h-full relative ${!isEnlarged ? 'cursor-zoom-in' : ''}`}
+                                onClick={() => !isEnlarged && setIsEnlarged(true)}
+                              >
+                                <CachedImage src={activeStrip.exportImageUrl || activeStrip.finishedImageUrl} className="w-full h-full object-contain bg-black" />
+                                
+                                {/* Invisible Target Divs for Zooming */}
+                                {!isEnlarged && navigationTargets.map(target => (
+                                  <div
+                                    key={target.id}
+                                    id={`target-${target.id}`}
+                                    className="absolute pointer-events-none"
+                                    style={{
+                                      left: `${target.x}%`,
+                                      top: `${target.y}%`,
+                                      width: `${target.width}%`,
+                                      height: `${target.height}%`
+                                    }}
+                                  />
+                                ))}
+
+                                {localTextFields.map(tf => {
                           const character = comics.flatMap(c => c.characters || []).find(c => c.name === tf.characterName);
                           const isHintUsed = usedHints.has(tf.id);
                           
@@ -2183,6 +2395,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                     text={tf.text.replace(/^[^:]+:\s*/, '')} 
                                     alignment={tf.alignment || 'center'} 
                                     font={tf.font || 'Inter'} 
+                                    rounding={tf.rounding}
                                     onChange={(newText) => {
                                       const match = tf.text.match(/^[^:]+:\s*/);
                                       const prefix = match ? match[0] : '';
@@ -2250,11 +2463,16 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                   text={tf.text.replace(/^[^:]+:\s*/, '')} 
                                   alignment={tf.alignment || 'center'} 
                                   font={tf.font || 'Inter'} 
+                                  rounding={tf.rounding}
                                 />
                               )}
                             </div>
                           );
                         })}
+                              </div>
+                            </TransformComponent>
+                          )}
+                        </TransformWrapper>
                       </div>
                       
                       {!isEnlarged && (
@@ -2272,8 +2490,24 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
                     {!isEnlarged && (
                       <div className="w-full lg:w-96 flex flex-col gap-4 max-h-[60vh]">
-                        <h3 className="font-header uppercase tracking-widest text-xl text-slate-800 mb-2 shrink-0">DiE-A-Log</h3>
-                        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                        <div className="flex justify-between items-center shrink-0">
+                          <h3 className="font-header uppercase tracking-widest text-xl text-slate-800 mb-0">DiE-A-Log</h3>
+                          <div className="flex bg-slate-100 p-1 rounded-lg">
+                            <button 
+                              onClick={() => setViewMode('panel')}
+                              className={`px-3 py-1 text-[9px] font-black uppercase rounded-md transition-all ${viewMode === 'panel' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                              Panel
+                            </button>
+                            <button 
+                              onClick={() => setViewMode('full')}
+                              className={`px-3 py-1 text-[9px] font-black uppercase rounded-md transition-all ${viewMode === 'full' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                              Full
+                            </button>
+                          </div>
+                        </div>
+                        <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                           {localTextFields
                             .sort((a, b) => {
                               if (!activeStrip?.script) return 0;
@@ -2289,6 +2523,16 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                               const prevPanel = idx > 0 ? getPanel(arr[idx-1]) : undefined;
                               const showDivider = currentPanel !== undefined && currentPanel !== prevPanel;
 
+                              let isFocused = false;
+                              if (viewMode === 'panel' && focusTarget) {
+                                if (focusTarget.id.startsWith('panel-')) {
+                                  const panelNum = parseInt(focusTarget.id.replace('panel-', ''));
+                                  isFocused = currentPanel === panelNum;
+                                } else {
+                                  isFocused = focusTarget.id === tf.id;
+                                }
+                              }
+
                               return (
                                 <React.Fragment key={tf.id}>
                                   {showDivider && (
@@ -2298,7 +2542,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                       <div className="h-px bg-slate-300 flex-1"></div>
                                     </div>
                                   )}
-                                  <div className="space-y-2 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                                  <div 
+                                    id={`tf-${tf.id}`}
+                                    className={`space-y-2 p-4 rounded-2xl border transition-all cursor-pointer ${isFocused ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50/50 border-slate-100 hover:bg-slate-50'}`}
+                                    onClick={() => handleFieldClick(tf)}
+                                  >
                                     <div className="flex justify-between items-center">
                                       <div className="flex items-center gap-2">
                                         {character?.avatarUrl || character?.imageUrl ? (

@@ -123,6 +123,7 @@ export default function App() {
   // New Series Naming State
   const [isNamingNewSeries, setIsNamingNewSeries] = useState(false);
   const [newSeriesName, setNewSeriesName] = useState('');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('die-a-log-user');
@@ -397,7 +398,15 @@ export default function App() {
 
   const activeBook = useMemo(() => {
     if (!activeSession) return null;
-    return (activeSession.data.books || []).find(b => b.id === activeSession.data.activeSeriesId) || null;
+    const books = activeSession.data.books || [];
+    if (activeSession.data.activeBookId) {
+      const book = books.find(b => b.id === activeSession.data.activeBookId);
+      if (book && (book.seriesId === activeSession.data.activeSeriesId || book.id === activeSession.data.activeSeriesId)) {
+        return book;
+      }
+    }
+    // Fallback: find first book for this series
+    return books.find(b => b.seriesId === activeSession.data.activeSeriesId || b.id === activeSession.data.activeSeriesId) || null;
   }, [activeSession]);
 
   const lastValidBgColorRef = useRef(DEFAULT_BG_COLOR);
@@ -663,6 +672,7 @@ export default function App() {
     };
     const newBook: ComicBook = {
       id: newId,
+      seriesId: newId,
       title: `${finalName} Vol. 1`,
       description: 'Production notes',
       pages: [],
@@ -686,7 +696,7 @@ export default function App() {
   const handleDeleteComic = (id: string) => {
     if (!activeSession) return;
     const updatedComics = (activeSession.data.comics || []).filter(c => c.id !== id);
-    const updatedBooks = (activeSession.data.books || []).filter(b => b.id !== id);
+    const updatedBooks = (activeSession.data.books || []).filter(b => b.seriesId !== id && b.id !== id);
     const updatedHistory = (activeSession.data.history || []).filter(h => h.comicProfileId !== id);
     
     let newActiveId = activeSession.data.activeSeriesId;
@@ -1255,7 +1265,14 @@ export default function App() {
       />
       
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-20 bg-white border-r border-slate-200 flex flex-col items-center py-8 gap-8 shrink-0 z-20">
+        <aside className={`bg-white border-r border-slate-200 flex flex-col items-center py-8 gap-8 shrink-0 z-20 transition-all duration-300 relative ${isSidebarCollapsed ? 'w-12' : 'w-20'}`}>
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="absolute -right-3 top-4 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-[10px] text-slate-400 hover:text-slate-800 hover:border-slate-400 transition-all shadow-sm z-30"
+            title={isSidebarCollapsed ? "Expand Menu" : "Collapse Menu"}
+          >
+            <i className={`fa-solid ${isSidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
+          </button>
           {[
             { id: 'books', icon: 'fa-layer-group', label: 'Library' },
             { id: 'train', icon: 'fa-dna', label: 'Genome' },
@@ -1269,7 +1286,7 @@ export default function App() {
               onClick={() => setCurrentTab(tab.id as any)}
               className={`flex flex-col items-center gap-2 group transition-all ${currentTab === tab.id ? 'text-brand-800' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all relative overflow-hidden ${
+              <div className={`${isSidebarCollapsed ? 'w-8 h-8 rounded-xl text-sm' : 'w-12 h-12 rounded-2xl text-xl'} flex items-center justify-center transition-all relative overflow-hidden ${
                 currentTab === tab.id ? 'bg-slate-100 shadow-inner border border-black/5' : 'hover:bg-black/5'
               }`}>
                 {tab.id === 'books' && activeComic?.libraryVideoUrl && (
@@ -1280,7 +1297,9 @@ export default function App() {
                 )}
                 <i className={`fa-solid ${tab.icon} relative z-10 ${tab.id === 'books' && activeComic?.libraryVideoUrl ? 'text-slate-800 drop-shadow-sm' : ''}`}></i>
               </div>
-              <span className={`text-[8px] font-black uppercase tracking-widest ${currentTab === tab.id ? 'text-slate-800' : 'text-slate-400'}`}>{tab.label}</span>
+              {!isSidebarCollapsed && (
+                <span className={`text-[8px] font-black uppercase tracking-widest ${currentTab === tab.id ? 'text-slate-800' : 'text-slate-400'}`}>{tab.label}</span>
+              )}
             </button>
           ))}
         </aside>
@@ -1371,6 +1390,78 @@ export default function App() {
                 ) : (
                   <ComicBookEditor 
                     book={activeBook}
+                    activeComic={activeComic}
+                    booksForSeries={books.filter(b => b.seriesId === activeSeriesId || b.id === activeSeriesId)}
+                    onSelectBook={(id) => handleUpdateSessionData({ activeBookId: id })}
+                    onCreateBook={() => {
+                      const newId = `b_${Date.now()}`;
+                      const newBook: ComicBook = {
+                        id: newId,
+                        seriesId: activeSeriesId!,
+                        title: `${activeComic?.name || 'Untitled'} Vol. ${(books.filter(b => b.seriesId === activeSeriesId || b.id === activeSeriesId).length) + 1}`,
+                        description: 'Production notes',
+                        pages: [],
+                        timestamp: Date.now(),
+                        width: 1920,
+                        height: 1080,
+                        externalPageUrls: [],
+                        showPageNumbers: true,
+                        pageNumberPosition: 'bottom'
+                      };
+                      handleUpdateSessionData({ books: [...books, newBook], activeBookId: newId });
+                    }}
+                    onDeleteBook={(id) => {
+                      const updatedBooks = books.filter(b => b.id !== id);
+                      const remainingForSeries = updatedBooks.filter(b => b.seriesId === activeSeriesId || b.id === activeSeriesId);
+                      handleUpdateSessionData({ 
+                        books: updatedBooks, 
+                        activeBookId: remainingForSeries.length > 0 ? remainingForSeries[0].id : null 
+                      });
+                    }}
+                    onImportZip={(data) => {
+                      const { profile, book: importedBook, strips } = data;
+                      
+                      const newComics = [...comics];
+                      if (profile) {
+                        const index = newComics.findIndex(c => c.id === profile.id);
+                        if (index === -1) {
+                          newComics.push(profile);
+                        } else {
+                          newComics[index] = profile;
+                        }
+                      }
+
+                      const newBooks = [...books];
+                      if (importedBook) {
+                        const index = newBooks.findIndex(b => b.id === importedBook.id);
+                        if (index === -1) {
+                          newBooks.push(importedBook);
+                        } else {
+                          newBooks[index] = importedBook;
+                        }
+                      }
+
+                      const newHistory = [...history];
+                      if (strips) {
+                        for (const stripData of strips) {
+                          const strip = stripData.strip;
+                          const index = newHistory.findIndex(s => s.id === strip.id);
+                          if (index === -1) {
+                            newHistory.push(strip);
+                          } else {
+                            newHistory[index] = strip;
+                          }
+                        }
+                      }
+
+                      handleUpdateSessionData({
+                        comics: newComics,
+                        books: newBooks,
+                        history: newHistory,
+                        activeSeriesId: profile ? profile.id : activeSeriesId,
+                        activeBookId: importedBook ? importedBook.id : activeSession.data.activeBookId,
+                      });
+                    }}
                     onUpdateBook={(updatedBook) => handleUpdateSessionData({ 
                       books: books.map(b => b.id === updatedBook.id ? updatedBook : b) 
                     })}

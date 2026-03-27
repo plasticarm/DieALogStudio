@@ -9,7 +9,9 @@ export const downscaleImage = (base64: string, maxDimension: number = 800, quali
     }
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (!base64.startsWith('data:') && !base64.startsWith('blob:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       if (img.naturalWidth === 0 || img.naturalHeight === 0) {
         return reject(new Error('Image loaded but has zero dimensions. It might be corrupted.'));

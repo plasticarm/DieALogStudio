@@ -112,7 +112,7 @@ export const AvatarCropper: React.FC<AvatarCropperProps> = ({ imageUrl, onSave, 
           <img 
             ref={imageRef}
             src={imageUrl} 
-            crossOrigin="anonymous"
+            {...(!imageUrl.startsWith('data:') && !imageUrl.startsWith('blob:') ? { crossOrigin: "anonymous" } : {})}
             alt="To crop"
             className="absolute pointer-events-none"
             style={{

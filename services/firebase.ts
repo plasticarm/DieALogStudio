@@ -20,5 +20,6 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+storage.maxOperationRetryTime = 3000;
 
 export default app;

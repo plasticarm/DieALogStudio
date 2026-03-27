@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { ComicProfile, GeneratedPanelScript, ArtModelType } from "../types";
+import { ComicProfile, GeneratedPanelScript, ArtModelType, PanelLayout } from "../types";
 import { imageStore } from './imageStore';
 
 let userApiKey: string | null = null;
@@ -27,6 +27,73 @@ const getAiClient = () => {
     throw new Error("Gemini API Key is missing. Please provide one in your Architect Profile or select one via the platform.");
   }
   return new GoogleGenAI({ apiKey });
+};
+
+/**
+ * Detects comic panels in an image and returns their coordinates.
+ */
+export const detectComicPanels = async (
+  imageBase64: string
+): Promise<PanelLayout[]> => {
+  try {
+    const ai = getAiClient();
+    
+    let resolvedUrl = imageBase64;
+    if (imageBase64.startsWith('vault:')) {
+      resolvedUrl = await imageStore.getImage(imageBase64) || imageBase64;
+    }
+
+    if (!resolvedUrl.startsWith('data:')) {
+      throw new Error("Invalid image data for panel detection.");
+    }
+
+    const [header, data] = resolvedUrl.split(',');
+    const mimeType = header.split(';')[0].split(':')[1] || 'image/png';
+
+    const prompt = `Analyze this comic strip image and identify the bounding boxes for each individual panel. 
+    Return a JSON array of objects, where each object has:
+    - panelNumber (integer, starting from 1)
+    - x (integer, 0-100, the left edge as a percentage of the image width)
+    - y (integer, 0-100, the top edge as a percentage of the image height)
+    - width (integer, 0-100, the width as a percentage of the image width)
+    - height (integer, 0-100, the height as a percentage of the image height)
+    
+    Ensure the coordinates are precise and cover the entire area of each panel including its borders.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [
+        {
+          parts: [
+            { inlineData: { data, mimeType } },
+            { text: prompt }
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              panelNumber: { type: Type.INTEGER },
+              x: { type: Type.INTEGER },
+              y: { type: Type.INTEGER },
+              width: { type: Type.INTEGER },
+              height: { type: Type.INTEGER }
+            },
+            required: ["panelNumber", "x", "y", "width", "height"]
+          }
+        }
+      }
+    });
+
+    const text = response.text || '[]';
+    return JSON.parse(text);
+  } catch (error) {
+    return handleApiError(error);
+  }
 };
 
 const handleApiError = (error: any) => {
@@ -71,7 +138,52 @@ export const generateComicScript = async (
     const characterContext = (profile.characters || []).map(c => `${c.name}: ${c.description}`).join('\n');
     const environmentContext = (profile.environments || []).map(e => `${e.name}: ${e.description}`).join('\n');
 
-    let fullPrompt = `Create a ${panelCount}-panel comic strip script for the series "${profile.name}".
+    let fullPrompt = `Writer’s Brief: Crafting Visual Scripts for "DiE A Log"
+The Objective: You are not writing a finished comic strip. You are writing an Alley-Oop. Your job is to construct a ${panelCount}-panel visual scenario that is so inherently bizarre, tense, or awkward that a player looking at it immediately wants to fill in the blank speech bubbles. You set up the joke; the players spike it.
+
+To do this successfully, every visual script must adhere to the following core pillars:
+
+1. The Power of Extreme Juxtaposition
+Maximum humor lives in the friction between two conflicting elements. Do not put two normal things together, and do not put two crazy things together. Mix the profoundly mundane with the absolutely unhinged.
+
+DO NOT: Two space marines shooting aliens. (Too standard).
+DO NOT: Two accountants filing taxes. (Too boring).
+DO: A terrifying, blood-soaked Space Marine aggressively filing his taxes while an accountant watches in horror.
+
+Rule of Thumb: Force high-fantasy, sci-fi, or horror tropes to deal with everyday bureaucratic bullshit, or force average people into apocalyptic scenarios where they only care about petty grievances.
+
+2. Self-Contained Chaos
+We do not have time for lore, world-building, or backstory. The entire universe exists only within these ${panelCount} panels.
+
+Panel 1 (The Hook): Establish the bizarre reality instantly. Show us the contrasting elements immediately.
+${panelCount > 2 ? `Panel 2 to ${panelCount - 1} (The Escalation): Something changes. A new element is introduced, a character reacts, or the bizarre situation gets worse.\n` : ''}Panel ${panelCount} (The Hold): This is the punchline panel. Frame the characters in a way that demands a verbal reaction. An awkward stare, an angry pointing finger, a look of utter defeat.
+
+3. Embrace the Dark, the Crude, and the Cynical
+This is not a Sunday morning newspaper strip. Give yourself permission to go dark. We want dark sarcasm, existential dread, petty vulgarity, and grotesque absurdity.
+
+Let characters be inherently flawed, selfish, exhausted, or deeply inappropriate.
+
+Visuals can imply violence, gore, or absolute disaster, as long as the characters' physical reactions to it are inappropriately casual or misplaced. (e.g., A man is on fire, but the other character is just annoyed the smoke is ruining his cigarette).
+
+4. Create "Dialogue Vacuums"
+The situations must be outrageous, but they must be visually designed to be completed by text.
+
+Give the characters expressive, exaggerated facial reactions (annoyance, rage, deep exhaustion, smugness).
+
+Create visual "prompts" within the art: A character holding a bizarre object out to another, someone getting caught red-handed doing something inexplicable, or two characters staring at a disaster they clearly just caused.
+
+5. Keep the Visuals Readable
+Players are going to look at this page for about 5 seconds before they start trying to think of a funny joke. If it takes them 30 seconds to figure out what is happening in the drawing, the joke is dead. Rely on instantly recognizable visual archetypes (The Noir Detective, The Karen, The Grim Reaper, The Fast Food Worker) so the player's brain can immediately skip to the humor.
+
+Example of a Perfect "DiE A Log" Visual Script:
+Title: The Summoning
+Panel 1: A filthy, blood-stained basement. Five cultists in dark robes are kneeling around a glowing pentagram. In the center, instead of a demon, stands a deeply annoyed, middle-aged DMV worker holding a clipboard and a half-eaten sandwich.
+Panel 2: Close up on the Head Cultist. He has his hands raised, looking confused and slightly embarrassed, gesturing to an ancient, dusty spell book.
+Panel 3: Wide shot. The DMV worker is tapping her pen aggressively on her clipboard, glaring at the Head Cultist. The other cultists are looking away awkwardly.
+
+--------------------------------------------------
+
+Create a ${panelCount}-panel comic strip script for the series "${profile.name}".
     
     SERIES CONTEXT:
     Art Style: ${profile.artStyle}
@@ -218,7 +330,7 @@ export const generateComicArt = async (
     const candidate = response.candidates?.[0];
     if (!candidate) throw new Error("No candidates returned from AI.");
 
-    for (const part of candidate.content.parts) {
+    for (const part of candidate.content?.parts || []) {
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
@@ -275,7 +387,7 @@ export const removeTextFromComic = async (
     const candidate = response.candidates?.[0];
     if (!candidate) throw new Error("No candidates returned.");
 
-    for (const part of candidate.content.parts) {
+    for (const part of candidate.content?.parts || []) {
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
@@ -349,7 +461,7 @@ export const generateCharacterImage = async (
     const candidate = response.candidates?.[0];
     if (!candidate) throw new Error("No candidates returned.");
 
-    for (const part of candidate.content.parts) {
+    for (const part of candidate.content?.parts || []) {
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
@@ -425,7 +537,7 @@ export const generateCharacterSheet = async (
     const candidate = response.candidates?.[0];
     if (!candidate) throw new Error("No candidates returned.");
 
-    for (const part of candidate.content.parts) {
+    for (const part of candidate.content?.parts || []) {
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
@@ -494,7 +606,7 @@ export const generateExpressionSheet = async (
     const candidate = response.candidates?.[0];
     if (!candidate) throw new Error("No candidates returned.");
 
-    for (const part of candidate.content.parts) {
+    for (const part of candidate.content?.parts || []) {
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }

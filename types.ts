@@ -80,8 +80,28 @@ export interface TextField {
   font: string;
   fontSize: number;
   alignment: 'left' | 'center' | 'right';
+  rounding?: number;
   characterName: string;
+  order?: number;
   dialogueId?: string; // Link to script dialogue
+  overridePanZoom?: {
+    scale: number;
+    positionX: number;
+    positionY: number;
+  };
+}
+
+export interface PanelLayout {
+  x: number; // Percent 0-100
+  y: number; // Percent 0-100
+  width: number; // Percent 0-100
+  height: number; // Percent 0-100
+  panelNumber: number;
+  overridePanZoom?: {
+    scale: number;
+    positionX: number;
+    positionY: number;
+  };
 }
 
 export interface SavedComicStrip {
@@ -97,10 +117,12 @@ export interface SavedComicStrip {
   timestamp: number;
   panelCount: number;
   textFields?: TextField[];
+  panelLayout?: PanelLayout[];
 }
 
 export interface ComicBook {
   id: string;
+  seriesId?: string;
   title: string;
   description: string;
   coverImageUrl?: string;
@@ -137,6 +159,7 @@ export interface ProjectState {
   timestamp: number;
   globalBackgroundColor: string;
   activeSeriesId: string | null;
+  activeBookId?: string | null;
   currentGuideStep?: number;
 }
 
