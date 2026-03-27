@@ -115,7 +115,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
         try {
           const response = await fetch(safeUrl);
           const blob = await response.blob();
-          const fileName = `${prefix}_${Date.now()}.png`;
+          const fileName = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.png`;
           zip.file(fileName, blob);
           if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl);
           return fileName;
@@ -154,21 +154,37 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
       const processPage = async (id: string, index: number) => {
         const strip = getStrip(id);
         if (strip) {
+          const stripClone = JSON.parse(JSON.stringify(strip));
+          
+          if (stripClone.finishedImageUrl) {
+            stripClone.finishedImageUrl = await processImage(stripClone.finishedImageUrl, `strip_${index}_finished`) || stripClone.finishedImageUrl;
+          }
+          if (stripClone.exportImageUrl) {
+            stripClone.exportImageUrl = await processImage(stripClone.exportImageUrl, `strip_${index}_export`) || stripClone.exportImageUrl;
+          }
+          if (stripClone.imageHistory) {
+            stripClone.imageHistory = await Promise.all(stripClone.imageHistory.map((url: string, i: number) => processImage(url, `strip_${index}_history_${i}`)));
+            stripClone.imageHistory = stripClone.imageHistory.filter(Boolean);
+          }
+          
+          // Also export the currently viewed image as a separate file for convenience
           const imgUrl = (viewMode === 'clean' && strip.exportImageUrl) ? strip.exportImageUrl : strip.finishedImageUrl;
           const safeUrl = await imageStore.getSafeUrl(imgUrl);
-          if (!safeUrl) return;
-          
-          const response = await fetch(safeUrl);
-          const blob = await response.blob();
-          const fileName = `${(index + 1).toString().padStart(3, '0')}_${strip.name.replace(/\s+/g, '_')}.png`;
-          zip.file(fileName, blob);
+          if (safeUrl) {
+            try {
+              const response = await fetch(safeUrl);
+              const blob = await response.blob();
+              const fileName = `${(index + 1).toString().padStart(3, '0')}_${strip.name.replace(/\s+/g, '_')}.png`;
+              zip.file(fileName, blob);
+              if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl);
+            } catch (e) {
+              console.error("Failed to process convenience image:", imgUrl, e);
+            }
+          }
           
           exportData.strips.push({
-            strip,
-            fileName
+            strip: stripClone
           });
-
-          if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl);
         }
       };
 
@@ -290,10 +306,21 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
 
       // Process strips
       for (const stripData of seriesData.strips) {
-        const stripUrl = await processImportImage(stripData.fileName);
-        if (stripUrl) {
-          stripData.strip.finishedImageUrl = stripUrl;
-          stripData.strip.exportImageUrl = stripUrl; // Assuming we import the finished image as export image as well, or we can save both if they were exported.
+        const strip = stripData.strip;
+        if (strip.finishedImageUrl) strip.finishedImageUrl = await processImportImage(strip.finishedImageUrl);
+        if (strip.exportImageUrl) strip.exportImageUrl = await processImportImage(strip.exportImageUrl);
+        if (strip.imageHistory) {
+          strip.imageHistory = await Promise.all(strip.imageHistory.map((url: string) => processImportImage(url)));
+          strip.imageHistory = strip.imageHistory.filter(Boolean);
+        }
+        
+        // Backwards compatibility for older exports
+        if (stripData.fileName && !strip.finishedImageUrl) {
+          const stripUrl = await processImportImage(stripData.fileName);
+          if (stripUrl) {
+            strip.finishedImageUrl = stripUrl;
+            strip.exportImageUrl = stripUrl;
+          }
         }
       }
 

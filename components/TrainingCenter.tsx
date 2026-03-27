@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import JSZip from 'jszip';
 import { ComicProfile, Character, Environment, ArtModelType } from '../types';
 import { generateEnvironmentDescription, generateCharacterImage, generateCharacterSheet, generateExpressionSheet, getGeminiApiKey } from '../services/gemini';
 import { downscaleImage } from '../utils/imageUtils';
@@ -61,6 +62,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
   const [isGeneratingAsset, setIsGeneratingAsset] = useState<string | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [isProcessingZip, setIsProcessingZip] = useState(false);
   const [croppingCharacterId, setCroppingCharacterId] = useState<string | null>(null);
   const [cropperImageUrl, setCropperImageUrl] = useState<string>('');
   const [isDragging, setIsDragging] = useState<string | null>(null);
@@ -90,6 +92,214 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
   const handleSaveProtocol = (updatedState: ComicProfile) => {
     setLocalComic(updatedState);
     onUpdateComic(updatedState);
+  };
+
+  const handleExportGenomeZip = async () => {
+    setIsProcessingZip(true);
+    try {
+      const zip = new JSZip();
+      
+      const exportData: any = {
+        profile: JSON.parse(JSON.stringify(localComic))
+      };
+
+      const processImage = async (url: string | undefined, prefix: string): Promise<string | undefined> => {
+        if (!url) return undefined;
+        const safeUrl = await imageStore.getSafeUrl(url);
+        if (!safeUrl) return undefined;
+        
+        try {
+          const response = await fetch(safeUrl);
+          const blob = await response.blob();
+          const fileName = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.png`;
+          zip.file(fileName, blob);
+          if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl);
+          return fileName;
+        } catch (e) {
+          console.error("Failed to process image:", url, e);
+          return undefined;
+        }
+      };
+
+      const processVideo = async (url: string | undefined, prefix: string): Promise<string | undefined> => {
+        if (!url) return undefined;
+        const safeUrl = await imageStore.getSafeUrl(url);
+        if (!safeUrl) return undefined;
+        
+        try {
+          const response = await fetch(safeUrl);
+          const blob = await response.blob();
+          const fileName = `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.mp4`;
+          zip.file(fileName, blob);
+          if (safeUrl.startsWith('blob:')) URL.revokeObjectURL(safeUrl);
+          return fileName;
+        } catch (e) {
+          console.error("Failed to process video:", url, e);
+          return undefined;
+        }
+      };
+
+      if (exportData.profile) {
+        const p = exportData.profile;
+        if (p.styleReferenceImageUrl) {
+          p.styleReferenceImageUrl = await processImage(p.styleReferenceImageUrl, 'style_ref') || p.styleReferenceImageUrl;
+        }
+        if (p.styleReferenceImageUrls) {
+          p.styleReferenceImageUrls = await Promise.all(p.styleReferenceImageUrls.map((url: string, i: number) => processImage(url, `style_ref_${i}`)));
+          p.styleReferenceImageUrls = p.styleReferenceImageUrls.filter(Boolean);
+        }
+        if (p.characters) {
+          for (let i = 0; i < p.characters.length; i++) {
+            const c = p.characters[i];
+            if (c.imageUrl) c.imageUrl = await processImage(c.imageUrl, `char_${i}_img`) || c.imageUrl;
+            if (c.avatarUrl) c.avatarUrl = await processImage(c.avatarUrl, `char_${i}_avatar`) || c.avatarUrl;
+            if (c.characterSheetUrl) c.characterSheetUrl = await processImage(c.characterSheetUrl, `char_${i}_sheet`) || c.characterSheetUrl;
+            if (c.expressionSheetUrl) c.expressionSheetUrl = await processImage(c.expressionSheetUrl, `char_${i}_expr`) || c.expressionSheetUrl;
+          }
+        }
+        if (p.environments) {
+          for (let i = 0; i < p.environments.length; i++) {
+            const e = p.environments[i];
+            if (e.imageUrl) e.imageUrl = await processImage(e.imageUrl, `env_${i}_img`) || e.imageUrl;
+          }
+        }
+        if (p.libraryVideoUrl) {
+          p.libraryVideoUrl = await processVideo(p.libraryVideoUrl, 'library_video') || p.libraryVideoUrl;
+        }
+      }
+
+      zip.file("genome_data.json", JSON.stringify(exportData, null, 2));
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${localComic.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_genome.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export genome.");
+    } finally {
+      setIsProcessingZip(false);
+    }
+  };
+
+  const handleImportGenomeZip = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingZip(true);
+    try {
+      const zip = new JSZip();
+      const loadedZip = await zip.loadAsync(file);
+      
+      const dataFile = loadedZip.file("genome_data.json");
+      if (!dataFile) {
+        alert("Invalid zip file: missing genome_data.json");
+        setIsProcessingZip(false);
+        return;
+      }
+
+      const dataString = await dataFile.async("string");
+      const genomeData = JSON.parse(dataString);
+
+      if (!genomeData.profile) {
+        alert("Invalid zip file: missing profile data");
+        setIsProcessingZip(false);
+        return;
+      }
+
+      const processImportImage = async (fileName: string | undefined): Promise<string | undefined> => {
+        if (!fileName) return undefined;
+        const file = loadedZip.file(fileName);
+        if (!file) return fileName; // Return original if not found in zip (might be an external URL)
+        try {
+          const blob = await file.async('blob');
+          const reader = new FileReader();
+          return new Promise<string>((resolve, reject) => {
+            reader.onloadend = async () => {
+              const dataUrl = reader.result as string;
+              const key = await imageStore.storeImage(dataUrl);
+              resolve(`vault:${key}`);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.error("Failed to import image:", fileName, e);
+          return fileName;
+        }
+      };
+
+      const processImportVideo = async (fileName: string | undefined): Promise<string | undefined> => {
+        if (!fileName) return undefined;
+        const file = loadedZip.file(fileName);
+        if (!file) return fileName;
+        try {
+          const blob = await file.async('blob');
+          const reader = new FileReader();
+          return new Promise<string>((resolve, reject) => {
+            reader.onloadend = async () => {
+              const dataUrl = reader.result as string;
+              const key = await imageStore.storeImage(dataUrl);
+              resolve(`vault:${key}`);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.error("Failed to import video:", fileName, e);
+          return fileName;
+        }
+      };
+
+      const p = genomeData.profile;
+      
+      if (p.styleReferenceImageUrl) {
+        p.styleReferenceImageUrl = await processImportImage(p.styleReferenceImageUrl);
+      }
+      if (p.styleReferenceImageUrls) {
+        p.styleReferenceImageUrls = await Promise.all(p.styleReferenceImageUrls.map((url: string) => processImportImage(url)));
+        p.styleReferenceImageUrls = p.styleReferenceImageUrls.filter(Boolean);
+      }
+      if (p.characters) {
+        for (let i = 0; i < p.characters.length; i++) {
+          const c = p.characters[i];
+          if (c.imageUrl) c.imageUrl = await processImportImage(c.imageUrl);
+          if (c.avatarUrl) c.avatarUrl = await processImportImage(c.avatarUrl);
+          if (c.characterSheetUrl) c.characterSheetUrl = await processImportImage(c.characterSheetUrl);
+          if (c.expressionSheetUrl) c.expressionSheetUrl = await processImportImage(c.expressionSheetUrl);
+        }
+      }
+      if (p.environments) {
+        for (let i = 0; i < p.environments.length; i++) {
+          const e = p.environments[i];
+          if (e.imageUrl) e.imageUrl = await processImportImage(e.imageUrl);
+        }
+      }
+      if (p.libraryVideoUrl) {
+        p.libraryVideoUrl = await processImportVideo(p.libraryVideoUrl);
+      }
+
+      // Merge imported profile with current profile, keeping the current ID
+      const mergedProfile = {
+        ...p,
+        id: localComic.id, // Keep the current ID so it updates the existing comic
+      };
+
+      handleSaveProtocol(mergedProfile);
+      alert("Genome imported successfully!");
+    } catch (error) {
+      console.error("Import failed:", error);
+      alert("Failed to import genome.");
+    } finally {
+      setIsProcessingZip(false);
+      // Reset file input
+      e.target.value = '';
+    }
   };
 
   const handleDragOver = (e: React.DragEvent, id: string) => {
@@ -640,14 +850,33 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
             <div className="flex items-center gap-4 mb-2">
                <h2 className={`text-5xl font-header tracking-tight uppercase ${contrastColor}`}>SERIES GENOME</h2>
             </div>
-            <p className={`${contrastColor} opacity-70 font-medium text-lg italic`}>
-              Calibrating visual logic for <span className="font-black underline">{localComic.name}</span>.
+            <p className={`${contrastColor} opacity-70 font-medium text-lg italic flex items-center gap-3`}>
+              <span>Calibrating visual logic for <span className="font-black underline">{localComic.name}</span>.</span>
               <button 
                 onClick={() => { setNewName(localComic.name); setIsRenaming(true); }}
-                className="ml-3 text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-3 py-1 rounded-lg hover:bg-slate-200 transition-all"
+                className="text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-3 py-1 rounded-lg hover:bg-slate-200 transition-all"
               >
                 Rename
               </button>
+              <button 
+                onClick={handleExportGenomeZip}
+                disabled={isProcessingZip}
+                className="text-[10px] font-black uppercase tracking-widest bg-slate-800 text-white px-3 py-1 rounded-lg hover:bg-slate-900 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {isProcessingZip ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-download"></i>}
+                Export
+              </button>
+              <label className="text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-3 py-1 rounded-lg hover:bg-slate-200 transition-all cursor-pointer flex items-center gap-2">
+                <i className="fa-solid fa-upload"></i>
+                Import
+                <input 
+                  type="file" 
+                  accept=".zip" 
+                  className="hidden" 
+                  onChange={handleImportGenomeZip} 
+                  disabled={isProcessingZip}
+                />
+              </label>
             </p>
           </div>
           
