@@ -14,6 +14,7 @@ export interface User {
   gamesLost?: number;
   winningComics?: RatedComic[];
   playedGames?: string[];
+  role?: 'admin' | 'user';
 }
 
 export interface AppSession {

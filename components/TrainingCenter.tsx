@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import JSZip from 'jszip';
-import { ComicProfile, Character, Environment, ArtModelType } from '../types';
+import { ComicProfile, Character, Environment, ArtModelType, User } from '../types';
 import { generateEnvironmentDescription, generateCharacterImage, generateCharacterSheet, generateExpressionSheet, getGeminiApiKey } from '../services/gemini';
 import { downscaleImage } from '../utils/imageUtils';
 import { downloadImage } from '../services/utils';
@@ -8,7 +8,7 @@ import { imageStore } from '../services/imageStore';
 import { AvatarCropper } from './AvatarCropper';
 import { CachedImage } from './CachedImage';
 import { GoogleGenAI, VideoGenerationReferenceType } from "@google/genai";
-import { COMIC_FONTS } from '../constants';
+import { COMIC_FONTS, INITIAL_COMICS } from '../constants';
 
 interface TrainingCenterProps {
   editingComic: ComicProfile;
@@ -18,6 +18,7 @@ interface TrainingCenterProps {
   onUpdateGlobalColor: (color: string) => void;
   contrastColor: string;
   onAdvanceGuide?: (step: number) => void;
+  currentUser?: User | null;
 }
 
 const VaultVideo: React.FC<{ src: string; className?: string }> = ({ src, className }) => {
@@ -48,7 +49,7 @@ const VaultVideo: React.FC<{ src: string; className?: string }> = ({ src, classN
 };
 
 export const TrainingCenter: React.FC<TrainingCenterProps> = ({ 
-  editingComic, onUpdateComic, onPreviewImage, globalColor, onUpdateGlobalColor, contrastColor, onAdvanceGuide
+  editingComic, onUpdateComic, onPreviewImage, globalColor, onUpdateGlobalColor, contrastColor, onAdvanceGuide, currentUser
 }) => {
   const [localComic, setLocalComic] = useState<ComicProfile>(() => {
     const comic = JSON.parse(JSON.stringify(editingComic));
@@ -1074,12 +1075,14 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
             <div className="space-y-8">
               {(localComic.characters || []).map((char, idx) => (
                 <div key={char.id} className="flex gap-8 items-start bg-slate-50/40 p-8 rounded-3xl border border-slate-100 relative group">
-                  <button 
-                    onClick={() => removeCharacter(char.id)}
-                    className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-slate-200 text-rose-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-rose-50"
-                  >
-                    <i className="fa-solid fa-trash-can text-xs"></i>
-                  </button>
+                  {(!INITIAL_COMICS.find(ic => ic.id === localComic.id) || currentUser?.role === 'admin') && (
+                    <button 
+                      onClick={() => removeCharacter(char.id)}
+                      className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-slate-200 text-rose-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-rose-50"
+                    >
+                      <i className="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                  )}
                   <div className="flex flex-col gap-4 shrink-0">
                     <div 
                       onDragOver={(e) => handleDragOver(e, char.id)}
@@ -1152,12 +1155,14 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
             <div className="space-y-8">
               {(localComic.environments || []).map((env, idx) => (
                 <div key={env.id} className="flex gap-8 items-start bg-slate-50/40 p-8 rounded-3xl border border-slate-100 relative group">
-                  <button 
-                    onClick={() => removeEnvironment(env.id)}
-                    className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-slate-200 text-rose-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-rose-50"
-                  >
-                    <i className="fa-solid fa-trash-can text-xs"></i>
-                  </button>
+                  {(!INITIAL_COMICS.find(ic => ic.id === localComic.id) || currentUser?.role === 'admin') && (
+                    <button 
+                      onClick={() => removeEnvironment(env.id)}
+                      className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-slate-200 text-rose-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-rose-50"
+                    >
+                      <i className="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                  )}
                   <div 
                     onDragOver={(e) => handleDragOver(e, `env-${env.id}`)}
                     onDragLeave={handleDragLeave}

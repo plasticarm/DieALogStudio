@@ -44,6 +44,36 @@ const EditableBubble: React.FC<{
     }
   }, [text]);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const adjustFontSize = () => {
+      if (container.clientWidth === 0 || container.clientHeight === 0) return;
+      let currentSize = 500;
+      container.style.fontSize = `${currentSize}px`;
+      container.style.fontFamily = getFontFamily(font);
+
+      while (
+        (container.scrollHeight > container.clientHeight || container.scrollWidth > container.clientWidth) &&
+        currentSize > 8
+      ) {
+        currentSize -= 2;
+        container.style.fontSize = `${currentSize}px`;
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(() => adjustFontSize());
+    resizeObserver.observe(container);
+    adjustFontSize();
+    container.addEventListener('input', adjustFontSize);
+    
+    return () => {
+      resizeObserver.disconnect();
+      container.removeEventListener('input', adjustFontSize);
+    };
+  }, [font, alignment]);
+
   return (
     <div 
       ref={containerRef}
@@ -54,9 +84,8 @@ const EditableBubble: React.FC<{
       className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden outline-none transition-all cursor-text"
       style={{ 
         textAlign: alignment as any, 
-        padding: '8%', 
+        padding: '4%', 
         lineHeight: 0.9,
-        fontSize: `${fontSize}px`,
         fontFamily: getFontFamily(font),
         borderRadius: rounding ? `${rounding}px` : '0px',
         color: '#000'
@@ -729,7 +758,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         const newId = `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
         const newField: TextField = {
           id: newId, text: 'New Dialogue', x, y, width, height,
-          font: activeComic.selectedFonts?.[0] || 'Amatic SC', fontSize: 12, alignment: 'center', characterName: 'Unknown',
+          font: activeComic.selectedFonts?.[0] || 'Amatic SC', fontSize: 32, alignment: 'center', characterName: 'Unknown',
           order: textFields.length + 1
         };
         setTextFields(prev => [...prev, newField]);

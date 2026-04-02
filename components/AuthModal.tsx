@@ -1,38 +1,58 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
 import { CachedImage } from './CachedImage';
 import { getRandomComicAvatar } from '../utils/avatarUtils';
+import { auth, googleProvider } from '../services/firebase';
+import { signInWithPopup, signInAnonymously } from 'firebase/auth';
 
 interface AuthModalProps {
   onAuth: (user: User) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ onAuth }) => {
+  const [error, setError] = useState<string | null>(null);
+
   const handleGoogleSignIn = async () => {
-    const mockUser: User = {
-      id: `u_${Math.random().toString(36).substr(2, 9)}`,
-      name: 'Google Architect',
-      email: 'architect@google.com',
-      picture: 'https://www.google.com/favicon.ico',
-      apiKeys: {}
-    };
-    
     try {
-      await (window as any).aistudio?.openSelectKey();
-    } catch (e) {}
-    
-    onAuth(mockUser);
+      setError(null);
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      const loggedInUser: User = {
+        id: user.uid,
+        name: user.displayName || 'Google Architect',
+        email: user.email || undefined,
+        picture: user.photoURL || 'https://www.google.com/favicon.ico',
+        apiKeys: {},
+        role: user.email === 'plasticarm@gmail.com' ? 'admin' : 'user'
+      };
+      
+      onAuth(loggedInUser);
+    } catch (e: any) {
+      console.error("Google Sign-In Error:", e);
+      setError(e.message || "Failed to sign in with Google.");
+    }
   };
 
-  const handleGuestSignIn = () => {
-    const randomAvatar = getRandomComicAvatar();
-    const guestUser: User = {
-      id: `guest_${Math.random().toString(36).substr(2, 5)}`,
-      name: `Guest Architect ${Math.floor(Math.random() * 1000)}`,
-      picture: randomAvatar || undefined,
-      apiKeys: {}
-    };
-    onAuth(guestUser);
+  const handleGuestSignIn = async () => {
+    try {
+      setError(null);
+      const result = await signInAnonymously(auth);
+      const user = result.user;
+      
+      const randomAvatar = getRandomComicAvatar();
+      const guestUser: User = {
+        id: user.uid,
+        name: `Guest Architect ${Math.floor(Math.random() * 1000)}`,
+        picture: randomAvatar || undefined,
+        apiKeys: {},
+        role: 'user'
+      };
+      onAuth(guestUser);
+    } catch (e: any) {
+      console.error("Guest Sign-In Error:", e);
+      setError(e.message || "Failed to sign in as guest.");
+    }
   };
 
   return (
@@ -57,6 +77,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuth }) => {
         <div className="bg-white p-10 rounded-[2.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.1)] border border-black/5 space-y-6 animate-in slide-in-from-bottom-12 duration-1000">
           <h2 className="text-slate-800 font-black text-2xl text-center uppercase tracking-widest mb-4">Studio Initialization</h2>
           
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold text-center border border-red-100">
+              {error}
+            </div>
+          )}
+
           <button 
             onClick={handleGoogleSignIn}
             className="w-full bg-white border-2 border-slate-200 text-slate-800 py-5 rounded-2xl font-black uppercase text-sm tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-4 active:scale-95 shadow-sm"

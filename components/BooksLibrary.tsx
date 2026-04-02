@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ComicBook, ComicProfile, SavedComicStrip } from '../types';
+import { ComicBook, ComicProfile, SavedComicStrip, User } from '../types';
 import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
-import { GENRES } from '../constants';
+import { GENRES, INITIAL_COMICS } from '../constants';
 
 const LazyVideo: React.FC<{ src: string, className?: string }> = ({ src, className }) => {
   const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
@@ -62,6 +62,7 @@ interface BooksLibraryProps {
   comics: ComicProfile[];
   books: ComicBook[];
   history: SavedComicStrip[];
+  currentUser?: User | null;
   onOpenBook: (bookId: string) => void;
   onCreateComic: () => void;
   onDeleteComic: (id: string) => void;
@@ -71,7 +72,7 @@ interface BooksLibraryProps {
 }
 
 export const BooksLibrary: React.FC<BooksLibraryProps> = ({ 
-  comics, books, history, onOpenBook, onCreateComic, onDeleteComic, onClearHistory, onSyncLibrary, activeSeriesId 
+  comics, books, history, onOpenBook, onCreateComic, onDeleteComic, onClearHistory, onSyncLibrary, activeSeriesId, currentUser 
 }) => {
   const [selectedGenreId, setSelectedGenreId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -183,19 +184,21 @@ export const BooksLibrary: React.FC<BooksLibraryProps> = ({
                   }`}
                 >
                   <div className="absolute top-4 left-4 z-40">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        if(window.confirm(`Are you sure you want to delete "${series.name}"? This will permanently erase all episodes and binder pages associated with this series.`)) {
-                          onDeleteComic(series.id);
-                        }
-                      }}
-                      className="w-10 h-10 bg-white/90 backdrop-blur shadow-lg rounded-full flex items-center justify-center text-rose-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white transform hover:scale-110 active:scale-90"
-                      title="Delete Series Permanently"
-                    >
-                      <i className="fa-solid fa-trash-can text-xs"></i>
-                    </button>
+                    {(!INITIAL_COMICS.find(ic => ic.id === series.id) || currentUser?.role === 'admin') && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          if(window.confirm(`Are you sure you want to delete "${series.name}"? This will permanently erase all episodes and binder pages associated with this series.`)) {
+                            onDeleteComic(series.id);
+                          }
+                        }}
+                        className="w-10 h-10 bg-white/90 backdrop-blur shadow-lg rounded-full flex items-center justify-center text-rose-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white transform hover:scale-110 active:scale-90"
+                        title="Delete Series Permanently"
+                      >
+                        <i className="fa-solid fa-trash-can text-xs"></i>
+                      </button>
+                    )}
                   </div>
 
                   {isActive && (

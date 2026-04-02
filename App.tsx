@@ -20,7 +20,7 @@ import { imageStore } from './services/imageStore';
 import { getRandomComicAvatar } from './utils/avatarUtils';
 import { firebaseService } from './services/firebaseService';
 import { auth } from './services/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { setGeminiApiKey } from './services/gemini';
 
 declare global {
@@ -124,23 +124,35 @@ export default function App() {
   const [isNamingNewSeries, setIsNamingNewSeries] = useState(false);
   const [newSeriesName, setNewSeriesName] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('die-a-log-user');
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
-    } else {
-      const randomAvatar = getRandomComicAvatar();
-      const defaultUser: User = {
-        id: Math.random().toString(36).substring(2, 11),
-        name: `Player ${Math.floor(Math.random() * 9000) + 1000}`,
-        picture: randomAvatar || `https://picsum.photos/seed/${Math.random()}/200`,
-        guideEnabled: true,
-        apiKeys: {}
-      };
-      setCurrentUser(defaultUser);
-      localStorage.setItem('die-a-log-user', JSON.stringify(defaultUser));
-    }
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const savedUserStr = localStorage.getItem('die-a-log-user');
+        let savedUser: User | null = null;
+        try {
+          if (savedUserStr) savedUser = JSON.parse(savedUserStr);
+        } catch (e) {}
+
+        const user: User = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || savedUser?.name || `Architect ${Math.floor(Math.random() * 9000) + 1000}`,
+          email: firebaseUser.email || undefined,
+          picture: firebaseUser.photoURL || savedUser?.picture || getRandomComicAvatar() || `https://picsum.photos/seed/${firebaseUser.uid}/200`,
+          apiKeys: savedUser?.apiKeys || {},
+          guideEnabled: savedUser?.guideEnabled ?? true,
+          role: firebaseUser.email === 'plasticarm@gmail.com' ? 'admin' : 'user'
+        };
+        setCurrentUser(user);
+        localStorage.setItem('die-a-log-user', JSON.stringify(user));
+      } else {
+        setCurrentUser(null);
+      }
+      setIsAuthReady(true);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Preview Image Resolution
@@ -187,35 +199,6 @@ export default function App() {
       setGeminiApiKey(null);
     }
   }, [currentUser]);
-
-  useEffect(() => {
-    if (currentUser) {
-      // Check if Firebase config is present before attempting auth
-      if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-        console.warn("Firebase API Key missing. Cloud Sync will not be available until configured in .env");
-        return;
-      }
-      
-      signInAnonymously(auth).catch(err => {
-        if (err.code === 'auth/admin-restricted-operation') {
-          console.error("Firebase Error: Anonymous Auth is disabled in the Firebase Console. Please enable it in Authentication > Sign-in method.");
-        } else {
-          console.error("Firebase Anonymous Auth failed:", err);
-        }
-      });
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    const savedUser = localStorage.getItem('app_user');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error("Failed to parse user session", e);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -732,7 +715,12 @@ export default function App() {
     } catch (e) {}
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+    } catch (e) {
+      console.error("Sign out error:", e);
+    }
     localStorage.removeItem('die-a-log-user');
     setCurrentUser(null);
     setSessions([]);
@@ -1020,6 +1008,14 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [activeSession, currentUser, lastCloudSync, syncSessionToCloud]);
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-[#dbdac8] flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-slate-800 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (!currentUser) return <AuthModal onAuth={handleAuth} />;
   
@@ -1316,6 +1312,7 @@ export default function App() {
                 books={books}
                 history={history}
                 activeSeriesId={activeSeriesId}
+                currentUser={currentUser}
                 onOpenBook={(id) => {
                   handleUpdateSessionData({ activeSeriesId: id, currentGuideStep: Math.max(currentGuideStep, 1) });
                   setCurrentTab('train');
@@ -1350,6 +1347,7 @@ export default function App() {
                 <TrainingCenter 
                   key={`train-${activeComic.id}`}
                   editingComic={activeComic}
+                  currentUser={currentUser}
                   onUpdateComic={(updated) => handleUpdateSessionData({ 
                     comics: comics.map(c => c.id === updated.id ? updated : c),
                     books: books.map(b => b.id === updated.id ? { ...b, title: `${updated.name} Vol. 1` } : b),
@@ -1392,6 +1390,7 @@ export default function App() {
                     book={activeBook}
                     activeComic={activeComic}
                     booksForSeries={books.filter(b => b.seriesId === activeSeriesId || b.id === activeSeriesId)}
+                    currentUser={currentUser}
                     onSelectBook={(id) => handleUpdateSessionData({ activeBookId: id })}
                     onCreateBook={() => {
                       const newId = `b_${Date.now()}`;

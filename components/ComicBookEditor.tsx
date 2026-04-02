@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
-import { ComicBook, SavedComicStrip, ComicProfile } from '../types';
+import { ComicBook, SavedComicStrip, ComicProfile, User } from '../types';
 import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
+import { INITIAL_COMICS } from '../constants';
 
 interface ComicBookEditorProps {
   book: ComicBook;
@@ -24,10 +25,11 @@ interface ComicBookEditorProps {
   onDeleteHistoryItem: (id: string) => void;
   contrastColor: string;
   onAdvanceGuide?: (step: number) => void;
+  currentUser?: User | null;
 }
 
 export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({ 
-  book, booksForSeries, onSelectBook, onCreateBook, onDeleteBook, onUpdateBook, onEditPage, onPreviewImage, onLaunchReader, onManageCover, onOpenSettings, onImportZip, activeSeriesId, activeComic, history, onDeleteHistoryItem, contrastColor, onAdvanceGuide
+  book, booksForSeries, onSelectBook, onCreateBook, onDeleteBook, onUpdateBook, onEditPage, onPreviewImage, onLaunchReader, onManageCover, onOpenSettings, onImportZip, activeSeriesId, activeComic, history, onDeleteHistoryItem, contrastColor, onAdvanceGuide, currentUser
 }) => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -469,7 +471,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
                 >
                   <i className="fa-solid fa-plus"></i>
                 </button>
-                {booksForSeries.length > 1 && (
+                {booksForSeries.length > 1 && (!INITIAL_COMICS.find(ic => ic.id === activeSeriesId) || currentUser?.role === 'admin') && (
                   <button 
                     onClick={() => {
                       if (window.confirm(`Are you sure you want to delete "${book.title}"?`)) {

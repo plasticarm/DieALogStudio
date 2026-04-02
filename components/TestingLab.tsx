@@ -917,7 +917,7 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
     const adjustFontSize = () => {
       if (container.clientWidth === 0 || container.clientHeight === 0) return;
 
-      let currentSize = 100;
+      let currentSize = 500;
       container.style.fontSize = `${currentSize}px`;
       container.style.fontFamily = getFontFamily(font);
 
@@ -925,7 +925,7 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
         (container.scrollHeight > container.clientHeight || container.scrollWidth > container.clientWidth) &&
         currentSize > 8
       ) {
-        currentSize -= 1;
+        currentSize -= 2;
         container.style.fontSize = `${currentSize}px`;
       }
     };
@@ -949,7 +949,7 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
       className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden"
       style={{ 
         textAlign: alignment as any,
-        padding: '8%',
+        padding: '4%',
         lineHeight: 0.9,
         borderRadius: rounding ? `${rounding}px` : '1rem'
       }}
