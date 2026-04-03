@@ -46,10 +46,10 @@ export const INITIAL_COMICS: ComicProfile[] = [
     backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
     artStyle: 'High-contrast black and white ink noir, detective silhouettes, gritty textures', 
-    environment: 'Rainy city streets with neon reflections', 
-    environments: [{id:'e1', name:'Rainy Alley', description:'Gritty alley with puddles'}, {id:'e2', name:'Private Eye Office', description:'Shadowy office with blinds'}], 
+    environment: 'TBD Environment', 
+    environments: [], 
     panelCount: 3, 
-    characters: [{ id: 'nw1', name: 'Detective Paws', description: 'Tabby cat in a trench coat' }, {id:'nw2', name:'The Catnip King', description:'Fat Persian with gold chain'}] 
+    characters: [{ id: 'nw1_1', name: 'Detective Paws', description: 'Tabby cat in a trench coat' }, { id: 'nw1_2', name: 'The Catnip King', description: 'Fat Persian with a gold chain' }] 
   },
   { 
     id: 'c2', 
@@ -57,43 +57,43 @@ export const INITIAL_COMICS: ComicProfile[] = [
     backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
     artStyle: 'Isometric office art, vibrant corporate colors, vector lines', 
-    environment: 'Maze of grey cubicles', 
-    environments: [{id:'e3', name:'The Maze', description:'Infinite grey cubicles'}], 
+    environment: 'TBD Environment', 
+    environments: [], 
     panelCount: 3, 
-    characters: [{ id: 'cq1', name: 'Greg from IT', description: 'Weary man with error mug' }, { id: 'cq2', name: 'The Manager', description: 'Floating suit with red tie' }] 
+    characters: [{ id: 'cq2_1', name: 'Greg from IT', description: 'Weary man with an "ERROR" mug' }, { id: 'cq2_2', name: 'The Manager', description: 'Floating suit with a red tie' }] 
   },
   { 
     id: 'c3', 
     name: 'Galaxy Banal', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
+    category: 'Category 6: Fantasy, Mythology, & Adventure',
     artStyle: 'Retro-futurism, 70s sci-fi aesthetic, grainy film texture', 
-    environment: 'Space station breakroom', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'gb1', name:'Pilot Pete', description:'Burrito eating human'}, {id:'gb2', name:'Zorg', description:'Alien in safety vest'}] 
+    characters: [{ id: 'gb3_1', name: 'Pilot Pete', description: 'A regular sort of guy. Pilot Pete likes burritos, nachos, cheese, and anything salty. He wears a lucky alien eyeball on a gold chain around his neck which many aliens find offensive. He\'s a push the button and worry about what it does later kind of guy.' }, { id: 'gb3_2', name: 'Zorg', description: 'Zorg has 6 eyes most of the time. Green skin, orange safety vest.  He\'s far more qualified to be captain but Pete inherited the ship.' }] 
   },
   { 
     id: 'c4', 
     name: 'Toddler Doom', 
     backgroundColor: '#dbdac8', 
     category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Bright crayon colors, chaotic scribbles, child-like painting', 
-    environment: 'Messy playroom war zone', 
+    artStyle: 'Bright crayon colors, chaotic scribbles, child-like digital painting', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'td1', name:'General Timmy', description:'Toddler with colander helmet'}, {id:'td2', name:'Sgt. Sparky', description:'Damaged stuffed dog'}] 
+    characters: [{ id: 'td4_1', name: 'General Timmy', description: 'Toddler wearing a colander helmet' }, { id: 'td4_2', name: 'Sgt. Sparky', description: 'Damaged, one-eyed stuffed dog' }] 
   },
   { 
     id: 'c5', 
     name: 'Unholy Roommates', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 4: Gothic, Dark Comedy, & Horror',
+    category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
     artStyle: 'Gritty indie webcomic, heavy ink, psychedelic blacklight colors', 
-    environment: 'Filthy shared apartment living room', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'ur1', name:'Father John', description:'Stressed priest in cassock'}, {id:'ur2', name:'Vlad', description:'Cool vampire in leather jacket'}] 
+    characters: [{ id: 'ur5_1', name: 'Father John', description: 'Stressed, sweaty priest in a cassock' }, { id: 'ur5_2', name: 'Vlad', description: 'Cool vampire hovering in a leather jacket' }] 
   },
   { 
     id: 'c6', 
@@ -101,10 +101,10 @@ export const INITIAL_COMICS: ComicProfile[] = [
     backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
     artStyle: 'Epic fantasy, miniature scale, detailed fur and armor', 
-    environment: 'Household item battlefield', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'sd1', name:'Sir Squeaksalot', description:'Mouse in bottlecap armor'}, {id:'sd2', name:'The Rat King', description:'Scarred rat with toothpick sword'}] 
+    characters: [{ id: 's6_1', name: 'Sir Squeaksalot', description: 'Brave mouse in bottlecap armor' }, { id: 's6_2', name: 'The Rat King', description: 'Massive scarred rat with a toothpick sword' }] 
   },
   { 
     id: 'c7', 
@@ -112,10 +112,10 @@ export const INITIAL_COMICS: ComicProfile[] = [
     backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
     artStyle: 'Fiery palette, jagged lines, demonic tech aesthetic', 
-    environment: 'IT office in magma pits', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'hh1', name:'Lucifer', description:'CEO in sharp suit'}, {id:'hh2', name:'Imp 404', description:'Glitching blue demon'}] 
+    characters: [{ id: 'hh7_1', name: 'Lucifer', description: 'The CEO in a sharp business suit' }, { id: 'hh7_2', name: 'Imp 404', description: 'Small, glitching blue demon' }] 
   },
   { 
     id: 'c8', 
@@ -123,1520 +123,1275 @@ export const INITIAL_COMICS: ComicProfile[] = [
     backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
     artStyle: 'Vintage circus meets 1920s mobsters, desaturated reds', 
-    environment: 'Circus tent backroom', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'bn1', name:'Don Chuckles', description:'Scary clown mobster'}, {id:'bn2', name:'Squeaky', description:'Mime with balloon gun'}] 
+    characters: [{ id: 'tb8_1', name: 'Don Chuckles', description: 'Scary clown mobster with a painted smile' }, { id: 'tb8_2', name: 'Squeaky', description: 'Menacing mime holding a balloon Tommy gun' }] 
   },
   { 
     id: 'c9', 
     name: 'Impact Zone', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
+    category: 'Category 8: Niche, Mood, & Abstract',
     artStyle: 'Dynamic action manga, speed lines, high energy', 
-    environment: 'Futuristic skate park', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'iz1', name:'Jax', description:'Cyborg skater'}, {id:'iz2', name:'Robo-Ref', description:'Hovering drone whistle'}] 
+    characters: [{ id: 'iz9_1', name: 'Jax', description: 'Cyborg skater with glowing neon wheels' }, { id: 'iz9_2', name: 'Robo-Ref', description: 'Hovering camera drone with a whistle' }] 
   },
   { 
     id: 'c10', 
-    name: 'Hoard Less', 
+    name: 'Cubicle Quest', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'Storybook watercolor, soft edges, whimsical', 
-    environment: 'Dragon cave with IKEA bins', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Isometric office art, vibrant corporate colors, vector lines', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'hl1', name:'Cinder', description:'Minimalist dragon'}, {id:'hl2', name:'Dusty', description:'Kobold butler with labels'}] 
+    characters: [{ id: 'cq10_1', name: 'Greg from IT', description: 'Weary man with an "ERROR" mug' }, { id: 'cq10_2', name: 'The Manager', description: 'Floating suit with a red tie' }] 
   },
   { 
     id: 'c11', 
-    name: 'Grim Life', 
+    name: 'Hoard Less', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Minimalist line art, monochromatic with color pop', 
-    environment: 'DMV afterlife waiting room', 
+    category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
+    artStyle: 'Storybook watercolor, soft edges, whimsical', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'gl1', name:'Grim', description:'Skeleton in hoodie'}, {id:'gl2', name:'Mrs. Higgins', description:'Stubborn ghost lady'}] 
+    characters: [{ id: 'hl11_1', name: 'Cinder', description: 'Minimalist dragon wearing a t-shirt' }, { id: 'hl11_2', name: 'Dusty', description: 'Tiny kobold butler holding a label maker' }] 
   },
   { 
     id: 'c12', 
+    name: 'Grim Life', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
+    artStyle: 'Minimalist line art, monochromatic with a color pop', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'gl12_1', name: 'Grim', description: 'Skeleton in a hoodie carrying a grocery bag' }, { id: 'gl12_2', name: 'Mrs. Higgins', description: 'Stubborn elderly ghost lady who refuses to leave' }] 
+  },
+  { 
+    id: 'c13', 
     name: 'Capes on the Couch', 
     backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
     artStyle: 'Silver age comic, Ben-Day dots, dramatic poses', 
-    environment: 'Therapist office', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'cc1', name:'UltraMan', description:'Crying muscular hero'}, {id:'cc2', name:'Dr. Mind', description:'Brain in a jar'}] 
-  },
-  { 
-    id: 'c13', 
-    name: 'Stone Cold Idiots', 
-    backgroundColor: '#dbdac8', 
-    category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Prehistoric stone-carving texture, rough edges', 
-    environment: 'Cave with wall paintings', 
-    environments: [], 
-    panelCount: 3, 
-    characters: [{id:'si1', name:'Oog', description:'Inventor of square wheel'}, {id:'si2', name:'Boog', description:'Confused club holder'}] 
+    characters: [{ id: 'co13_1', name: 'UltraMan', description: 'Muscular hero in spandex crying into a tissue' }, { id: 'co13_2', name: 'Dr. Mind', description: 'Brain floating in a jar wearing reading glasses' }] 
   },
   { 
     id: 'c14', 
-    name: 'The Totally Normal Johnsons', 
+    name: 'Stone Cold Idiots', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: '50s sitcom technicolor, uncanny perfection', 
-    environment: 'Pristine suburban kitchen', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Prehistoric stone-carving texture, rough edges', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'tj1', name:'Bob', description:'Alien in human mask'}, {id:'tj2', name:'Linda', description:'Alien in floral dress'}] 
+    characters: [{ id: 'sc14_1', name: 'Oog', description: 'Caveman trying to invent the square wheel' }, { id: 'sc14_2', name: 'Boog', description: 'Caveman holding a club, confused by fire' }] 
   },
   { 
     id: 'c15', 
-    name: 'Pulse & Impulse', 
+    name: 'The Totally Normal Johnsons', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: 'Cyberpunk neon, glitch effects, tech-noir', 
-    environment: 'Rainy neon alleyway', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: '50s sitcom technicolor, uncanny perfection', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'pi1', name:'Pulse', description:'Hacker with cable hair'}, {id:'pi2', name:'Impulse', description:'Robot dog with screen face'}] 
+    characters: [{ id: 'tt15_1', name: 'Bob', description: 'Green alien wearing a crooked human face mask' }, { id: 'tt15_2', name: 'Linda', description: 'Multi-armed alien hidden in a floral dress' }] 
   },
   { 
     id: 'c16', 
-    name: 'Upload Complete', 
+    name: 'Pulse & Impulse', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: 'Digital grid, holographic, blue and white', 
-    environment: 'Data void', 
+    category: 'Category 7: Meta, Media Parody, & Specific Homages',
+    artStyle: 'Cyberpunk neon, glitch effects, tech-noir lines', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'uc1', name:'User 001', description:'Pixelated avatar'}, {id:'uc2', name:'The Admin', description:'Giant binary eye'}] 
+    characters: [{ id: 'p16_1', name: 'Pulse', description: 'Hacker with glowing cables for hair' }, { id: 'p16_2', name: 'Impulse', description: 'Robotic dog with a screen for a face' }] 
   },
   { 
     id: 'c17', 
-    name: 'Trash Talk', 
+    name: 'Galaxy Banal', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 1: Anthropomorphic',
-    artStyle: 'Gritty textures, muted colors, personified objects', 
-    environment: 'Bottom of a dumpster', 
+    category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
+    artStyle: 'Retro-futurism, 70s sci-fi aesthetic, grainy film texture', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'tt1', name:'Canny', description:'Crushed soda can'}, {id:'tt2', name:'Peely', description:'Cool banana peel'}] 
+    characters: [{ id: 'gb17_1', name: 'Pilot Pete', description: 'Burrito-eating human' }, { id: 'gb17_2', name: 'Zorg', description: 'Multi-eyed alien in a safety vest' }] 
   },
   { 
     id: 'c18', 
-    name: 'Web of Lies', 
+    name: 'Upload Complete', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 1: Anthropomorphic',
-    artStyle: 'Macro photography style, shallow depth of field', 
-    environment: 'Dusty attic corner', 
+    category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
+    artStyle: 'Digital grid, holographic textures, blue and white', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'wl1', name:'Spin', description:'Spider in fedora'}, {id:'wl2', name:'Buzz', description:'Nervous fly'}] 
+    characters: [{ id: 'uc18_1', name: 'User 001', description: 'Human avatar made of jagged pixels' }, { id: 'uc18_2', name: 'The Admin', description: 'Massive, floating eye made of binary code' }] 
   },
   { 
     id: 'c19', 
-    name: 'Sofa, So Good', 
+    name: 'Trash Talk', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 1: Anthropomorphic',
-    artStyle: 'Living furniture aesthetic, soft pastel textures', 
-    environment: 'Cozy living room night', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: 'Gritty textures, muted colors, personified objects', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'sg1', name:'Cushy', description:'Plump sentient cushion'}, {id:'sg2', name:'Clicker', description:'Hiding remote'}] 
+    characters: [{ id: 'tt19_1', name: 'Canny', description: 'Crushed soda can with a grumpy face' }, { id: 'tt19_2', name: 'Peely', description: 'Cool banana peel wearing sunglasses' }] 
   },
   { 
     id: 'c20', 
-    name: 'Death Suits You', 
+    name: 'Web of Lies', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Horror-comedy, bright butcher reds, grotesque', 
-    environment: 'Steakhouse kitchen', 
+    category: 'Category 8: Niche, Mood, & Abstract',
+    artStyle: 'Macro photography style, shallow depth of field', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [] 
+    characters: [{ id: 'wo20_1', name: 'Spin', description: 'Spider wearing a tiny fedora' }, { id: 'wo20_2', name: 'Buzz', description: 'Fly trapped in a web looking nervous' }] 
   },
   { 
     id: 'c21', 
-    name: 'The Nuts Gang', 
+    name: 'Sofa, So Good', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 1: Anthropomorphic',
-    artStyle: 'Nature documentary, heist film aesthetic', 
-    environment: 'Park bench close-up', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: 'Living furniture aesthetic, soft pastel textures', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'ng1', name:'Acorn', description:'Squirrel thief'}, {id:'ng2', name:'The Pigeon', description:'Lookout bird'}] 
+    characters: [{ id: 'ss21_1', name: 'Cushy', description: 'Plump sentient cushion wanting to be sat on' }, { id: 'ss21_2', name: 'Clicker', description: 'Television remote hiding between cushions' }] 
   },
   { 
     id: 'c22', 
-    name: 'Pond Buddies', 
+    name: 'Death Suits You', 
     backgroundColor: '#dbdac8', 
-    category: 'Category 1: Anthropomorphic',
-    artStyle: 'Soft charcoal and gouache, peaceful green', 
-    environment: 'Sunlit lily pond', 
+    category: 'Category 4: Gothic, Dark Comedy, & Horror',
+    artStyle: 'Horror-comedy,', 
+    environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
-    characters: [{id:'pb1', name:'Froppy', description:'Optimistic frog'}, {id:'pb2', name:'Shell', description:'Slow turtle'}] 
+    characters: [{ id: 'ds22_1', name: 'John Doe', description: 'An everyman that makes fatal mistakes.' }, { id: 'ds22_2', name: 'Jane Doe', description: 'And everywoman that makes fatal mistakes.' }] 
   },
-  // New Spreadsheet Comics
-  {
-    id: 's1',
-    name: 'Can openers',
-    category: 'Category 1: Anthropomorphic',
-    styleDescription: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.',
-    archetypes: 'Neurotic Everyday Objects. Defined by their functions; dread being used up, broken, or ignored. Example: Spaghetti TED is a long strand of pasta terrified of boiling water, trying to talk the fork out of twirling him.',
-    artStyle: 'Sunday Funnies meets Surrealism',
-    environment: 'Kitchen drawer',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's1c1', name: 'Cracker', description: 'An ancient, manual can opener who is dull and rusty, living in mortal fear of electric openers.' },
-      { id: 's1c2', name: 'Tuna Tin', description: 'A smooth, confident can of tuna who has accepted her fate and just wants him to twist.' }
-    ]
+  { 
+    id: 'c23', 
+    name: 'The Nuts Gang', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 7: Meta, Media Parody, & Specific Homages',
+    artStyle: 'Simple Sunday funnies', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tn23_1', name: 'Derik', description: 'A bald 10 year old that has depression and social anxiety' }, { id: 'tn23_2', name: 'Cindy', description: 'A cruel bully of a girl.' }] 
   },
-  {
-    id: 's2',
-    name: 'Flimsy Whimsy',
-    category: 'Category 1: Anthropomorphic',
-    styleDescription: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.',
-    archetypes: 'Neurotic Everyday Objects. Defined by their functions; dread being used up, broken, or ignored.',
-    artStyle: 'Sunday Funnies meets Surrealism',
-    environment: 'A breezy garden',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's2c1', name: 'Wisp', description: 'A single, very thin dandelion seed terrified of the slightest breeze but dreaming of being a paratrooper.' },
-      { id: 's2c2', name: 'The Fan', description: 'A grumpy, stationary desk fan who is just trying to cool the room down.' }
-    ]
+  { 
+    id: 'c24', 
+    name: 'Pond Buddies', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: 'Soft charcoal and gouache, peaceful green tones', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'pb24_1', name: 'Froppy', description: 'Small, optimistic green frog on a lilypad' }, { id: 'pb24_2', name: 'Shell', description: 'Cynical turtle with a very slow reaction time' }] 
   },
-  {
-    id: 's10',
-    name: 'Existential min',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    styleDescription: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.',
-    archetypes: 'Deadpan Humans/Concepts. Treat impossible situations with mundane calm. Philosophical, socially awkward, obsessed with semantics.',
-    artStyle: 'Indie Zine style',
-    environment: 'Grocery store checkout',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's10c1', name: 'Min', description: 'A short, angular woman who overanalyzes everything, searching for hidden subtext in the mundane.' },
-      { id: 's10c2', name: 'The Cashier', description: 'A deadpan human who just wants Min to pay for her groceries and leave.' }
-    ]
-  },
-  {
-    id: 's23',
-    name: 'Planet of the Cats',
+  { 
+    id: 'c25', 
+    name: 'Scorpion Riders', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    styleDescription: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows contrasted with vibrant, glowing neon colors (pinks, blues). High contrast, dramatic angles.',
-    archetypes: 'World-Weary Augments/evolved animals. Augmented humans, androids, sleek evolved cats. Stoic; trying to fight, hack, or negotiate dystopian corporate bureaucracy.',
-    artStyle: 'Neon-Noir Sci-Fi',
-    environment: 'Cybernetic cat city',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's23c1', name: 'Subject 7', description: 'A stoic shorthair with a cybernetic eye that hacks electronic food bowls.' },
-      { id: 's23c2', name: 'Chairman Meow', description: 'The highly augmented feline ruler who communicates only in "Purr-code."' }
-    ]
+    artStyle: '80s sci-fi riff, wild west aesthetic', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'sr25_1', name: 'Tex', description: 'Rugged cowboy with a laser lasso' }, { id: 'sr25_2', name: 'Sting', description: 'Massive, loyal rideable scorpion' }] 
   },
-  {
-    id: 's30',
-    name: 'Nocturnal Digestion',
-    category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    styleDescription: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.',
-    archetypes: 'Morbid Polite Humanoids. Victorian children, talking gargoyles, melancholy ghosts, demons engaged in petty arguments. Politemelancholy; comfortable with macabre.',
-    artStyle: 'Edward Gorey Gothic',
-    environment: 'Victorian streets at night',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's30c1', name: 'Mr. Belly', description: 'A sentient stomach that detaches at night to wander Victorian streets eating esoteric objects.' },
-      { id: 's30c2', name: 'Penny', description: 'A polite orphan girl who treats Mr. Belly like a stray dog and feeds him her bad dreams.' }
-    ]
-  },
-  {
-    id: 's48',
-    name: 'Bootcamp Bill',
-    category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    styleDescription: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.',
-    archetypes: 'Cynical Bureaucratic Drones. Overworked office drones, tired soldiers, corrupt rat politicians. Exhausted; defined by their futile relationship with "The System."',
-    artStyle: 'Sketchy Caricature',
-    environment: 'Absurd military camp',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's48c1', name: 'Bill', description: 'A weary conscript whose existence is defined by absurd, ever-changing "efficiency metrics."' },
-      { id: 's48c2', name: 'Sgt. Stone', description: 'A massive drill instructor who yells because he believes "noise is efficient."' }
-    ]
-  },
-  {
-    id: 's64',
-    name: 'Dragon lord dominion',
-    category: 'Category 6: Fantasy, Mythology, & Adventure',
-    styleDescription: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.',
-    archetypes: 'Fantasy archetypes with a twist.',
-    artStyle: 'D&D Manual style',
-    environment: 'Treasure hoard',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's64c1', name: 'Cinder', description: 'A heroic, heavily-muscled green dragon obsessed with optimizing his hoard\'s "loot stats."' },
-      { id: 's64c2', name: 'Dusty', description: 'A fast-talking kobold accountant constantly appraising the value of defeated enemies.' }
-    ]
-  },
-  {
-    id: 's74',
-    name: 'Super Marlo 3D',
-    category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    styleDescription: 'Chameleon Style. Perfectly mimics the media it parodies (e.g., 8-bit art or early 90s CGI; Super Marlo).',
-    archetypes: 'Distorted Icons. Generic versions of pop icons. Genre-savvy; self-aware comic existence.',
-    artStyle: 'Bootleg 90s CGI',
-    environment: 'Glitchy 3D world',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's74c1', name: 'Marlo', description: 'A bootleg plumber trapped in a world requiring red/blue 3D glasses, giving him a migraine.' },
-      { id: 's74c2', name: 'Princess Substitute', description: 'A competent fruit vendor completely tired of getting "rescued" and wanting to run her business.' }
-    ]
-  },
-  {
-    id: 's83',
-    name: 'Bohemian Breakdowns',
+  { 
+    id: 'c26', 
+    name: 'Closer than Appears', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 8: Niche, Mood, & Abstract',
-    styleDescription: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.',
-    archetypes: 'Poetic Internal Monologues. Unnamed conceptual figures, lovers in conflict, people staring into darkness.',
-    artStyle: 'Watercolor Mixed Media',
-    environment: 'An emotional void',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 's83c1', name: 'The Artist', description: 'A melodramatic watercolor painter who weeps openly over the emotional weight of beige.' },
-      { id: 's83c2', name: 'The Canvas', description: 'A sentient blank canvas begging to be painted so it can finally get a job in a hotel.' }
-    ]
+    artStyle: 'Wacky surreal, distorted reality', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ct26_1', name: 'The Observer', description: 'A normal person deeply confused by the world' }, { id: 'ct26_2', name: 'The Reflection', description: 'A terrifyingly accurate, distorted replica' }] 
   },
-  {
-    id: 'c23',
-    name: 'Closer than Appears',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c27', 
+    name: 'Fletch and Bone', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 4: Gothic, Dark Comedy, & Horror',
+    artStyle: 'Absurdist detective comic', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'fa27_1', name: 'Fletch', description: 'Bone-headed detective holding a magnifying glass' }, { id: 'fa27_2', name: 'Bone', description: 'Another bone-headed detective with a notepad' }] 
+  },
+  { 
+    id: 'c28', 
+    name: 'The Rats of Nibo', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 4: Gothic, Dark Comedy, & Horror',
+    artStyle: 'Political cartoon, gritty and scheming', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tr28_1', name: 'Senator Squeak', description: 'Scheming, corrupt rat politician' }, { id: 'tr28_2', name: 'Cheddar', description: 'Idealistic garbage rat wanting change' }] 
+  },
+  { 
+    id: 'c29', 
+    name: 'Clown Town', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Surrealist, dreamlike, distorted perspectives',
-    environment: 'A totally wacky surreal world',
-    environments: [],
-    panelCount: 3,
-    characters: []
+    artStyle: 'Clown-centric, chaotic color palette', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ct29_1', name: 'Mayor Honk', description: 'The clown mayor riding in a tiny car' }, { id: 'ct29_2', name: 'Chuckles', description: 'A deeply depressed tramp clown' }] 
   },
-  {
-    id: 'c24',
-    name: 'Fletch and Bone',
-    backgroundColor: '#dbdac8',
-    category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Noir detective, gritty, high contrast',
-    environment: 'Crime scene',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'fb1', name: 'Fletch', description: 'Absurdly bone headed detective' },
-      { id: 'fb2', name: 'Bone', description: 'Absurdly bone headed detective partner' }
-    ]
+  { 
+    id: 'c30', 
+    name: 'Dark Wishes', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 8: Niche, Mood, & Abstract',
+    artStyle: 'Dark, psychological horror aesthetic, heavy shadows', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'dw30_1', name: 'The Wisher', description: 'Person actively imagining dark, cinematic things' }, { id: 'dw30_2', name: 'The Target', description: 'Blissfully unaware coworker drinking coffee' }] 
   },
-  {
-    id: 'c25',
-    name: 'The Rats of Nibo',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c31', 
+    name: 'Pileup on 709', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Gritty underground, dark, detailed fur',
-    environment: 'Rat government council room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'rn1', name: 'Senator Squeak', description: 'Scheming rat politician' },
-      { id: 'rn2', name: 'Backstabber Bob', description: 'Backstabbing rat official' }
-    ]
+    artStyle: 'Infinite comic panel, chaotic traffic, angry expressions', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'po31_1', name: 'Frustrated Driver', description: 'Angry person laying heavily on the car horn' }, { id: 'po31_2', name: 'Zen Passenger', description: 'Commuter calmly reading a book amid the chaos' }] 
   },
-  {
-    id: 'c26',
-    name: 'Clown Town',
-    backgroundColor: '#dbdac8',
-    category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Circus horror, bright but unsettling colors',
-    environment: 'A town where everyone is a clown',
-    environments: [],
-    panelCount: 3,
-    characters: []
+  { 
+    id: 'c32', 
+    name: 'Can openers', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'co32_1', name: 'Cracker', description: 'An ancient, manual can opener who is dull and rusty, living in mortal fear of electric openers.' }, { id: 'co32_2', name: 'Tuna Tin', description: 'A smooth, confident can of tuna who has accepted her fate and just wants him to twist.' }] 
   },
-  {
-    id: 'c27',
-    name: 'Dark Wishes',
-    backgroundColor: '#dbdac8',
-    category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Dark fantasy, shadowy, ethereal',
-    environment: 'Dreamscape',
-    environments: [],
-    panelCount: 3,
-    characters: []
+  { 
+    id: 'c33', 
+    name: 'Flimsy Whimsy', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'fw33_1', name: 'Wisp', description: 'A single, very thin dandelion seed terrified of the slightest breeze but dreaming of being a paratrooper.' }, { id: 'fw33_2', name: 'The Fan', description: 'A grumpy, stationary desk fan who is just trying to cool the room down.' }] 
   },
-  {
-    id: 'c28',
-    name: 'Pileup on 709',
-    backgroundColor: '#dbdac8',
-    category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Gritty realism, chaotic, crowded',
-    environment: 'Infinite car pileup on highway 709',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'pu1', name: 'Angry Driver', description: 'Frustrated driver stuck in traffic' },
-      { id: 'pu2', name: 'Confused Commuter', description: 'Commuter wondering why traffic never moves' }
-    ]
+  { 
+    id: 'c34', 
+    name: 'Inanimate personalities', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ip34_1', name: 'Lampy', description: 'A nervous desk lamp whose bulb is flickering, believing it’s a glimpse into the afterlife.' }, { id: 'ip34_2', name: 'Extension Cord', description: 'A tangled, laid-back cord that always tells Lampy to "chill" and accept the current.' }] 
   },
-  {
-    id: 'c29',
-    name: 'Scorpion Riders',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c35', 
+    name: 'Rainbow lambcakes', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'rl35_1', name: 'Sprinkle', description: 'A festive lambcake with existential dread about being eaten, viewing himself as art.' }, { id: 'rl35_2', name: 'Coconut Shavings', description: 'Another lambcake eager to be consumed, viewing it as the ultimate performance art.' }] 
+  },
+  { 
+    id: 'c36', 
+    name: 'Spaghetti TED', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'st36_1', name: 'Ted', description: 'A single, miles-long noodle who is absolutely terrified of the boiling pot and delivers monologues.' }, { id: 'st36_2', name: 'Forky', description: 'A pragmatic, four-pronged utensil who finds Ted\'s constant drama exhausting.' }] 
+  },
+  { 
+    id: 'c37', 
+    name: 'The Jars of Sadness', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tj37_1', name: 'Jar 7', description: 'A glass jar containing a single, teardrop-shaped marble representing a polite regret.' }, { id: 'tj37_2', name: 'The Lid', description: 'A metal screw-top constantly trying to keep the sadness sealed in to preserve the "vintage."' }] 
+  },
+  { 
+    id: 'c38', 
+    name: 'Deli meat meet', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'dm38_1', name: 'Sal', description: 'A tough, seasoned slice of salami who claims he used to run the whole deli display case.' }, { id: 'dm38_2', name: 'Prudence', description: 'A refined, paper-thin slice of imported prosciutto who secretly fears turning gray.' }] 
+  },
+  { 
+    id: 'c39', 
+    name: 'Office staple', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'os39_1', name: 'Staple', description: 'A single metal staple trapped in a jammed gun, dreaming of a "clean punch."' }, { id: 'os39_2', name: 'Staple Remover', description: 'A sadistic, pincer-like tool that keeps threatening to pull Staple out.' }] 
+  },
+  { 
+    id: 'c40', 
+    name: 'Cloggy', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 1: Anthropomorphic...',
+    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines. Objects bend, stretch, and sweat despite being made of metal or food.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cl40_1', name: 'Cloggy', description: 'A lovable, stubborn ball of hair and soap scum blocking a shower drain.' }, { id: 'cl40_2', name: 'Plunger', description: 'A rough-and-tumble, blue-collar tool who keeps forcing his rubber face down on Cloggy.' }] 
+  },
+  { 
+    id: 'c41', 
+    name: 'Existential min', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'em41_1', name: 'Min', description: 'A short, angular woman who overanalyzes everything, searching for hidden subtext in the mundane.' }, { id: 'em41_2', name: 'The Cashier', description: 'A deadpan human who just wants Min to pay for her groceries and leave.' }] 
+  },
+  { 
+    id: 'c42', 
+    name: 'Corn Soaked Camp', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cs42_1', name: 'Gary', description: 'A camper whose entire personality is wrapped around an embarrassing memory of spilling chowder.' }, { id: 'cs42_2', name: 'The Who', description: 'A ghost-like figure made of corn that appears just to ask "Who?" when Gary changes the subject.' }] 
+  },
+  { 
+    id: 'c43', 
+    name: 'Wired up Chuck', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'wu43_1', name: 'Chuck', description: 'A paranoid man who believes he can "hack reality" by connecting to dial-up electronics.' }, { id: 'wu43_2', name: 'Janice', description: 'His very normal sister who ignores his theories and just brings him casseroles.' }] 
+  },
+  { 
+    id: 'c44', 
+    name: 'Accidental candidness', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ac44_1', name: 'Mark', description: 'A man whose mouth is physically incapable of lying, making him a social pariah.' }, { id: 'ac44_2', name: 'Patty', description: 'The only person who invites Mark to dinner, using his honesty as a weapon against guests.' }] 
+  },
+  { 
+    id: 'c45', 
+    name: 'Truth be Sold', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tb45_1', name: 'Harold', description: 'A pathetic, balding man who sells incredibly mundane "Truths" at a roadside stand.' }, { id: 'tb45_2', name: 'The Taxman', description: 'A faceless, floating figure who taxes the man based on the emotional value of the truths.' }] 
+  },
+  { 
+    id: 'c46', 
+    name: 'Shoe to shoe talks', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'st46_1', name: 'Scuffy', description: 'An old sneaker seen from the ankle down, who judges his owner\'s laziness based on grass stains.' }, { id: 'st46_2', name: 'Pat', description: 'A pristine patent leather shoe who brags about high-stakes corporate meetings.' }] 
+  },
+  { 
+    id: 'c47', 
+    name: 'Candy Discussions', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cd47_1', name: 'The Gummy Bear', description: 'A gelatinous figure who argues his chewiness gives him a deeper philosophical understanding.' }, { id: 'cd47_2', name: 'The Jawbreaker', description: 'A stoic rock of sugar who views chewiness as a moral failing.' }] 
+  },
+  { 
+    id: 'c48', 
+    name: 'Controversial clementine', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cc48_1', name: 'Clem', description: 'A sentient clementine convinced she is "toxic" despite everyone finding her delicious.' }, { id: 'cc48_2', name: 'The Fruit Bowl', description: 'An old ceramic bowl that tells Clem she isn\'t special enough to be controversial.' }] 
+  },
+  { 
+    id: 'c49', 
+    name: 'Stuck in the Well', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'si49_1', name: 'Arthur', description: 'A man who has lived in an abandoned well for five years, treating it as a "minimalist residency."' }, { id: 'si49_2', name: 'Clara', description: 'A volunteer rescue worker who comes every week, arguing that "having a sink is better."' }] 
+  },
+  { 
+    id: 'c50', 
+    name: 'Mean Mime Mustard', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'mm50_1', name: 'Mean Mime', description: 'A mime who traps people in invisible boxes but is physically incapable of silence and yells insults.' }, { id: 'mm50_2', name: 'Mustard', description: 'A grumpy packet of yellow mustard the mime uses as an unwilling comedy partner.' }] 
+  },
+  { 
+    id: 'c51', 
+    name: 'Monopoly Squared', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ms51_1', name: 'The Monocle Man', description: 'A cheap knock-off mascot who lives in a house of mortgage papers, convinced life is a board game.' }, { id: 'ms51_2', name: 'The Scottie Dog', description: 'A tiny, cynical metal dog token who actually runs the simulation behind the scenes.' }] 
+  },
+  { 
+    id: 'c52', 
+    name: '"Splain” this', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
+    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors, sketchy linework emphasizes awkwardness. Looks quick, raw, and observational.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 't52_1', name: 'Nate', description: 'A man whose superpower is "Splain-ing" simple concepts until they become incomprehensible.' }, { id: 't52_2', name: 'Beatrice', description: 'His tired wife who just wants to change a lightbulb without a quantum physics lecture.' }] 
+  },
+  { 
+    id: 'c53', 
+    name: 'Pi vs. Pie', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 8: Niche, Mood, & Abstract',
+    artStyle: 'Fine Art Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders may be missing; feels intimate, like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'pv53_1', name: 'Pi', description: 'A rational, infinite mathematical constant who speaks only in cold logic and geometry.' }, { id: 'pv53_2', name: 'Pie', description: 'A warm, chaotic baked good who solves all arguments with sweet filling and flaky crust.' }] 
+  },
+  { 
+    id: 'c54', 
+    name: 'Planet of the Cats', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: '80s Sci-Fi Western, neon desert, giant insects',
-    environment: 'Wild west with giant insects',
-    environments: [],
-    panelCount: 3,
-    characters: []
+    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows contrasted with vibrant, glowing neon colors (pinks, blues). High contrast, dramatic angles.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'po54_1', name: 'Subject 7', description: 'A stoic shorthair with a cybernetic eye that hacks electronic food bowls.' }, { id: 'po54_2', name: 'Chairman Meow', description: 'The highly augmented feline ruler who communicates only in "Purr-code."' }] 
   },
-  {
-    id: 'n1',
-    name: 'Inanimate personalities',
-    backgroundColor: '#dbdac8',
-    category: 'Category 1: Anthropomorphic',
-    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines.',
-    environment: 'Living Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n1c1', name: 'Lampy', description: 'A nervous desk lamp whose bulb is flickering, believing it’s a glimpse into the afterlife.' },
-      { id: 'n1c2', name: 'Extension Cord', description: 'A tangled, laid-back cord that always tells Lampy to "chill" and accept the current.' }
-    ]
-  },
-  {
-    id: 'n2',
-    name: 'Rainbow lambcakes',
-    backgroundColor: '#dbdac8',
-    category: 'Category 1: Anthropomorphic',
-    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines.',
-    environment: 'Bakery Display',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n2c1', name: 'Sprinkle', description: 'A festive lambcake with existential dread about being eaten, viewing himself as art.' },
-      { id: 'n2c2', name: 'Coconut Shavings', description: 'Another lambcake eager to be consumed, viewing it as the ultimate performance art.' }
-    ]
-  },
-  {
-    id: 'n3',
-    name: 'Spaghetti TED',
-    backgroundColor: '#dbdac8',
-    category: 'Category 1: Anthropomorphic',
-    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines.',
-    environment: 'Boiling Pot',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n3c1', name: 'Ted', description: 'A single, miles-long noodle who is absolutely terrified of the boiling pot and delivers monologues.' },
-      { id: 'n3c2', name: 'Forky', description: 'A pragmatic, four-pronged utensil who finds Ted\'s constant drama exhausting.' }
-    ]
-  },
-  {
-    id: 'n4',
-    name: 'The Jars of Sadness',
-    backgroundColor: '#dbdac8',
-    category: 'Category 1: Anthropomorphic',
-    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines.',
-    environment: 'Pantry Shelf',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n4c1', name: 'Jar 7', description: 'A glass jar containing a single, teardrop-shaped marble representing a polite regret.' },
-      { id: 'n4c2', name: 'The Lid', description: 'A metal screw-top constantly trying to keep the sadness sealed in to preserve the "vintage".' }
-    ]
-  },
-  {
-    id: 'n5',
-    name: 'Deli meat meet',
-    backgroundColor: '#dbdac8',
-    category: 'Category 1: Anthropomorphic',
-    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines.',
-    environment: 'Deli Case',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n5c1', name: 'Sal', description: 'A tough, seasoned slice of salami who claims he used to run the whole deli display case.' },
-      { id: 'n5c2', name: 'Prudence', description: 'A refined, paper-thin slice of imported prosciutto who secretly fears turning gray.' }
-    ]
-  },
-  {
-    id: 'n6',
-    name: 'Office staple',
-    backgroundColor: '#dbdac8',
-    category: 'Category 1: Anthropomorphic',
-    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines.',
-    environment: 'Office Desk',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n6c1', name: 'Staple', description: 'A single metal staple trapped in a jammed gun, dreaming of a "clean punch".' },
-      { id: 'n6c2', name: 'Staple Remover', description: 'A sadistic, pincer-like tool that keeps threatening to pull Staple out.' }
-    ]
-  },
-  {
-    id: 'n7',
-    name: 'Cloggy',
-    backgroundColor: '#dbdac8',
-    category: 'Category 1: Anthropomorphic',
-    artStyle: '"Sunday Funnies" meets Surrealism. Bright, saturated, sketchy colors; thick, expressive outlines.',
-    environment: 'Shower Drain',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n7c1', name: 'Cloggy', description: 'A lovable, stubborn ball of hair and soap scum blocking a shower drain.' },
-      { id: 'n7c2', name: 'Plunger', description: 'A rough-and-tumble, blue-collar tool who keeps forcing his rubber face down on Cloggy.' }
-    ]
-  },
-  {
-    id: 'n8',
-    name: 'Corn Soaked Campwho',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Campsite',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n8c1', name: 'Gary', description: 'A camper whose entire personality is wrapped around an embarrassing memory of spilling chowder.' },
-      { id: 'n8c2', name: 'The Who', description: 'A ghost-like figure made of corn that appears just to ask "Who?" when Gary changes the subject.' }
-    ]
-  },
-  {
-    id: 'n9',
-    name: 'Wired up Chuck',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Basement',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n9c1', name: 'Chuck', description: 'A paranoid man who believes he can "hack reality" by connecting to dial-up electronics.' },
-      { id: 'n9c2', name: 'Janice', description: 'His very normal sister who ignores his theories and just brings him casseroles.' }
-    ]
-  },
-  {
-    id: 'n10',
-    name: 'Accidental candidness',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Dinner Party',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n10c1', name: 'Mark', description: 'A man whose mouth is physically incapable of lying, making him a social pariah.' },
-      { id: 'n10c2', name: 'Patty', description: 'The only person who invites Mark to dinner, using his honesty as a weapon against guests.' }
-    ]
-  },
-  {
-    id: 'n11',
-    name: 'Truth be Sold',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Roadside Stand',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n11c1', name: 'Ziggy-like', description: 'A pathetic, balding man who sells incredibly mundane "Truths" at a roadside stand.' },
-      { id: 'n11c2', name: 'The Taxman', description: 'A faceless, floating figure who taxes the man based on the emotional value of the truths.' }
-    ]
-  },
-  {
-    id: 'n12',
-    name: 'Shoe to shoe talks',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Shoe Rack',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n12c1', name: 'Scuffy', description: 'An old sneaker seen from the ankle down, who judges his owner\'s laziness based on grass stains.' },
-      { id: 'n12c2', name: 'Pat', description: 'A pristine patent leather shoe who brags about high-stakes corporate meetings.' }
-    ]
-  },
-  {
-    id: 'n13',
-    name: 'Candy Discussions',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Candy Bowl',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n13c1', name: 'The Gummy Bear', description: 'A gelatinous figure who argues his chewiness gives him a deeper philosophical understanding.' },
-      { id: 'n13c2', name: 'The Jawbreaker', description: 'A stoic rock of sugar who views chewiness as a moral failing.' }
-    ]
-  },
-  {
-    id: 'n14',
-    name: 'Controversial clementine',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Fruit Bowl',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n14c1', name: 'Clem', description: 'A sentient clementine convinced she is "toxic" despite everyone finding her delicious.' },
-      { id: 'n14c2', name: 'The Fruit Bowl', description: 'An old ceramic bowl that tells Clem she isn\'t special enough to be controversial.' }
-    ]
-  },
-  {
-    id: 'n15',
-    name: 'Stuck in the Well',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Abandoned Well',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n15c1', name: 'Arthur', description: 'A man who has lived in an abandoned well for five years, treating it as a "minimalist residency".' },
-      { id: 'n15c2', name: 'Clara', description: 'A volunteer rescue worker who comes every week, arguing that "having a sink is better".' }
-    ]
-  },
-  {
-    id: 'n16',
-    name: 'Mean Mime Mustard',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Street Corner',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n16c1', name: 'Mean Mime', description: 'A mime who traps people in invisible boxes but is physically incapable of silence and yells insults.' },
-      { id: 'n16c2', name: 'Mustard', description: 'A grumpy packet of yellow mustard the mime uses as an unwilling comedy partner.' }
-    ]
-  },
-  {
-    id: 'n17',
-    name: 'Monopoly Squared',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Board Game',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n17c1', name: 'The Monocle Man', description: 'A cheap knock-off mascot who lives in a house of mortgage papers, convinced life is a board game.' },
-      { id: 'n17c2', name: 'The Scottie Dog', description: 'A tiny, cynical metal dog token who actually runs the simulation behind the scenes.' }
-    ]
-  },
-  {
-    id: 'n18',
-    name: '"Splain” this',
-    backgroundColor: '#dbdac8',
-    category: 'Category 2: Absurdist, Puns, & Surreal Slice-of-Life',
-    artStyle: 'Indie "Zine" or Lo-Fi Webcomic. Minimalist backgrounds, muted/off-kilter colors.',
-    environment: 'Living Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n18c1', name: 'Nate', description: 'A man whose superpower is "Splain-ing" simple concepts until they become incomprehensible.' },
-      { id: 'n18c2', name: 'Beatrice', description: 'His tired wife who just wants to change a lightbulb without a quantum physics lecture.' }
-    ]
-  },
-  {
-    id: 'n19',
-    name: 'Pi vs. Pie',
-    backgroundColor: '#dbdac8',
-    category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Fine Art Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Abstract Void',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n19c1', name: 'Pi', description: 'A rational, infinite mathematical constant who speaks only in cold logic and geometry.' },
-      { id: 'n19c2', name: 'Pie', description: 'A warm, chaotic baked good who solves all arguments with sweet filling and flaky crust.' }
-    ]
-  },
-  {
-    id: 'n20',
-    name: 'The Seeds of Crisis',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c55', 
+    name: 'The Seeds of Crisis', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows.',
-    environment: 'Alien Moon',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n20c1', name: 'Kael', description: 'A bio-engineered gardener searching for the "seed of hope" on a toxic alien moon.' },
-      { id: 'n20c2', name: 'Overseer B-9', description: 'A sleek corporate android ensuring Kael doesn\'t become radicalized by the flora.' }
-    ]
+    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows contrasted with vibrant, glowing neon colors (pinks, blues). High contrast, dramatic angles.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ts55_1', name: 'Kael', description: 'A bio-engineered gardener searching for the "seed of hope" on a toxic alien moon.' }, { id: 'ts55_2', name: 'Overseer B-9', description: 'A sleek corporate android ensuring Kael doesn\'t become radicalized by the flora.' }] 
   },
-  {
-    id: 'n21',
-    name: 'Cyber kitty and cat girl',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c56', 
+    name: 'Cyber kitty and cat girl', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows.',
-    environment: 'Cyber City',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n21c1', name: 'Momo', description: 'A human hacker in a sleek "neko-suit" who physically infiltrates servers cat-burglar style.' },
-      { id: 'n21c2', name: 'Pulse', description: 'Her companion cat, 90% cybernetic, who protects Momo\'s flank from virtual ICE.' }
-    ]
+    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows contrasted with vibrant, glowing neon colors (pinks, blues). High contrast, dramatic angles.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ck56_1', name: 'Momo', description: 'A human hacker in a sleek "neko-suit" who physically infiltrates servers cat-burglar style.' }, { id: 'ck56_2', name: 'Pulse', description: 'Her companion cat, 90% cybernetic, who protects Momo\'s flank from virtual ICE.' }] 
   },
-  {
-    id: 'n22',
-    name: 'Prrrpetuity',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c57', 
+    name: 'Prrrpetuity', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows.',
-    environment: 'Server Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n22c1', name: 'The Purr-Bot', description: 'An outdated robot cat whose eternal "purr" acts as a data-encryption loop keeping the grid stable.' },
-      { id: 'n22c2', name: 'Sys-Admin Jones', description: 'A world-weary human operator terrified to touch the bot in case the grid collapses.' }
-    ]
+    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows contrasted with vibrant, glowing neon colors (pinks, blues). High contrast, dramatic angles.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'pr57_1', name: 'The Purr-Bot', description: 'An outdated robot cat whose eternal "purr" acts as a data-encryption loop keeping the grid stable.' }, { id: 'pr57_2', name: 'Sys-Admin Jones', description: 'A world-weary human operator terrified to touch the bot in case the grid collapses.' }] 
   },
-  {
-    id: 'n23',
-    name: 'Solid state drivers',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c58', 
+    name: 'Solid state drivers', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows.',
-    environment: 'Hover Taxi',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n23c1', name: 'Driver X', description: 'A human consciousness downloaded into a hover-taxi, obsessed with finding the perfect route.' },
-      { id: 'n23c2', name: 'Dispatch AI', description: 'A corporate voice constantly interrupting with new fare data and efficiency metrics.' }
-    ]
+    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows contrasted with vibrant, glowing neon colors (pinks, blues). High contrast, dramatic angles.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ss58_1', name: 'Driver X', description: 'A human consciousness downloaded into a hover-taxi, obsessed with finding the perfect route.' }, { id: 'ss58_2', name: 'Dispatch AI', description: 'A corporate voice constantly interrupting with new fare data and efficiency metrics.' }] 
   },
-  {
-    id: 'n24',
-    name: 'Alien congress',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c59', 
+    name: 'Alien congress', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows.',
-    environment: 'Galactic Senate',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n24c1', name: 'Vrax', description: 'A gelatinous diplomat who communicates through color changes to a hostile assembly.' },
-      { id: 'n24c2', name: 'Speaker C\'Thon', description: 'A multi-headed bureaucrat who treats color-diplomacy as "vulgar".' }
-    ]
+    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows contrasted with vibrant, glowing neon colors (pinks, blues). High contrast, dramatic angles.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ac59_1', name: 'Vrax', description: 'A gelatinous diplomat who communicates through color changes to a hostile assembly.' }, { id: 'ac59_2', name: 'Speaker C\'Thon', description: 'A multi-headed bureaucrat who treats color-diplomacy as "vulgar."' }] 
   },
-  {
-    id: 'n25',
-    name: 'The electric line club',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c60', 
+    name: 'The electric line club', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 3: High Concept, Sci-Fi, & Cyberpunk',
-    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows.',
-    environment: 'Underground Club',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n25c1', name: 'Volt', description: 'A down-on-his-luck DJ with glowing cybernetic implants trying to cure dystopian despair.' },
-      { id: 'n25c2', name: 'Manager Chrome', description: 'A mirror-faced android optimizing Volt\'s music purely for corporate mood targets.' }
-    ]
+    artStyle: 'Neon-Noir / Franco-Belgian Sci-Fi. Intricate background details, heavy use of shadows contrasted with vibrant, glowing neon colors (pinks, blues). High contrast, dramatic angles.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'te60_1', name: 'Volt', description: 'A down-on-his-luck DJ with glowing cybernetic implants trying to cure dystopian despair.' }, { id: 'te60_2', name: 'Manager Chrome', description: 'A mirror-faced android optimizing Volt\'s music purely for corporate mood targets.' }] 
   },
-  {
-    id: 'n26',
-    name: 'Easter Bunny cage',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c61', 
+    name: 'Nocturnal Digestion', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Dungeon',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n26c1', name: 'Barnaby', description: 'An ancient spirit in a crude bunny suit, locked in an iron cage, humming nursery rhymes.' },
-      { id: 'n26c2', name: 'Timmy', description: 'A Victorian boy whose daily chore is feeding Barnaby eggs made of solidified fear.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'nd61_1', name: 'Mr. Belly', description: 'A sentient stomach that detaches at night to wander Victorian streets eating esoteric objects.' }, { id: 'nd61_2', name: 'Penny', description: 'A polite orphan girl who treats Mr. Belly like a stray dog and feeds him her bad dreams.' }] 
   },
-  {
-    id: 'n27',
-    name: 'Ccursed William',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c62', 
+    name: 'Easter Bunny cage', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Victorian Parlor',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n27c1', name: 'William', description: 'A melancholy man who instantly earns trust, but brings embarrassing mishaps wherever he goes.' },
-      { id: 'n27c2', name: 'The Imp', description: 'A small, screeching demon perched invisibly on William\'s shoulder, narrating the chaos.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'eb62_1', name: 'Barnaby', description: 'An ancient spirit in a crude bunny suit, locked in an iron cage, humming nursery rhymes.' }, { id: 'eb62_2', name: 'Timmy', description: 'A Victorian boy whose daily chore is feeding Barnaby eggs made of solidified fear.' }] 
   },
-  {
-    id: 'n28',
-    name: 'Doorway to Nor',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c63', 
+    name: 'Cursed William', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Locked Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n28c1', name: 'Grok', description: 'A faceless entity from the void trapped behind a mahogany door, communicating only in sighs.' },
-      { id: 'n28c2', name: 'Elara', description: 'A brave girl who sits by the door telling Grok about things like "color" and "sadness".' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cw63_1', name: 'William', description: 'A melancholy man who instantly earns trust, but brings embarrassing mishaps wherever he goes.' }, { id: 'cw63_2', name: 'The Imp', description: 'A small, screeching demon perched invisibly on William\'s shoulder, narrating the chaos.' }] 
   },
-  {
-    id: 'n29',
-    name: 'Murmurs',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c64', 
+    name: 'Doorway to Nor', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Haunted Hallway',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n29c1', name: 'Murmur', description: 'An amorphous shadow in the walls that only repeats the final thoughts of deceased pets.' },
-      { id: 'n29c2', name: 'Mrs. Graves', description: 'The cheerful homeowner who talks to Murmur, arguing it is "such a good listener".' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'dt64_1', name: 'Grok', description: 'A faceless entity from the void trapped behind a mahogany door, communicating only in sighs.' }, { id: 'dt64_2', name: 'Elara', description: 'A brave girl who sits by the door telling Grok about things like "color" and "sadness."' }] 
   },
-  {
-    id: 'n30',
-    name: 'Witness inspection',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c65', 
+    name: 'Murmurs', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Interrogation Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n30c1', name: 'The Inspector', description: 'A faceless figure in a trench coat who physically reaches into witnesses\' heads to inspect memories.' },
-      { id: 'n30c2', name: 'The Witness', description: 'A person completely unbothered by the procedure, helpfully pointing out specific thoughts.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'mu65_1', name: 'Murmur', description: 'An amorphous shadow in the walls that only repeats the final thoughts of deceased pets.' }, { id: 'mu65_2', name: 'Mrs. Graves', description: 'The cheerful homeowner who talks to Murmur, arguing it is "such a good listener."' }] 
   },
-  {
-    id: 'n31',
-    name: 'Rodney the ghost',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c66', 
+    name: 'Witness inspection', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Attic',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n31c1', name: 'Rodney', description: 'A polite, transparent Victorian boy who haunts a house because he wants to learn to ride a bicycle.' },
-      { id: 'n31c2', name: 'Mrs. Graves', description: 'The homeowner who tries to exorcize Rodney only when his ectoplasmic bike chain squeaks.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'wi66_1', name: 'The Inspector', description: 'A faceless figure in a trench coat who physically reaches into witnesses\' heads to inspect memories.' }, { id: 'wi66_2', name: 'The Witness', description: 'A person completely unbothered by the procedure, helpfully pointing out specific thoughts.' }] 
   },
-  {
-    id: 'n32',
-    name: 'Sins of thy tools',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c67', 
+    name: 'Rodney the ghost', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Workshop',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n32c1', name: 'Screwdriver', description: 'A self-righteous tool that physically refuses to tighten screws if the user is lying.' },
-      { id: 'n32c2', name: 'The Blacksmith', description: 'The old man who forged it, threatening to file the Screwdriver down to a flathead.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'rt67_1', name: 'Rodney', description: 'A polite, transparent Victorian boy who haunts a house because he wants to learn to ride a bicycle.' }, { id: 'rt67_2', name: 'Mrs. Graves', description: 'The homeowner who tries to exorcize Rodney only when his ectoplasmic bike chain squeaks.' }] 
   },
-  {
-    id: 'n33',
-    name: 'Shadowlurker',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c68', 
+    name: 'Sins of thy tools', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Dark Corner',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n33c1', name: 'The Lurker', description: 'The personified idea of shadows, composed entirely of cross-hatching, who is incredibly melancholy.' },
-      { id: 'n33c2', name: 'The Candlestick Maker', description: 'A faceless human who never sees the Lurker because he always looks directly at the light.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'so68_1', name: 'Screwdriver', description: 'A self-righteous tool that physically refuses to tighten screws if the user is lying.' }, { id: 'so68_2', name: 'The Blacksmith', description: 'The old man who forged it, threatening to file the Screwdriver down to a flathead.' }] 
   },
-  {
-    id: 'n34',
-    name: 'Where Fear Retires',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c69', 
+    name: 'Shadowlurker', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Cemetery Garden',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n34c1', name: 'Phobius', description: 'The retired concept of Fear, now living in a cemetery, reading philosophy and gardening.' },
-      { id: 'n34c2', name: 'The Undertaker', description: 'A polite local who treats Fear like any other eccentric elderly neighbor.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'sh69_1', name: 'The Lurker', description: 'The personified idea of shadows, composed entirely of cross-hatching, who is incredibly melancholy.' }, { id: 'sh69_2', name: 'The Candlestick Maker', description: 'A faceless human who never sees the Lurker because he always looks directly at the light.' }] 
   },
-  {
-    id: 'n35',
-    name: 'Bygone Errors',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c70', 
+    name: 'Where Fear Retires', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Memory Void',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n35c1', name: 'Error 14', description: 'The personified memory of a polite social blunder (like saying \'you too\' to a waiter).' },
-      { id: 'n35c2', name: 'Penny', description: 'An orphan who finds Error 14\'s blunders funny and treats it like a stray pet.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'wf70_1', name: 'Phobius', description: 'The retired concept of Fear, now living in a cemetery, reading philosophy and gardening.' }, { id: 'wf70_2', name: 'The Undertaker', description: 'A polite local who treats Fear like any other eccentric elderly neighbor.' }] 
   },
-  {
-    id: 'n36',
-    name: 'Anomalous fountains',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c71', 
+    name: 'Bygone Errors', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Park Fountain',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n36c1', name: 'The Fountain', description: 'A gothic park fountain that only flows with moldy green ink on Tuesdays.' },
-      { id: 'n36c2', name: 'Penny', description: 'The perpetually unbothered orphan who uses the fountain\'s green ink to draw pictures.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'be71_1', name: 'Error 14', description: 'The personified memory of a polite social blunder (like saying \'you too\' to a waiter).' }, { id: 'be71_2', name: 'Penny', description: 'An orphan who finds Error 14\'s blunders funny and treats it like a stray pet.' }] 
   },
-  {
-    id: 'n37',
-    name: 'Near death disorder',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c72', 
+    name: 'Anomalous fountains', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Hospital Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n37c1', name: 'Penny', description: 'The same unfazed orphan who views constant, terrifying brushes with mortality as beautiful experiences.' },
-      { id: 'n37c2', name: 'Near-Death', description: 'A reaper-in-training who is incredibly stressed out by how polite and unafraid Penny is.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'af72_1', name: 'The Fountain', description: 'A gothic park fountain that only flows with moldy green ink on Tuesdays.' }, { id: 'af72_2', name: 'Penny', description: 'The perpetually unbothered orphan who uses the fountain\'s green ink to draw pictures.' }] 
   },
-  {
-    id: 'n38',
-    name: 'Cemetary resort',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c73', 
+    name: 'Near death disorder', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Cemetery Gates',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n38c1', name: 'Phobius', description: 'Fear, now enjoying the cemetery as a relaxing, five-star "resort" vacation.' },
-      { id: 'n38c2', name: 'The Bellhop', description: 'A skeletal employee carrying luggage made of literal baggage, trying to ruin Fear\'s stay.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'nd73_1', name: 'Penny', description: 'The same unfazed orphan who views constant, terrifying brushes with mortality as beautiful experiences.' }, { id: 'nd73_2', name: 'Near-Death', description: 'A reaper-in-training who is incredibly stressed out by how polite and unafraid Penny is.' }] 
   },
-  {
-    id: 'n39',
-    name: 'The Whorst Game',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c74', 
+    name: 'Cemetary resort', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Game Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n39c1', name: 'The Board', description: 'The spirit of a cursed gothic board game, furious and sadistic, trying to torment players.' },
-      { id: 'n39c2', name: 'Penny', description: 'The orphan who treats the game\'s horrific magical punishments as delightful "polite suggestions".' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cr74_1', name: 'Phobius', description: 'Fear, now enjoying the cemetery as a relaxing, five-star "resort" vacation.' }, { id: 'cr74_2', name: 'The Bellhop', description: 'A skeletal employee carrying luggage made of literal baggage, trying to ruin Fear\'s stay.' }] 
   },
-  {
-    id: 'n40',
-    name: 'The wishes chair',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c75', 
+    name: 'The Whorst Game', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Prison Cell',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n40c1', name: 'The Chair', description: 'A sentient electric chair in an abandoned prison, politely eager to grant "the ultimate release".' },
-      { id: 'n40c2', name: 'Timmy', description: 'A naive boy who thinks sitting in the "big chair" makes him a grown-up.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tw75_1', name: 'The Board', description: 'The spirit of a cursed gothic board game, furious and sadistic, trying to torment players.' }, { id: 'tw75_2', name: 'Penny', description: 'The orphan who treats the game\'s horrific magical punishments as delightful "polite suggestions."' }] 
   },
-  {
-    id: 'n41',
-    name: 'Brimstone bickering',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c76', 
+    name: 'The wishes chair', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching.',
-    environment: 'Hell Office',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n41c1', name: 'Pez', description: 'A small demon who thinks inflicting minor inconveniences (stubbed toes) is high art.' },
-      { id: 'n41c2', name: 'The Arch-Demon', description: 'A massive beast who argues that true hell is purely administrative paperwork.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tw76_1', name: 'The Chair', description: 'A sentient electric chair in an abandoned prison, politely eager to grant "the ultimate release."' }, { id: 'tw76_2', name: 'Timmy', description: 'A naive boy who thinks sitting in the "big chair" makes him a grown-up.' }] 
   },
-  {
-    id: 'n42',
-    name: 'Stone query',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c77', 
+    name: 'Brimstone bickering', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 4: Gothic, Dark Comedy, & Horror',
-    artStyle: 'Gothic with dynamic composition.',
-    environment: 'Cathedral Roof',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n42c1', name: 'Grox', description: 'A highly detailed gargoyle perched on a cathedral, obsessed with boring architectural trivia.' },
-      { id: 'n42c2', name: 'Mor', description: 'A cynical grotesque holding a rain spout, who hates trivia and complains about pigeons.' }
-    ]
+    artStyle: 'Edward Gorey meets Hellboy. Stark black and white with heavy cross-hatching, or limited color (deep reds, moldy greens). Heavy scratch-board textures, oppressive shadow.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'bb77_1', name: 'Pez', description: 'A small demon who thinks inflicting minor inconveniences (stubbed toes) is high art.' }, { id: 'bb77_2', name: 'The Arch-Demon', description: 'A massive beast who argues that true hell is purely administrative paperwork.' }] 
   },
-  {
-    id: 'n43',
-    name: 'Introduction to Doom',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c78', 
+    name: 'Stone query', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 4: Gothic, Dark Comedy, & Horror',
+    artStyle: '(Vibe modification) Same visual style as gothic, but with slightly more dynamic composition to emphasize conversation.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'sq78_1', name: 'Grox', description: 'A highly detailed gargoyle perched on a cathedral, obsessed with boring architectural trivia.' }, { id: 'sq78_2', name: 'Mor', description: 'A cynical grotesque holding a rain spout, who hates trivia and complains about pigeons.' }] 
+  },
+  { 
+    id: 'c79', 
+    name: 'Bootcamp Bill', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Office',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n43c1', name: 'Arthur', description: 'A middle manager treating absolute catastrophic apocalyptic collapse purely as a spreadsheet error.' },
-      { id: 'n43c2', name: 'AI-9', description: 'A generic android that keeps recommending "system defragmentation" instead of panic.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'bb79_1', name: 'Bill', description: 'A weary conscript whose existence is defined by absurd, ever-changing "efficiency metrics."' }, { id: 'bb79_2', name: 'Sgt. Stone', description: 'A massive drill instructor who yells because he believes "noise is efficient."' }] 
   },
-  {
-    id: 'n44',
-    name: 'Logmen',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c80', 
+    name: 'Introduction to Doom', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Forest',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n44c1', name: 'Pete', description: 'A lumberjack whose job is digitized; he now just logs data points about trees on a tablet.' },
-      { id: 'n44c2', name: 'Supervisor-9', description: 'An android who threatens to fire Pete if he mentions the "beauty" of the bark.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'it80_1', name: 'Arthur', description: 'A middle manager treating absolute catastrophic apocalyptic collapse purely as a spreadsheet error.' }, { id: 'it80_2', name: 'AI-9', description: 'A generic android that keeps recommending "system defragmentation" instead of panic.' }] 
   },
-  {
-    id: 'n45',
-    name: 'The infinite Gambler',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c81', 
+    name: 'Logmen', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Casino',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n45c1', name: 'Mark', description: 'An exhausted man in a generic casino who believes playing one specific machine will free him.' },
-      { id: 'n45c2', name: 'The Dealer', description: 'A faceless figure made of casino chips who treats Mark\'s despair as "entertainment targets".' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'lo81_1', name: 'Pete', description: 'A lumberjack whose job is digitized; he now just logs data points about trees on a tablet.' }, { id: 'lo81_2', name: 'Supervisor-9', description: 'An android who threatens to fire Pete if he mentions the "beauty" of the bark.' }] 
   },
-  {
-    id: 'n46',
-    name: 'journal des débats',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c82', 
+    name: 'The Rats of Nibo', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Newsroom',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n46c1', name: 'Pierre', description: 'A weary Parisian editor who corrects the punctuation of passionate revolutionary manifestos.' },
-      { id: 'n46c2', name: 'Manifesto-Man', description: 'A loud revolutionary who gets "Pierre-splained" on proper paragraph structure.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tr82_1', name: 'Senator Squeak', description: 'A detailed caricature of a corrupt rat politician scheming in the sewers.' }, { id: 'tr82_2', name: 'Cheddar', description: 'An idealist garbage rat trying to bring real change to the plumbing infrastructure.' }] 
   },
-  {
-    id: 'n47',
-    name: 'Elevator Pitch',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c83', 
+    name: 'The infinite Gambler', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Elevator',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n47c1', name: 'Arthur', description: 'A desperate entrepreneur trapped in an infinite elevator ride, endlessly pitching bizarre ideas.' },
-      { id: 'n47c2', name: 'AI-9', description: 'The corporate android sharing the ride, rejecting pitches based purely on syllabic efficiency.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ti83_1', name: 'Mark', description: 'An exhausted man in a generic casino who believes playing one specific machine will free him.' }, { id: 'ti83_2', name: 'The Dealer', description: 'A faceless figure made of casino chips who treats Mark\'s despair as "entertainment targets."' }] 
   },
-  {
-    id: 'n48',
-    name: 'Quality Inspectors',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c84', 
+    name: 'Journal des débats', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Cloud Factory',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n48c1', name: 'Inspector 42', description: 'An exhausted bureaucrat assigned the impossible task of grading the existential quality of clouds.' },
-      { id: 'n48c2', name: 'The Wind', description: 'A chaotic entity that messes up the clouds\' shapes right before inspection out of spite.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'jd84_1', name: 'Pierre', description: 'A weary Parisian editor who corrects the punctuation of passionate revolutionary manifestos.' }, { id: 'jd84_2', name: 'Manifesto-Man', description: 'A loud revolutionary who gets "Pierre-splained" on proper paragraph structure.' }] 
   },
-  {
-    id: 'n49',
-    name: 'The Que',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c85', 
+    name: 'Elevator Pitch', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Endless Line',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n49c1', name: 'Waiting Warren', description: 'A man in an endless line so long he has set up a campsite and started a family.' },
-      { id: 'n49c2', name: 'The Line Manager', description: 'A faceless clipboard that refuses to tell anyone what the line is for.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ep85_1', name: 'Arthur', description: 'A desperate entrepreneur trapped in an infinite elevator ride, endlessly pitching bizarre ideas.' }, { id: 'ep85_2', name: 'AI-9', description: 'The corporate android sharing the ride, rejecting pitches based purely on syllabic efficiency.' }] 
   },
-  {
-    id: 'n50',
-    name: 'Do the work in montage',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c86', 
+    name: 'Quality Inspectors', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Training Gym',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n50c1', name: 'Rocky-ish', description: 'An exhausted hero forced to do repetitive physical tasks because upbeat 80s synth music is playing.' },
-      { id: 'n50c2', name: 'The Boombox', description: 'A tyrannical floating stereo that refuses to let him rest until the guitar solo ends.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'qi86_1', name: 'Inspector 42', description: 'An exhausted bureaucrat assigned the impossible task of grading the existential quality of clouds.' }, { id: 'qi86_2', name: 'The Wind', description: 'A chaotic entity that messes up the clouds\' shapes right before inspection out of spite.' }] 
   },
-  {
-    id: 'n51',
-    name: 'Major Disappointment',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c87', 
+    name: 'The Que', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'War Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n51c1', name: 'General Letdown', description: 'A military leader whose only tactical strategy is aggressively lowering expectations.' },
-      { id: 'n51c2', name: 'Corporal Bummer', description: 'His fiercely loyal aide who proactively cancels morale-boosting events.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tq87_1', name: 'Waiting Warren', description: 'A man in an endless line so long he has set up a campsite and started a family.' }, { id: 'tq87_2', name: 'The Line Manager', description: 'A faceless clipboard that refuses to tell anyone what the line is for.' }] 
   },
-  {
-    id: 'n52',
-    name: 'Sweat and aging',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c88', 
+    name: 'Do the work in montage', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Gym',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n52c1', name: 'Phil', description: 'An aging gym rat who treats every minor muscle ache as a deep, philosophical failure of the flesh.' },
-      { id: 'n52c2', name: 'Father Time', description: 'An invisible spotter who keeps secretly adding five pounds to the barbell every year.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'dt88_1', name: 'Rocky-ish', description: 'An exhausted hero forced to do repetitive physical tasks because upbeat 80s synth music is playing.' }, { id: 'dt88_2', name: 'The Boombox', description: 'A tyrannical floating stereo that refuses to let him rest until the guitar solo ends.' }] 
   },
-  {
-    id: 'n53',
-    name: 'Shared sentiment',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c89', 
+    name: 'Major Disappointment', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Breakroom',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n53c1', name: 'Arthur', description: 'An office drone desperately trying to establish a genuine human connection in the breakroom.' },
-      { id: 'n53c2', name: 'The Watercooler', description: 'A sentient plastic jug that only dispenses lukewarm water and generic corporate gossip.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'md89_1', name: 'General Letdown', description: 'A military leader whose only tactical strategy is aggressively lowering expectations.' }, { id: 'md89_2', name: 'Corporal Bummer', description: 'His fiercely loyal aide who proactively cancels morale-boosting events.' }] 
   },
-  {
-    id: 'n54',
-    name: 'Musings only',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c90', 
+    name: 'Sweat and aging', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Cubicle',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n54c1', name: 'The Thinker', description: 'A man trapped in a state of constant, profound internal monologue but unable to speak.' },
-      { id: 'n54c2', name: 'The Output', description: 'A completely empty printer tray that he stares at, waiting for his thoughts to manifest.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'sa90_1', name: 'Phil', description: 'An aging gym rat who treats every minor muscle ache as a deep, philosophical failure of the flesh.' }, { id: 'sa90_2', name: 'Father Time', description: 'An invisible spotter who keeps secretly adding five pounds to the barbell every year.' }] 
   },
-  {
-    id: 'n55',
-    name: 'Embarrassment Row',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c91', 
+    name: 'Shared sentiment', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Police Lineup',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n55c1', name: 'Mark', description: 'A man forced to stand in a police lineup made entirely of his past social blunders.' },
-      { id: 'n55c2', name: 'The Judge', description: 'A faceless figure with a gavel who sentences Mark to randomly remember them at 3 AM.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ss91_1', name: 'Arthur', description: 'An office drone desperately trying to establish a genuine human connection in the breakroom.' }, { id: 'ss91_2', name: 'The Watercooler', description: 'A sentient plastic jug that only dispenses lukewarm water and generic corporate gossip.' }] 
   },
-  {
-    id: 'n56',
-    name: 'Politics and cream',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c92', 
+    name: 'Musings only', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
-    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features, drab colors.',
-    environment: 'Press Conference',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n56c1', name: 'Senator Fudge', description: 'A corrupt politician who speaks entirely in dairy-based euphemisms to avoid direct questions.' },
-      { id: 'n56c2', name: 'The Whisk', description: 'An aggressive investigative journalist trying to whip up a scandal and curdle his career.' }
-    ]
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'mo92_1', name: 'The Thinker', description: 'A man trapped in a state of constant, profound internal monologue but unable to speak.' }, { id: 'mo92_2', name: 'The Output', description: 'A completely empty printer tray that he stares at, waiting for his thoughts to manifest.' }] 
   },
-  {
-    id: 'n57',
-    name: 'Zoofusion',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c93', 
+    name: 'Embarrassment Row', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'er93_1', name: 'Mark', description: 'A man forced to stand in a police lineup made entirely of his past social blunders.' }, { id: 'er93_2', name: 'The Judge', description: 'A faceless figure with a gavel who sentences Mark to randomly remember them at 3 AM.' }] 
+  },
+  { 
+    id: 'c94', 
+    name: 'Politics and cream', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 5: Satire, Bureaucracy, & The Mundane Grind',
+    artStyle: 'Sketchy Caricature / Political Cartoon. Exaggerated features (massive noses), drab colors (beiges, grays), claustrophobic panel layout traps characters.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'pa94_1', name: 'Senator Fudge', description: 'A corrupt politician who speaks entirely in dairy-based euphemisms to avoid direct questions.' }, { id: 'pa94_2', name: 'The Whisk', description: 'An aggressive investigative journalist trying to whip up a scandal and curdle his career.' }] 
+  },
+  { 
+    id: 'c95', 
+    name: 'Dragon lord dominion', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects.',
-    environment: 'Lab',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n57c1', name: 'Dr. Chimera', description: 'A mad scientist who enthusiastically mashes incompatible animals together using a ray gun.' },
-      { id: 'n57c2', name: 'Duck-Bear', description: 'The exhausted, highly unstable result of a fusion, just trying to figure out what it eats.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'dl95_1', name: 'Cinder', description: 'A heroic, heavily-muscled green dragon obsessed with optimizing his hoard\'s "loot stats."' }, { id: 'dl95_2', name: 'Dusty', description: 'A fast-talking kobold accountant constantly appraising the value of defeated enemies.' }] 
   },
-  {
-    id: 'n58',
-    name: 'Wimbleton willbright',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c96', 
+    name: 'Zoofusion', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects.',
-    environment: 'Wizard Tower',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n58c1', name: 'Wimbleton', description: 'An overly enthusiastic wizard apprentice whose spells have catastrophic, neon-colored side effects.' },
-      { id: 'n58c2', name: 'The Grand Mage', description: 'His deeply exhausted mentor who rubs his temples constantly in a cel-shaded world.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'zo96_1', name: 'Dr. Chimera', description: 'A mad scientist who enthusiastically mashes incompatible animals together using a ray gun.' }, { id: 'zo96_2', name: 'Duck-Bear', description: 'The exhausted, highly unstable result of a fusion, just trying to figure out what it eats.' }] 
   },
-  {
-    id: 'n59',
-    name: 'Elven looters',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c97', 
+    name: 'Wimbleton willbright', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects.',
-    environment: 'Dungeon',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n59c1', name: 'Fingolfin', description: 'A snobbish elf who refuses to steal anything less than museum-quality artifacts.' },
-      { id: 'n59c2', name: 'Borin', description: 'A pragmatic dwarf companion who will happily steal copper wiring if it pays for a pint.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ww97_1', name: 'Wimbleton', description: 'An overly enthusiastic wizard apprentice whose spells have catastrophic, neon-colored side effects.' }, { id: 'ww97_2', name: 'The Grand Mage', description: 'His deeply exhausted mentor who rubs his temples constantly in a cel-shaded world.' }] 
   },
-  {
-    id: 'n60',
-    name: 'Mutant city brawlers',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c98', 
+    name: 'Elven looters', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects.',
-    environment: 'Arena',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n60c1', name: 'Slammer', description: 'A massive mutant with concrete arms who hates fighting and just wants to open a bakery.' },
-      { id: 'n60c2', name: 'The Mayor', description: 'A corrupt cyborg who forces Slammer into underground tournaments by threatening his sourdough.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'el98_1', name: 'Fingolfin', description: 'A snobbish elf who refuses to steal anything less than museum-quality artifacts.' }, { id: 'el98_2', name: 'Borin', description: 'A pragmatic dwarf companion who will happily steal copper wiring if it pays for a pint.' }] 
   },
-  {
-    id: 'n61',
-    name: 'Golden Harriet',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c99', 
+    name: 'Mutant city brawlers', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects.',
-    environment: 'Dungeon',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n61c1', name: 'Harriet', description: 'A plucky adventurer who turns everything she touches into solid gold, ruining her life.' },
-      { id: 'n61c2', name: 'The Appraiser', description: 'A cynical pawn shop owner who points out that gold is losing its market value due to inflation.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'mc99_1', name: 'Slammer', description: 'A massive mutant with concrete arms who hates fighting and just wants to open a bakery.' }, { id: 'mc99_2', name: 'The Mayor', description: 'A corrupt cyborg who forces Slammer into underground tournaments by threatening his sourdough.' }] 
   },
-  {
-    id: 'n62',
-    name: 'The forest nation',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c100', 
+    name: 'Golden Harriet', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects.',
-    environment: 'Ancient Forest',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n62c1', name: 'The Ent-King', description: 'A stubborn, ancient tree bureaucrat who refuses to grant zoning permits to the wildlife.' },
-      { id: 'n62c2', name: 'The Developer', description: 'A highly caffeinated beaver in a hardhat trying to gentrify the riverbank.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'gh100_1', name: 'Harriet', description: 'A plucky adventurer who turns everything she touches into solid gold, ruining her life.' }, { id: 'gh100_2', name: 'The Appraiser', description: 'A cynical pawn shop owner who points out that gold is losing its market value due to inflation.' }] 
   },
-  {
-    id: 'n63',
-    name: 'Questeretta',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c101', 
+    name: 'The forest nation', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects.',
-    environment: 'Village',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n63c1', name: 'Questeretta', description: 'A hyper-energetic RPG protagonist who breaks into homes looking for side quests.' },
-      { id: 'n63c2', name: 'The NPC', description: 'An exhausted villager who is forced to repeat the same three lines of dialogue forever.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'tf101_1', name: 'The Ent-King', description: 'A stubborn, ancient tree bureaucrat who refuses to grant zoning permits to the wildlife.' }, { id: 'tf101_2', name: 'The Developer', description: 'A highly caffeinated beaver in a hardhat trying to gentrify the riverbank.' }] 
   },
-  {
-    id: 'n64',
-    name: 'Level up',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c102', 
+    name: 'Questeretta', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects.',
-    environment: 'Forest',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n64c1', name: 'Cinder', description: 'The dragon, now stuck grinding low-level boars in the forest just to afford a new sword.' },
-      { id: 'n64c2', name: 'The Game Master', description: 'A bored, omnipotent narrator rolling dice off-screen and sighing at Cinder\'s choices.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'qu102_1', name: 'Questeretta', description: 'A hyper-energetic RPG protagonist who breaks into homes looking for side quests.' }, { id: 'qu102_2', name: 'The NPC', description: 'An exhausted villager who is forced to repeat the same three lines of dialogue forever.' }] 
   },
-  {
-    id: 'n65',
-    name: 'Cumberland gap curses',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c103', 
+    name: 'Level up', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 6: Fantasy, Mythology, & Adventure',
-    artStyle: 'Classic adventure style but with a more textured, earthy color palette.',
-    environment: 'Mountain Path',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n65c1', name: 'Jebediah', description: 'A plucky 19th-century traveler highly persistent despite being burdened by hillbilly curses.' },
-      { id: 'n65c2', name: 'The Gap Hag', description: 'An earthy folklore entity deeply annoyed that Jebediah is weaponizing her curses.' }
-    ]
+    artStyle: 'D&D Manual meets Saturday Cartoon. Dynamic action lines, vibrant magic effects, clean linework, detailed monster design, cel-shaded coloring.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'lu103_1', name: 'Cinder', description: 'The dragon, now stuck grinding low-level boars in the forest just to afford a new sword.' }, { id: 'lu103_2', name: 'The Game Master', description: 'A bored, omnipotent narrator rolling dice off-screen and sighing at Cinder\'s choices.' }] 
   },
-  {
-    id: 'n66',
-    name: 'Droogs and Violet',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c104', 
+    name: 'Cumberland gap curses', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 6: Fantasy, Mythology, & Adventure',
+    artStyle: '(Vibe modification) Classic adventure style but with a more textured, earthy color palette.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cg104_1', name: 'Jebediah', description: 'A plucky 19th-century traveler highly persistent despite being burdened by hillbilly curses.' }, { id: 'cg104_2', name: 'The Gap Hag', description: 'An earthy folklore entity deeply annoyed that Jebediah is weaponizing her curses.' }] 
+  },
+  { 
+    id: 'c105', 
+    name: 'Super Marlo 3D', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies.',
-    environment: 'Milk Bar',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n66c1', name: 'Violet', description: 'A hyper-violent but impeccably dressed delinquent who loves classical music and milk.' },
-      { id: 'n66c2', name: 'The Inspector', description: 'A tired parole officer who just wants Violet to stop smashing vintage teacups.' }
-    ]
+    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies (e.g., 8-bit art or early 90s CGI; Super Marlo).', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'sm105_1', name: 'Marlo', description: 'A bootleg plumber trapped in a world requiring red/blue 3D glasses, giving him a migraine.' }, { id: 'sm105_2', name: 'Princess Substitute', description: 'A competent fruit vendor completely tired of getting "rescued" and wanting to run her business.' }] 
   },
-  {
-    id: 'n67',
-    name: 'Captain Camero',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c106', 
+    name: 'Droogs and Violet', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies.',
-    environment: 'Garage',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n67c1', name: 'The Captain', description: 'A superhero whose only power is transforming into a 1980s muscle car with a slipping transmission.' },
-      { id: 'n67c2', name: 'Mechanic Mike', description: 'His exasperated sidekick who possesses the tools to constantly fix the Captain\'s spark plugs.' }
-    ]
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'da106_1', name: 'Violet', description: 'A hyper-violent but impeccably dressed delinquent who loves classical music and milk.' }, { id: 'da106_2', name: 'The Inspector', description: 'A tired parole officer who just wants Violet to stop smashing vintage teacups.' }] 
   },
-  {
-    id: 'n68',
-    name: 'Lord Pizza Delivery',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c107', 
+    name: 'Captain Camero', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies.',
-    environment: 'Pizza Shop',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n68c1', name: 'Zargoth', description: 'A terrifying dark lord forced to do gig-economy pizza delivery to pay off his doom-fortress.' },
-      { id: 'n68c2', name: 'Customer 42', description: 'A stoned college student who tips in loose change and complains the crust isn\'t stuffed.' }
-    ]
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cc107_1', name: 'The Captain', description: 'A superhero whose only power is transforming into a 1980s muscle car with a slipping transmission.' }, { id: 'cc107_2', name: 'Mechanic Mike', description: 'His exasperated sidekick who possesses the tools to constantly fix the Captain\'s spark plugs.' }] 
   },
-  {
-    id: 'n69',
-    name: 'Mystery science comic',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c108', 
+    name: 'Lord Pizza Delivery', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies.',
-    environment: 'Theater',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n69c1', name: 'The Heckler', description: 'A silhouette at the bottom of the panel constantly critiquing the artist\'s line work.' },
-      { id: 'n69c2', name: 'The Protagonist', description: 'The hero of the comic who gets insecure about his poorly-drawn hands because of the critiques.' }
-    ]
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'lp108_1', name: 'Zargoth', description: 'A terrifying dark lord forced to do gig-economy pizza delivery to pay off his doom-fortress.' }, { id: 'lp108_2', name: 'Customer 42', description: 'A stoned college student who tips in loose change and complains the crust isn\'t stuffed.' }] 
   },
-  {
-    id: 'n70',
-    name: 'DiE A LOG',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c109', 
+    name: 'Mystery science comic', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies.',
-    environment: 'Comic Panel',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n70c1', name: 'Blank Bubble', description: 'An empty speech bubble floating above characters, desperate for someone to write a good punchline.' },
-      { id: 'n70c2', name: 'The Editor', description: 'An anxious floating pencil that keeps erasing what people write because it "doesn\'t fit".' }
-    ]
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ms109_1', name: 'The Heckler', description: 'A silhouette at the bottom of the panel constantly critiquing the artist\'s line work.' }, { id: 'ms109_2', name: 'The Protagonist', description: 'The hero of the comic who gets insecure about his poorly-drawn hands because of the critiques.' }] 
   },
-  {
-    id: 'n71',
-    name: 'Screen sweeper',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c110', 
+    name: 'DiE A LOG', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies.',
-    environment: 'Desktop',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n71c1', name: 'Cursor', description: 'A tired digital janitor shaped like a mouse pointer, sweeping up broken pixels.' },
-      { id: 'n71c2', name: 'The Glitch', description: 'A corrupted file that refuses to be deleted and wants to make modern art out of digital trash.' }
-    ]
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'da110_1', name: 'Blank Bubble', description: 'An empty speech bubble floating above characters, desperate for someone to write a good punchline.' }, { id: 'da110_2', name: 'The Editor', description: 'An anxious floating pencil that keeps erasing what people write because it "doesn\'t fit."' }] 
   },
-  {
-    id: 'n72',
-    name: 'Channel Flip',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c111', 
+    name: 'Screen sweeper', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies.',
-    environment: 'Living Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n72c1', name: 'The Viewer', description: 'A couch potato whose physical living room morphs to match whatever channel is on TV.' },
-      { id: 'n72c2', name: 'The Remote', description: 'A glowing device trying to keep him safe from landing on the True Crime network.' }
-    ]
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ss111_1', name: 'Cursor', description: 'A tired digital janitor shaped like a mouse pointer, sweeping up broken pixels.' }, { id: 'ss111_2', name: 'The Glitch', description: 'A corrupted file that refuses to be deleted and wants to make modern art out of digital trash.' }] 
   },
-  {
-    id: 'n73',
-    name: 'Family T shirt',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c112', 
+    name: 'Channel Flip', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 7: Meta, Media Parody, & Specific Homages',
-    artStyle: 'Chameleon Style. Perfectly mimics the media it parodies.',
-    environment: 'Laundry Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n73c1', name: 'Big Print', description: 'The loud, obnoxious front graphic of a novelty vacation t-shirt shouting about "Beach Vibes".' },
-      { id: 'n73c2', name: 'The Tag', description: 'An itchy, cynical entity on the back of the neck that just wants to be cut off.' }
-    ]
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'cf112_1', name: 'The Viewer', description: 'A couch potato whose physical living room morphs to match whatever channel is on TV.' }, { id: 'cf112_2', name: 'The Remote', description: 'A glowing device trying to keep him safe from landing on the True Crime network.' }] 
   },
-  {
-    id: 'n74',
-    name: 'delicate life',
-    backgroundColor: '#dbdac8',
-    category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Abstract Void',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n74c1', name: 'The Glass Man', description: 'A fragile being made of beautifully spun glass, navigating a clumsy, heavy-handed world.' },
-      { id: 'n74c2', name: 'The Bubble Wrap Salesman', description: 'An aggressive bodyguard who constantly tries to tape packaging material to him.' }
-    ]
+  { 
+    id: 'c113', 
+    name: 'Family T shirt', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 7: Meta, Media Parody, & Specific Homages',
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ft113_1', name: 'Big Print', description: 'The loud, obnoxious front graphic of a novelty vacation t-shirt shouting about "Beach Vibes."' }, { id: 'ft113_2', name: 'The Tag', description: 'An itchy, cynical entity on the back of the neck that just wants to be cut off.' }] 
   },
-  {
-    id: 'n75',
-    name: 'Musings in the dark',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c114', 
+    name: 'Bohemian Breakdowns', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Dark Room',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n75c1', name: 'The Insomniac', description: 'A wide-awake pair of eyes in a pitch-black panel, overthinking a conversation from 2014.' },
-      { id: 'n75c2', name: 'The Brain', description: 'A pulsing organ enthusiastically providing the Insomniac with worse-case scenarios.' }
-    ]
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'bb114_1', name: 'The Artist', description: 'A melodramatic watercolor painter who weeps openly over the emotional weight of beige.' }, { id: 'bb114_2', name: 'The Canvas', description: 'A sentient blank canvas begging to be painted so it can finally get a job in a hotel.' }] 
   },
-  {
-    id: 'n76',
-    name: 'Dire love',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c115', 
+    name: 'Delicate life', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Streetlight',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n76c1', name: 'The Moth', description: 'A delicate, shadowy figure fatally and romantically attracted to dangerous neon signs.' },
-      { id: 'n76c2', name: 'The Bulb', description: 'A flickering, self-loathing streetlight trying to convince the moth to find a nice candle instead.' }
-    ]
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'dl115_1', name: 'The Glass Man', description: 'A fragile being made of beautifully spun glass, navigating a clumsy, heavy-handed world.' }, { id: 'dl115_2', name: 'The Bubble Wrap Salesman', description: 'An aggressive bodyguard who constantly tries to tape packaging material to him.' }] 
   },
-  {
-    id: 'n77',
-    name: 'Homoside',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c116', 
+    name: 'Musings in the dark', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Crime Scene',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n77c1', name: 'The Chalk Outline', description: 'A glowing outline of a body that is tired of lying on the pavement and wants to walk away.' },
-      { id: 'n77c2', name: 'The Rain', description: 'A cynical weather pattern slowly washing the Outline away, telling it to accept its temporary nature.' }
-    ]
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'mi116_1', name: 'The Insomniac', description: 'A wide-awake pair of eyes in a pitch-black panel, overthinking a conversation from 2014.' }, { id: 'mi116_2', name: 'The Brain', description: 'A pulsing organ enthusiastically providing the Insomniac with worse-case scenarios.' }] 
   },
-  {
-    id: 'n78',
-    name: 'Vessel to vessel',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c117', 
+    name: 'Dire love', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Ocean Shore',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n78c1', name: 'The Message', description: 'A piece of parchment trapped in a bottle, convinced its bad poetry will change the world.' },
-      { id: 'n78c2', name: 'The Ocean', description: 'A vast, indifferent body of water that keeps washing the bottle up on deserted rocks.' }
-    ]
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'dl117_1', name: 'The Moth', description: 'A delicate, shadowy figure fatally and romantically attracted to dangerous neon signs.' }, { id: 'dl117_2', name: 'The Bulb', description: 'A flickering, self-loathing streetlight trying to convince the moth to find a nice candle instead.' }] 
   },
-  {
-    id: 'n79',
-    name: 'Insomnia',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c118', 
+    name: 'Homoside', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Bedroom',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n79c1', name: 'The Sheep', description: 'An exhausted farm animal who is tired of jumping over the fence to be counted.' },
-      { id: 'n79c2', name: 'The Shepherd', description: 'A blurry figure in pajamas who keeps falling asleep on the job and losing track of the count.' }
-    ]
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'ho118_1', name: 'The Chalk Outline', description: 'A glowing outline of a body that is tired of lying on the pavement and wants to walk away.' }, { id: 'ho118_2', name: 'The Rain', description: 'A cynical weather pattern slowly washing the Outline away, telling it to accept its temporary nature.' }] 
   },
-  {
-    id: 'n80',
-    name: 'Tom 👍',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c119', 
+    name: 'Vessel to vessel', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Everywhere',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n80c1', name: 'Tom', description: 'A completely average guy whose hand is permanently stuck in a rigid thumbs-up gesture.' },
-      { id: 'n80c2', name: 'The World', description: 'A series of tragic events unfolding around Tom, making his thumbs-up look incredibly sarcastic.' }
-    ]
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'vt119_1', name: 'The Message', description: 'A piece of parchment trapped in a bottle, convinced its bad poetry will change the world.' }, { id: 'vt119_2', name: 'The Ocean', description: 'A vast, indifferent body of water that keeps washing the bottle up on deserted rocks.' }] 
   },
-  {
-    id: 'n81',
-    name: 'Behind the bars',
-    backgroundColor: '#dbdac8',
+  { 
+    id: 'c120', 
+    name: 'Insomnia', 
+    backgroundColor: '#dbdac8', 
     category: 'Category 8: Niche, Mood, & Abstract',
-    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels.',
-    environment: 'Supermarket',
-    environments: [],
-    panelCount: 3,
-    characters: [
-      { id: 'n81c1', name: 'The Barcode', description: 'A cluster of black lines trying to break out of a product label to see the outside world.' },
-      { id: 'n81c2', name: 'The Scanner', description: 'A harsh red laser that acts as the ultimate, unforgiving prison guard of the checkout aisle.' }
-    ]
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'in120_1', name: 'The Sheep', description: 'An exhausted farm animal who is tired of jumping over the fence to be counted.' }, { id: 'in120_2', name: 'The Shepherd', description: 'A blurry figure in pajamas who keeps falling asleep on the job and losing track of the count.' }] 
+  },
+  { 
+    id: 'c121', 
+    name: 'Tom 👍', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 8: Niche, Mood, & Abstract',
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 't121_1', name: 'Tom', description: 'A completely average guy whose hand is permanently stuck in a rigid thumbs-up gesture.' }, { id: 't121_2', name: 'The World', description: 'A series of tragic events unfolding around Tom, making his thumbs-up look incredibly sarcastic.' }] 
+  },
+  { 
+    id: 'c122', 
+    name: 'Behind the bars', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 8: Niche, Mood, & Abstract',
+    artStyle: 'Watercolor / Mixed Media. Dreamlike, blurry edges, soft pastels or moody wash colors. Borders missing; feels like a private sketchbook.', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'bt122_1', name: 'The Barcode', description: 'A cluster of black lines trying to break out of a product label to see the outside world.' }, { id: 'bt122_2', name: 'The Scanner', description: 'A harsh red laser that acts as the ultimate, unforgiving prison guard of the checkout aisle.' }] 
+  },
+  { 
+    id: 'c123', 
+    name: 'Purrgatory', 
+    backgroundColor: '#dbdac8', 
+    category: 'Category 8: Niche, Mood, & Abstract',
+    artStyle: '', 
+    environment: 'TBD Environment', 
+    environments: [], 
+    panelCount: 3, 
+    characters: [{ id: 'pu123_1', name: 'Mittens', description: '' }, { id: 'pu123_2', name: 'Sammy', description: '' }] 
   }
 ];
 

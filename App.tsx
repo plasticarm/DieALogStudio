@@ -222,7 +222,7 @@ export default function App() {
         id: 'default_chronicle',
         userId: currentUser.id,
         name: 'Assets',
-        lastModified: Date.now(),
+        lastModified: 0, // Set to 0 so cloud session always overwrites if available
         data: { ...DEFAULT_PROJECT_STATE }
       };
       parsedSessions = [defaultSession];
@@ -243,78 +243,66 @@ export default function App() {
       localStorage.setItem(`active_session_${currentUser.id}`, activeId);
     } catch (e) {}
 
-    // Cloud-First Loading: Check if there's a newer version in Firebase
-    if (import.meta.env.VITE_FIREBASE_API_KEY) {
-      firebaseService.loadSession(activeId).then(cloudSession => {
-        const localSession = parsedSessions.find(s => s.id === activeId);
-        
-        // Data Integrity Check: Ensure cloud session is not empty or corrupted
-        const isDataValid = (session: AppSession | null) => {
-          if (!session || !session.data) {
-            console.warn("Cloud session or data missing");
-            return false;
-          }
-          const { comics, history, books } = session.data;
-          const valid = Array.isArray(comics) && Array.isArray(history) && Array.isArray(books);
-          if (!valid) {
-            console.warn("Cloud session data structure invalid:", { 
-              hasComics: Array.isArray(comics), 
-              hasHistory: Array.isArray(history), 
-              hasBooks: Array.isArray(books) 
-            });
-          }
-          return valid;
-        };
+    // Coordinated Data Initialization
+    const initializeData = async () => {
+      let currentSessions = [...parsedSessions];
+      let activeSess = currentSessions.find(s => s.id === activeId);
+      let cloudSessionLoaded = false;
 
-        if (cloudSession && isDataValid(cloudSession) && cloudSession.lastModified >= (localSession?.lastModified || 0)) {
-          console.log("Found newer or equal session in cloud, updating local state...");
-          // Store local version as backup if it has more history or books than the cloud version
-          if (localSession && (
-            (localSession.data.history?.length || 0) > (cloudSession.data.history?.length || 0) ||
-            (localSession.data.books?.length || 0) > (cloudSession.data.books?.length || 0)
-          )) {
-            console.log("Local session appears to have more data than cloud. Saving backup for recovery.");
-            setLocalBackupSession(localSession);
-          }
-          setSessions(prev => {
-            const updated = prev.map(s => s.id === activeId ? cloudSession : s);
-            // Also update localStorage so we don't keep reloading from cloud on every refresh
-            try {
-              localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(updated));
-            } catch (e) {
-              console.error("Failed to save cloud session to localStorage:", e);
+      // 1. Fetch Cloud Session
+      if (import.meta.env.VITE_FIREBASE_API_KEY) {
+        try {
+          const cloudSession = await firebaseService.loadSession(activeId);
+          const isDataValid = (session: AppSession | null) => {
+            if (!session || !session.data) return false;
+            const { comics, history, books } = session.data;
+            return Array.isArray(comics) && Array.isArray(history) && Array.isArray(books);
+          };
+
+          if (cloudSession && isDataValid(cloudSession)) {
+            if (cloudSession.lastModified >= (activeSess?.lastModified || 0)) {
+              console.log("Using cloud session as base...");
+              
+              if (activeSess && activeSess.lastModified > 0 && (
+                (activeSess.data.history?.length || 0) > (cloudSession.data.history?.length || 0) ||
+                (activeSess.data.books?.length || 0) > (cloudSession.data.books?.length || 0)
+              )) {
+                console.log("Local session appears to have more data than cloud. Saving backup for recovery.");
+                setLocalBackupSession(activeSess);
+              }
+
+              currentSessions = currentSessions.map(s => s.id === activeId ? cloudSession : s);
+              activeSess = cloudSession;
+              cloudSessionLoaded = true;
             }
-            return updated;
-          });
-        } else if (cloudSession && !isDataValid(cloudSession)) {
-          console.error("Cloud session data is invalid, skipping sync.");
+          } else if (cloudSession && !isDataValid(cloudSession)) {
+            console.error("Cloud session data is invalid, skipping sync.");
+          }
+        } catch (err) {
+          console.error("Failed to load cloud session:", err);
         }
-      }).catch(err => console.error("Failed to load cloud session:", err));
-    }
+      }
 
-    // Sync INITIAL_COMICS and Global Defaults into the active session if missing
-    const activeSess = parsedSessions.find(s => s.id === activeId);
-    if (activeSess) {
-      const syncDefaults = async () => {
-        let defaultComics: ComicProfile[] = INITIAL_COMICS.map(c => ({...c, isGlobalDefault: true}));
-        let defaultBooks: ComicBook[] = INITIAL_COMICS.map(c => ({
-          id: c.id,
-          title: c.name,
-          description: `Production notes for ${c.name}`,
-          pages: [],
-          timestamp: Date.now(),
-          width: 1920,
-          height: 1080,
-          externalPageUrls: [],
-          showPageNumbers: true,
-          pageNumberPosition: 'bottom',
-          isGlobalDefault: true
-        }));
+      // 2. Fetch Global Defaults
+      let defaultComics: ComicProfile[] = INITIAL_COMICS.map(c => ({...c, isGlobalDefault: true}));
+      let defaultBooks: ComicBook[] = INITIAL_COMICS.map(c => ({
+        id: c.id,
+        title: c.name,
+        description: `Production notes for ${c.name}`,
+        pages: [],
+        timestamp: Date.now(),
+        width: 1920,
+        height: 1080,
+        externalPageUrls: [],
+        showPageNumbers: true,
+        pageNumberPosition: 'bottom',
+        isGlobalDefault: true
+      }));
 
-        if (import.meta.env.VITE_FIREBASE_API_KEY) {
+      if (import.meta.env.VITE_FIREBASE_API_KEY) {
+        try {
           const globalDefaults = await firebaseService.getGlobalDefaults();
           if (globalDefaults) {
-            // Merge global defaults, avoiding duplicates with INITIAL_COMICS
             const existingIds = new Set(defaultComics.map(c => c.id));
             const newGlobalComics = globalDefaults.comics.filter(c => !existingIds.has(c.id));
             const newGlobalBooks = globalDefaults.books.filter(b => !existingIds.has(b.id));
@@ -322,84 +310,83 @@ export default function App() {
             defaultComics = [...defaultComics, ...newGlobalComics];
             defaultBooks = [...defaultBooks, ...newGlobalBooks];
           }
+        } catch (err) {
+          console.error("Failed to load global defaults:", err);
+        }
+      }
+
+      // 3. Merge Defaults into Active Session
+      if (activeSess) {
+        const existingComicIds = new Set((activeSess.data.comics || []).map(c => c.id));
+        const missingComics = defaultComics.filter(c => !existingComicIds.has(c.id));
+        
+        let hasChanges = false;
+        let updatedComics = [...(activeSess.data.comics || [])];
+        let updatedBooks = [...(activeSess.data.books || [])];
+
+        if (missingComics.length > 0) {
+          console.log(`Syncing ${missingComics.length} missing default comics into session ${activeId}`);
+          updatedComics = [...updatedComics, ...missingComics];
+          
+          const existingBookIds = new Set(updatedBooks.map(b => b.id));
+          const missingBooks = defaultBooks.filter(b => !existingBookIds.has(b.id));
+          updatedBooks = [...updatedBooks, ...missingBooks];
+          hasChanges = true;
         }
 
-        setSessions(prev => {
-          const currentSess = prev.find(s => s.id === activeId);
-          if (!currentSess) return prev;
-
-          const existingComicIds = new Set((currentSess.data.comics || []).map(c => c.id));
-          const missingComics = defaultComics.filter(c => !existingComicIds.has(c.id));
-          
-          let hasChanges = false;
-          let updatedComics = [...(currentSess.data.comics || [])];
-          let updatedBooks = [...(currentSess.data.books || [])];
-
-          if (missingComics.length > 0) {
-            console.log(`Syncing ${missingComics.length} missing default comics into session ${activeId}`);
-            updatedComics = [...updatedComics, ...missingComics];
-            
-            const existingBookIds = new Set(updatedBooks.map(b => b.id));
-            const missingBooks = defaultBooks.filter(b => !existingBookIds.has(b.id));
-            updatedBooks = [...updatedBooks, ...missingBooks];
-            hasChanges = true;
-          }
-
-          // Also sync categories/archetypes and isGlobalDefault for existing comics
-          updatedComics = updatedComics.map(c => {
-            const initial = defaultComics.find(ic => ic.id === c.id);
-            if (initial) {
-              let changed = false;
-              const updated = { ...c };
-              if (!updated.category && initial.category) { updated.category = initial.category; changed = true; }
-              if (!updated.archetypes && initial.archetypes) { updated.archetypes = initial.archetypes; changed = true; }
-              if (!updated.styleDescription && initial.styleDescription) { updated.styleDescription = initial.styleDescription; changed = true; }
-              if (!updated.isGlobalDefault) { updated.isGlobalDefault = true; changed = true; }
-              if (changed) {
-                hasChanges = true;
-                return updated;
-              }
-            }
-            return c;
-          });
-          
-          updatedBooks = updatedBooks.map(b => {
-            const initial = defaultBooks.find(ib => ib.id === b.id);
-            if (initial && !b.isGlobalDefault) {
+        // Sync metadata for existing comics
+        updatedComics = updatedComics.map(c => {
+          const initial = defaultComics.find(ic => ic.id === c.id);
+          if (initial) {
+            let changed = false;
+            const updated = { ...c };
+            if (!updated.category && initial.category) { updated.category = initial.category; changed = true; }
+            if (!updated.archetypes && initial.archetypes) { updated.archetypes = initial.archetypes; changed = true; }
+            if (!updated.styleDescription && initial.styleDescription) { updated.styleDescription = initial.styleDescription; changed = true; }
+            if (!updated.isGlobalDefault) { updated.isGlobalDefault = true; changed = true; }
+            if (changed) {
               hasChanges = true;
-              return { ...b, isGlobalDefault: true };
+              return updated;
             }
-            return b;
-          });
-
-          if (hasChanges) {
-            const updatedSessions = prev.map(s => {
-              if (s.id === activeId) {
-                return {
-                  ...s,
-                  data: {
-                    ...s.data,
-                    comics: updatedComics,
-                    books: updatedBooks
-                  }
-                };
-              }
-              return s;
-            });
-
-            try {
-              localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(updatedSessions));
-            } catch (e) {}
-            
-            return updatedSessions;
           }
-
-          return prev;
+          return c;
         });
-      };
-      
-      syncDefaults();
-    }
+        
+        updatedBooks = updatedBooks.map(b => {
+          const initial = defaultBooks.find(ib => ib.id === b.id);
+          if (initial && !b.isGlobalDefault) {
+            hasChanges = true;
+            return { ...b, isGlobalDefault: true };
+          }
+          return b;
+        });
+
+        if (hasChanges || cloudSessionLoaded) {
+          const finalSession = {
+            ...activeSess,
+            lastModified: hasChanges ? Date.now() : activeSess.lastModified,
+            data: {
+              ...activeSess.data,
+              comics: updatedComics,
+              books: updatedBooks
+            }
+          };
+
+          const finalSessions = currentSessions.map(s => s.id === activeId ? finalSession : s);
+          setSessions(finalSessions);
+          try {
+            localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(finalSessions));
+          } catch (e) {}
+
+          // Save to cloud if we made local changes to defaults
+          if (hasChanges && import.meta.env.VITE_FIREBASE_API_KEY) {
+             firebaseService.saveSession(finalSession).catch(console.error);
+          }
+        }
+      }
+    };
+
+    initializeData();
   }, [currentUser]);
 
   const activeSession = useMemo(() => 
