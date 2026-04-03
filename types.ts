@@ -59,6 +59,7 @@ export interface ComicProfile {
   selectedFonts?: string[];
   category?: string;
   archetypes?: string;
+  isGlobalDefault?: boolean;
 }
 
 export interface GeneratedPanelScript {
@@ -135,6 +136,7 @@ export interface ComicBook {
   externalPageUrls: string[];
   showPageNumbers: boolean;
   pageNumberPosition: 'top' | 'bottom';
+  isGlobalDefault?: boolean;
 }
 
 export interface RatedComic {

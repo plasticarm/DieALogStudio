@@ -292,16 +292,12 @@ export default function App() {
       }).catch(err => console.error("Failed to load cloud session:", err));
     }
 
-    // Sync INITIAL_COMICS into the active session if missing
+    // Sync INITIAL_COMICS and Global Defaults into the active session if missing
     const activeSess = parsedSessions.find(s => s.id === activeId);
     if (activeSess) {
-      const existingComicIds = new Set((activeSess.data.comics || []).map(c => c.id));
-      const missingComics = INITIAL_COMICS.filter(c => !existingComicIds.has(c.id));
-      
-      if (missingComics.length > 0) {
-        console.log(`Syncing ${missingComics.length} missing comics into session ${activeId}`);
-        const updatedComics = [...(activeSess.data.comics || []), ...missingComics];
-        const updatedBooks = [...(activeSess.data.books || []), ...missingComics.map(c => ({
+      const syncDefaults = async () => {
+        let defaultComics: ComicProfile[] = INITIAL_COMICS.map(c => ({...c, isGlobalDefault: true}));
+        let defaultBooks: ComicBook[] = INITIAL_COMICS.map(c => ({
           id: c.id,
           title: c.name,
           description: `Production notes for ${c.name}`,
@@ -311,62 +307,98 @@ export default function App() {
           height: 1080,
           externalPageUrls: [],
           showPageNumbers: true,
-          pageNumberPosition: 'bottom' as const
-        }))];
+          pageNumberPosition: 'bottom',
+          isGlobalDefault: true
+        }));
 
-        const updatedSessions = parsedSessions.map(s => {
-          if (s.id === activeId) {
-            return {
-              ...s,
-              data: {
-                ...s.data,
-                comics: updatedComics,
-                books: updatedBooks
-              }
-            };
+        if (import.meta.env.VITE_FIREBASE_API_KEY) {
+          const globalDefaults = await firebaseService.getGlobalDefaults();
+          if (globalDefaults) {
+            // Merge global defaults, avoiding duplicates with INITIAL_COMICS
+            const existingIds = new Set(defaultComics.map(c => c.id));
+            const newGlobalComics = globalDefaults.comics.filter(c => !existingIds.has(c.id));
+            const newGlobalBooks = globalDefaults.books.filter(b => !existingIds.has(b.id));
+            
+            defaultComics = [...defaultComics, ...newGlobalComics];
+            defaultBooks = [...defaultBooks, ...newGlobalBooks];
           }
-          return s;
-        });
-        setSessions(updatedSessions);
-        try {
-          localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(updatedSessions));
-        } catch (e) {}
-      } else {
-        // Also sync categories/archetypes for existing comics if they are missing
-        let hasChanges = false;
-        const updatedComics = (activeSess.data.comics || []).map(c => {
-          const initial = INITIAL_COMICS.find(ic => ic.id === c.id);
-          if (initial) {
-            let changed = false;
-            const updated = { ...c };
-            if (!updated.category && initial.category) { updated.category = initial.category; changed = true; }
-            if (!updated.archetypes && initial.archetypes) { updated.archetypes = initial.archetypes; changed = true; }
-            if (!updated.styleDescription && initial.styleDescription) { updated.styleDescription = initial.styleDescription; changed = true; }
-            if (changed) {
-              hasChanges = true;
-              return updated;
-            }
-          }
-          return c;
-        });
-
-        if (hasChanges) {
-          console.log("Syncing categories/archetypes for existing comics");
-          const updatedSessions = parsedSessions.map(s => {
-            if (s.id === activeId) {
-              return {
-                ...s,
-                data: { ...s.data, comics: updatedComics }
-              };
-            }
-            return s;
-          });
-          setSessions(updatedSessions);
-          try {
-            localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(updatedSessions));
-          } catch (e) {}
         }
-      }
+
+        setSessions(prev => {
+          const currentSess = prev.find(s => s.id === activeId);
+          if (!currentSess) return prev;
+
+          const existingComicIds = new Set((currentSess.data.comics || []).map(c => c.id));
+          const missingComics = defaultComics.filter(c => !existingComicIds.has(c.id));
+          
+          let hasChanges = false;
+          let updatedComics = [...(currentSess.data.comics || [])];
+          let updatedBooks = [...(currentSess.data.books || [])];
+
+          if (missingComics.length > 0) {
+            console.log(`Syncing ${missingComics.length} missing default comics into session ${activeId}`);
+            updatedComics = [...updatedComics, ...missingComics];
+            
+            const existingBookIds = new Set(updatedBooks.map(b => b.id));
+            const missingBooks = defaultBooks.filter(b => !existingBookIds.has(b.id));
+            updatedBooks = [...updatedBooks, ...missingBooks];
+            hasChanges = true;
+          }
+
+          // Also sync categories/archetypes and isGlobalDefault for existing comics
+          updatedComics = updatedComics.map(c => {
+            const initial = defaultComics.find(ic => ic.id === c.id);
+            if (initial) {
+              let changed = false;
+              const updated = { ...c };
+              if (!updated.category && initial.category) { updated.category = initial.category; changed = true; }
+              if (!updated.archetypes && initial.archetypes) { updated.archetypes = initial.archetypes; changed = true; }
+              if (!updated.styleDescription && initial.styleDescription) { updated.styleDescription = initial.styleDescription; changed = true; }
+              if (!updated.isGlobalDefault) { updated.isGlobalDefault = true; changed = true; }
+              if (changed) {
+                hasChanges = true;
+                return updated;
+              }
+            }
+            return c;
+          });
+          
+          updatedBooks = updatedBooks.map(b => {
+            const initial = defaultBooks.find(ib => ib.id === b.id);
+            if (initial && !b.isGlobalDefault) {
+              hasChanges = true;
+              return { ...b, isGlobalDefault: true };
+            }
+            return b;
+          });
+
+          if (hasChanges) {
+            const updatedSessions = prev.map(s => {
+              if (s.id === activeId) {
+                return {
+                  ...s,
+                  data: {
+                    ...s.data,
+                    comics: updatedComics,
+                    books: updatedBooks
+                  }
+                };
+              }
+              return s;
+            });
+
+            try {
+              localStorage.setItem(`sessions_${currentUser.id}`, JSON.stringify(updatedSessions));
+            } catch (e) {}
+            
+            return updatedSessions;
+          }
+
+          return prev;
+        });
+      };
+      
+      syncDefaults();
     }
   }, [currentUser]);
 
@@ -636,6 +668,20 @@ export default function App() {
     if (window.confirm(`Deep Scan found a local session named "${bestCandidate.name}" with ${bestCandidate.data.history?.length || 0} history items. Would you like to restore it?`)) {
       setLocalBackupSession(bestCandidate);
       alert("Local session loaded into recovery buffer. Click 'Restore Local Data' in your Profile to finalize.");
+    }
+  };
+
+  const handlePublishDefaults = async () => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    if (!activeSession) return;
+    
+    if (window.confirm("Are you sure you want to publish your current comics and books as the global defaults for all new users?")) {
+      try {
+        await firebaseService.publishGlobalDefaults(activeSession.data.comics || [], activeSession.data.books || []);
+        alert("Successfully published global defaults!");
+      } catch (e) {
+        alert("Failed to publish global defaults. Check console for details.");
+      }
     }
   };
 
@@ -1045,6 +1091,7 @@ export default function App() {
           hasLocalBackup={!!localBackupSession}
           onRestoreFromLocal={handleRestoreFromLocal}
           onDeepScan={handleDeepScan}
+          onPublishDefaults={handlePublishDefaults}
         />
       )}
 

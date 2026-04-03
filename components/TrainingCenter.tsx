@@ -1075,7 +1075,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
             <div className="space-y-8">
               {(localComic.characters || []).map((char, idx) => (
                 <div key={char.id} className="flex gap-8 items-start bg-slate-50/40 p-8 rounded-3xl border border-slate-100 relative group">
-                  {(!INITIAL_COMICS.find(ic => ic.id === localComic.id) || currentUser?.role === 'admin') && (
+                  {(!localComic.isGlobalDefault || currentUser?.role === 'admin') && (
                     <button 
                       onClick={() => removeCharacter(char.id)}
                       className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-slate-200 text-rose-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-rose-50"
@@ -1155,7 +1155,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
             <div className="space-y-8">
               {(localComic.environments || []).map((env, idx) => (
                 <div key={env.id} className="flex gap-8 items-start bg-slate-50/40 p-8 rounded-3xl border border-slate-100 relative group">
-                  {(!INITIAL_COMICS.find(ic => ic.id === localComic.id) || currentUser?.role === 'admin') && (
+                  {(!localComic.isGlobalDefault || currentUser?.role === 'admin') && (
                     <button 
                       onClick={() => removeEnvironment(env.id)}
                       className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-slate-200 text-rose-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-rose-50"

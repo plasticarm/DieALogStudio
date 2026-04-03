@@ -184,7 +184,7 @@ export const BooksLibrary: React.FC<BooksLibraryProps> = ({
                   }`}
                 >
                   <div className="absolute top-4 left-4 z-40">
-                    {(!INITIAL_COMICS.find(ic => ic.id === series.id) || currentUser?.role === 'admin') && (
+                    {(!series.isGlobalDefault || currentUser?.role === 'admin') && (
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();

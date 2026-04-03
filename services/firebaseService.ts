@@ -1,7 +1,7 @@
 import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage, default as app } from "./firebase";
-import { AppSession, ProjectState } from "../types";
+import { AppSession, ProjectState, ComicProfile, ComicBook } from "../types";
 
 /**
  * Helper to recursively remove undefined values from an object.
@@ -46,6 +46,39 @@ const estimateSize = (obj: any): number => {
  * Handles Firestore and Storage operations for the application.
  */
 export const firebaseService = {
+  /**
+   * Publishes the current comics and books as global defaults for all new users.
+   */
+  async publishGlobalDefaults(comics: ComicProfile[], books: ComicBook[]): Promise<void> {
+    try {
+      const docRef = doc(db, "public_assets", "global_defaults");
+      const cleanComics = sanitizeData(comics.map(c => ({...c, isGlobalDefault: true})));
+      const cleanBooks = sanitizeData(books.map(b => ({...b, isGlobalDefault: true})));
+      await setDoc(docRef, { comics: cleanComics, books: cleanBooks, lastUpdated: Date.now() });
+      console.log("Published global defaults successfully.");
+    } catch (e) {
+      console.error("Failed to publish global defaults:", e);
+      throw e;
+    }
+  },
+
+  /**
+   * Fetches the global defaults.
+   */
+  async getGlobalDefaults(): Promise<{comics: ComicProfile[], books: ComicBook[]} | null> {
+    try {
+      const docRef = doc(db, "public_assets", "global_defaults");
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        return snap.data() as {comics: ComicProfile[], books: ComicBook[]};
+      }
+      return null;
+    } catch (e) {
+      console.error("Failed to fetch global defaults:", e);
+      return null;
+    }
+  },
+
   /**
    * Syncs a session to Firestore.
    */

@@ -471,7 +471,7 @@ export const ComicBookEditor: React.FC<ComicBookEditorProps> = ({
                 >
                   <i className="fa-solid fa-plus"></i>
                 </button>
-                {booksForSeries.length > 1 && (!INITIAL_COMICS.find(ic => ic.id === activeSeriesId) || currentUser?.role === 'admin') && (
+                {booksForSeries.length > 1 && (!book.isGlobalDefault || currentUser?.role === 'admin') && (
                   <button 
                     onClick={() => {
                       if (window.confirm(`Are you sure you want to delete "${book.title}"?`)) {

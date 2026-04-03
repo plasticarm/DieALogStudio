@@ -12,10 +12,11 @@ interface ProfileModalProps {
   hasLocalBackup?: boolean;
   onRestoreFromLocal?: () => void;
   onDeepScan?: () => void;
+  onPublishDefaults?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ 
-  user, comics, onUpdate, onLogout, onClose, hasLocalBackup, onRestoreFromLocal, onDeepScan 
+  user, comics, onUpdate, onLogout, onClose, hasLocalBackup, onRestoreFromLocal, onDeepScan, onPublishDefaults 
 }) => {
   const [localUser, setLocalUser] = useState<User>({ ...user });
   const [showKeys, setShowKeys] = useState(false);
@@ -258,6 +259,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               >
                 <i className="fa-solid fa-magnifying-glass"></i>
                 Scan Local Vault
+              </button>
+            )}
+            {user.role === 'admin' && onPublishDefaults && (
+              <button 
+                onClick={onPublishDefaults}
+                className="w-full bg-indigo-50 text-indigo-600 border border-indigo-200 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-indigo-100 transition-all flex items-center justify-center gap-2 mb-2"
+              >
+                <i className="fa-solid fa-cloud-arrow-up"></i>
+                Publish Global Defaults
               </button>
             )}
             <button 
