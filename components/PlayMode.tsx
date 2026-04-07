@@ -50,7 +50,7 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
     adjustFontSize();
     
     return () => resizeObserver.disconnect();
-  }, [text, font, alignment, rounding]);
+  }, [text, font, alignment]);
 
   return (
     <div 
@@ -274,9 +274,20 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     if (viewMode === 'panel' && focusTarget && transformComponentRef.current) {
       const { zoomToElement, setTransform } = transformComponentRef.current;
       if (focusTarget.overridePanZoom) {
-        const { positionX, positionY, scale } = focusTarget.overridePanZoom;
+        const { positionX, positionY, scale, wrapperWidth, wrapperHeight } = focusTarget.overridePanZoom;
+        
+        const origW = wrapperWidth || 800;
+        const origH = wrapperHeight || 450;
+        
+        const wrapper = transformComponentRef.current.instance?.wrapperComponent;
+        const currentW = wrapper?.offsetWidth || origW;
+        const currentH = wrapper?.offsetHeight || origH;
+        
+        const newX = positionX * (currentW / origW);
+        const newY = positionY * (currentH / origH);
+        
         setTimeout(() => {
-          setTransform(positionX, positionY, scale, 500, "easeOut");
+          setTransform(newX, newY, scale, 500, "easeOut");
         }, 50);
       } else {
         const scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
@@ -1660,15 +1671,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                             style={{
                               fontFamily: getFontFamily(tf.font || 'Inter'),
                               color: 'black',
-                              lineHeight: 0.9,
+                              lineHeight: 0.8,
                             }}
                           >
                             <AutoResizingText 
-                              key={`${previewComic.id}-${tf.id}`}
                               text={tf.text.replace(/^[^:]+:\s*/, '')} 
                               alignment={tf.alignment || 'center'} 
                               font={tf.font || 'Inter'} 
-                              rounding={tf.rounding}
                             />
                           </div>
                         </div>
@@ -1866,13 +1875,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {room?.gameState === 'playing' && timeLeft !== null && timeLeft > 0 && !hasSubmitted && !allSubmitted && (
-        <div className={`fixed z-[60] px-6 py-3 rounded-2xl shadow-xl border-2 flex items-center gap-3 transition-all duration-500 ${
+        <div className={`fixed z-[60] px-4 py-2 rounded-2xl shadow-xl border-2 flex items-center gap-3 transition-all duration-500 ${
           preGameState === 'cover' 
             ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-150 bg-white border-slate-200 text-slate-800' 
-            : 'top-[100px] left-1/2 -translate-x-1/2 bg-white border-slate-100 text-slate-800'
+            : 'top-[60px] left-1/2 -translate-x-1/2 bg-white border-slate-100 text-slate-800'
         } ${timeLeft < 30 && preGameState === 'none' ? 'bg-rose-600 border-rose-400 text-white animate-pulse' : ''}`}>
           <i className={`fa-solid fa-clock ${timeLeft < 30 && preGameState === 'none' ? 'text-white' : 'text-amber-600'}`}></i>
-          <span className="font-black text-xl tabular-nums">
+          <span className="font-black text-lg tabular-nums">
             {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
           </span>
         </div>
@@ -1914,15 +1923,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                             style={{
                               fontFamily: getFontFamily(tf.font || 'Inter'),
                               color: 'black',
-                              lineHeight: 0.9,
+                              lineHeight: 0.8,
                             }}
                           >
                             <AutoResizingText 
-                              key={`${winner.id}-${tf.id}`}
                               text={tf.text.replace(/^[^:]+:\s*/, '')} 
                               alignment={tf.alignment || 'center'} 
                               font={tf.font || 'Inter'} 
-                              rounding={tf.rounding}
                             />
                           </div>
                         </div>
@@ -2231,15 +2238,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           >
                             <div 
                               className="w-full h-full flex items-center justify-center overflow-hidden"
-                              style={{ fontFamily: getFontFamily(tf.font || 'Inter'), color: 'black', lineHeight: 0.9 }}
+                              style={{ fontFamily: getFontFamily(tf.font || 'Inter'), color: 'black', lineHeight: 0.8 }}
                             >
-                              <AutoResizingText 
-                                key={`${comic.id}-${tf.id}`}
-                                text={tf.text.replace(/^[^:]+:\s*/, '')} 
-                                alignment={tf.alignment || 'center'} 
-                                font={tf.font || 'Inter'} 
-                                rounding={tf.rounding}
-                              />
+                              <AutoResizingText text={tf.text.replace(/^[^:]+:\s*/, '')} alignment={tf.alignment || 'center'} font={tf.font || 'Inter'} />
                             </div>
                           </div>
                         ))}
@@ -2352,22 +2353,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                       <div 
                         className={`relative w-full aspect-video overflow-hidden mx-auto ${isEnlarged ? 'max-h-full max-w-full' : 'max-h-[45vh] max-w-[calc(45vh*16/9)]'}`}
                       >
-                        {navigationTargets.length > 0 && !isEnlarged && (
-                          <div className="absolute top-4 right-4 flex gap-2 z-50">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-                              className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center shadow-lg transition-all"
-                            >
-                              <i className="fa-solid fa-chevron-left"></i>
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                              className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center shadow-lg transition-all"
-                            >
-                              <i className="fa-solid fa-chevron-right"></i>
-                            </button>
-                          </div>
-                        )}
                         <TransformWrapper
                           initialScale={1}
                           minScale={0.5}
@@ -2376,11 +2361,17 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           wheel={{ step: 0.1 }}
                           ref={transformComponentRef}
                           disabled={isEnlarged || viewMode === 'full'}
+                          className="w-full h-full"
                         >
                           {() => (
                             <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
                               <div
-                                className={`w-full h-full relative ${!isEnlarged ? 'cursor-zoom-in' : ''}`}
+                                className={`relative overflow-hidden shrink-0 ${!isEnlarged ? 'cursor-zoom-in' : ''}`}
+                                style={{ 
+                                  aspectRatio: '16/9', 
+                                  width: '100%', 
+                                  maxWidth: '100%',
+                                }}
                                 onClick={() => !isEnlarged && setIsEnlarged(true)}
                               >
                                 <CachedImage src={activeStrip.exportImageUrl || activeStrip.finishedImageUrl} className="w-full h-full object-contain bg-black" />
@@ -2433,18 +2424,22 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                   </div>
                                 </div>
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className={`w-full h-full max-w-[90%] max-h-[90%] rounded-xl flex items-center justify-center p-2 text-center overflow-hidden font-bold leading-tight ${
-                                    tf.text.replace(/^[^:]+:\s*/, '').trim() ? 'text-slate-800' : 'text-slate-300'
-                                  }`} style={{ fontFamily: getFontFamily(tf.font || 'Inter') }}>
-                                    <AutoResizingText 
-                                      key={`${activeStrip.id}-${tf.id}`}
-                                      text={tf.text.replace(/^[^:]+:\s*/, '').trim() || 'Empty'} 
-                                      alignment={tf.alignment || 'center'} 
-                                      font={tf.font || 'Inter'} 
-                                      rounding={tf.rounding}
-                                    />
-                                  </div>
+                                <div 
+                                  className="w-full h-full flex items-center justify-center overflow-hidden"
+                                  style={{
+                                    fontFamily: tf.font || 'Inter',
+                                    color: 'black',
+                                    lineHeight: 0.9,
+                                    borderRadius: tf.rounding ? `${tf.rounding}px` : '1rem',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                  }}
+                                >
+                                  <AutoResizingText 
+                                    text={tf.text.replace(/^[^:]+:\s*/, '').trim() || 'Empty'} 
+                                    alignment={tf.alignment || 'center'} 
+                                    font={tf.font || 'Inter'} 
+                                    rounding={tf.rounding} 
+                                  />
                                 </div>
                               )}
                             </div>
@@ -2455,6 +2450,23 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           )}
                         </TransformWrapper>
                       </div>
+                      
+                      {navigationTargets.length > 0 && !isEnlarged && (
+                        <div className="flex justify-center gap-4 mt-3">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center shadow transition-all"
+                          >
+                            <i className="fa-solid fa-chevron-left text-xs"></i>
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center shadow transition-all"
+                          >
+                            <i className="fa-solid fa-chevron-right text-xs"></i>
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* DiE-A-Log Editor (Bottom) */}
@@ -2650,15 +2662,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           style={{
                             fontFamily: getFontFamily(tf.font || 'Inter'),
                             color: 'black',
-                            lineHeight: 0.9,
+                            lineHeight: 0.8,
                           }}
                         >
                           <AutoResizingText 
-                            key={`${previewComic.id}-${tf.id}`}
                             text={tf.text.replace(/^[^:]+:\s*/, '')} 
                             alignment={tf.alignment || 'center'} 
                             font={tf.font || 'Inter'} 
-                            rounding={tf.rounding}
                           />
                         </div>
                       </div>

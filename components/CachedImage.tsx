@@ -105,5 +105,5 @@ export const CachedImage: React.FC<CachedImageProps> = ({ src, fallback, ...prop
     );
   }
 
-  return <img src={displaySrc} {...props} />;
+  return <img src={displaySrc} referrerPolicy="no-referrer" {...props} />;
 };

@@ -90,6 +90,8 @@ export interface TextField {
     scale: number;
     positionX: number;
     positionY: number;
+    wrapperWidth?: number;
+    wrapperHeight?: number;
   };
 }
 
@@ -103,6 +105,8 @@ export interface PanelLayout {
     scale: number;
     positionX: number;
     positionY: number;
+    wrapperWidth?: number;
+    wrapperHeight?: number;
   };
 }
 

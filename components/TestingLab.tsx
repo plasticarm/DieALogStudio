@@ -119,9 +119,20 @@ export const TestingLab: React.FC<TestingLabProps> = ({
     if (viewMode === 'panel' && focusTarget && transformComponentRef.current) {
       const { zoomToElement, setTransform } = transformComponentRef.current;
       if (focusTarget.overridePanZoom) {
-        const { positionX, positionY, scale } = focusTarget.overridePanZoom;
+        const { positionX, positionY, scale, wrapperWidth, wrapperHeight } = focusTarget.overridePanZoom;
+        
+        const origW = wrapperWidth || 800;
+        const origH = wrapperHeight || 450;
+        
+        const wrapper = transformComponentRef.current.instance?.wrapperComponent;
+        const currentW = wrapper?.offsetWidth || origW;
+        const currentH = wrapper?.offsetHeight || origH;
+        
+        const newX = positionX * (currentW / origW);
+        const newY = positionY * (currentH / origH);
+        
         setTimeout(() => {
-          setTransform(positionX, positionY, scale, 500, "easeOut");
+          setTransform(newX, newY, scale, 500, "easeOut");
         }, 50);
       } else {
         const scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
@@ -235,7 +246,12 @@ export const TestingLab: React.FC<TestingLabProps> = ({
     }
 
     const { scale, positionX, positionY } = state;
-    const override = { scale, positionX, positionY };
+    
+    const wrapper = transformComponentRef.current.instance?.wrapperComponent;
+    const wrapperWidth = wrapper?.offsetWidth || 800;
+    const wrapperHeight = wrapper?.offsetHeight || 450;
+    
+    const override = { scale, positionX, positionY, wrapperWidth, wrapperHeight };
 
     if (focusTarget.id.startsWith('panel-')) {
       const panelNum = parseInt(focusTarget.id.replace('panel-', ''));
@@ -941,7 +957,7 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
     return () => {
       resizeObserver.disconnect();
     };
-  }, [text, font, alignment, rounding]);
+  }, [text, font, alignment]);
 
   return (
     <div 

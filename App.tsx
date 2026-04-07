@@ -678,17 +678,26 @@ export default function App() {
     }
   };
 
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+
   const handlePublishDefaults = async () => {
     if (!currentUser || currentUser.role !== 'admin') return;
     if (!activeSession) return;
+    setShowPublishConfirm(true);
+  };
+
+  const executePublishDefaults = async () => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    if (!activeSession) return;
     
-    if (window.confirm("Are you sure you want to publish your current comics and books as the global defaults for all new users?")) {
-      try {
-        await firebaseService.publishGlobalDefaults(activeSession.data.comics || [], activeSession.data.books || []);
-        alert("Successfully published global defaults!");
-      } catch (e) {
-        alert("Failed to publish global defaults. Check console for details.");
-      }
+    try {
+      await firebaseService.publishGlobalDefaults(activeSession.data.comics || [], activeSession.data.books || []);
+      setShowPublishConfirm(false);
+      // We can't use alert, so we just log it. A toast would be better but this works for now.
+      console.log("Successfully published global defaults!");
+    } catch (e) {
+      console.error("Failed to publish global defaults:", e);
+      setShowPublishConfirm(false);
     }
   };
 
@@ -1100,6 +1109,29 @@ export default function App() {
           onDeepScan={handleDeepScan}
           onPublishDefaults={handlePublishDefaults}
         />
+      )}
+
+      {showPublishConfirm && (
+        <div className="fixed inset-0 z-[3000] modal-backdrop flex items-center justify-center p-6" onClick={() => setShowPublishConfirm(false)}>
+          <div className="bg-white rounded-3xl p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+            <h3 className="text-3xl font-header uppercase tracking-widest mb-6 text-slate-800">Publish Defaults</h3>
+            <p className="text-slate-600 mb-8 font-medium">Are you sure you want to publish your current comics and books as the global defaults for all new users?</p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setShowPublishConfirm(false)}
+                className="flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={executePublishDefaults}
+                className="flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-white bg-amber-500 hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/30"
+              >
+                Publish
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {isNamingNewSeries && (
