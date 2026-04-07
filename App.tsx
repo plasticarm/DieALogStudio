@@ -249,37 +249,57 @@ export default function App() {
       let activeSess = currentSessions.find(s => s.id === activeId);
       let cloudSessionLoaded = false;
 
-      // 1. Fetch Cloud Session
+      // 1. Fetch Cloud Sessions
       if (import.meta.env.VITE_FIREBASE_API_KEY) {
         try {
-          const cloudSession = await firebaseService.loadSession(activeId);
+          const cloudSessions = await firebaseService.loadUserSessions(currentUser.id);
           const isDataValid = (session: AppSession | null) => {
             if (!session || !session.data) return false;
-            const { comics, history, books } = session.data;
-            return Array.isArray(comics) && Array.isArray(history) && Array.isArray(books);
+            const { comics } = session.data;
+            return Array.isArray(comics);
           };
 
-          if (cloudSession && isDataValid(cloudSession)) {
-            if (cloudSession.lastModified >= (activeSess?.lastModified || 0)) {
-              console.log("Using cloud session as base...");
+          if (cloudSessions && cloudSessions.length > 0) {
+            console.log(`Loaded ${cloudSessions.length} sessions from cloud`);
+            
+            cloudSessions.forEach(cloudSession => {
+              if (!isDataValid(cloudSession)) return;
               
-              if (activeSess && activeSess.lastModified > 0 && (
-                (activeSess.data.history?.length || 0) > (cloudSession.data.history?.length || 0) ||
-                (activeSess.data.books?.length || 0) > (cloudSession.data.books?.length || 0)
-              )) {
-                console.log("Local session appears to have more data than cloud. Saving backup for recovery.");
-                setLocalBackupSession(activeSess);
+              const localSessionIndex = currentSessions.findIndex(s => s.id === cloudSession.id);
+              if (localSessionIndex >= 0) {
+                const localSession = currentSessions[localSessionIndex];
+                if (cloudSession.lastModified >= (localSession.lastModified || 0)) {
+                  if (localSession.lastModified > 0 && (
+                    (localSession.data.history?.length || 0) > (cloudSession.data.history?.length || 0) ||
+                    (localSession.data.books?.length || 0) > (cloudSession.data.books?.length || 0)
+                  )) {
+                    console.log(`Local session ${localSession.id} appears to have more data than cloud. Saving backup for recovery.`);
+                    if (localSession.id === activeId) {
+                      setLocalBackupSession(localSession);
+                    }
+                  }
+                  currentSessions[localSessionIndex] = cloudSession;
+                  if (cloudSession.id === activeId) {
+                    activeSess = cloudSession;
+                    cloudSessionLoaded = true;
+                  }
+                }
+              } else {
+                currentSessions.push(cloudSession);
               }
-
-              currentSessions = currentSessions.map(s => s.id === activeId ? cloudSession : s);
-              activeSess = cloudSession;
-              cloudSessionLoaded = true;
+            });
+            
+            // If activeId is not in currentSessions (shouldn't happen, but just in case)
+            if (!currentSessions.find(s => s.id === activeId)) {
+              activeSess = currentSessions[0];
+              setActiveSessionId(activeSess.id);
+              try {
+                localStorage.setItem(`active_session_${currentUser.id}`, activeSess.id);
+              } catch (e) {}
             }
-          } else if (cloudSession && !isDataValid(cloudSession)) {
-            console.error("Cloud session data is invalid, skipping sync.");
           }
         } catch (err) {
-          console.error("Failed to load cloud session:", err);
+          console.error("Failed to load cloud sessions:", err);
         }
       }
 

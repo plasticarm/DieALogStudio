@@ -10,8 +10,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Add error handler for JSON parsing errors
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ error: "Invalid JSON payload" });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: "Payload too large" });
+  }
+  next(err);
+});
 
 // Game state storage
 // We'll use @vercel/kv for persistence if configured, otherwise fall back to Map
@@ -401,6 +412,15 @@ app.post('/api/game/join', async (req, res) => {
     }
   }
   res.json({ success: true });
+});
+
+// Generic API Error Handler
+app.use('/api', (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("API Error:", err);
+  res.status(err.status || 500).json({
+    error: err.message || "Internal Server Error",
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 export default app;

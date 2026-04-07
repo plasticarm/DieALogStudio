@@ -32,16 +32,40 @@ const getAiClient = () => {
 /**
  * Detects comic panels in an image and returns their coordinates.
  */
+const urlToBase64 = async (url: string): Promise<string> => {
+  let resolvedUrl = url;
+  if (url.startsWith('vault:')) {
+    resolvedUrl = await imageStore.getSafeUrl(url) || url;
+  }
+
+  if (resolvedUrl.startsWith('data:')) {
+    return resolvedUrl;
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('Could not get canvas context'));
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error('Failed to load image for base64 conversion'));
+    img.src = resolvedUrl;
+  });
+};
+
 export const detectComicPanels = async (
   imageBase64: string
 ): Promise<PanelLayout[]> => {
   try {
     const ai = getAiClient();
     
-    let resolvedUrl = imageBase64;
-    if (imageBase64.startsWith('vault:')) {
-      resolvedUrl = await imageStore.getImage(imageBase64) || imageBase64;
-    }
+    const resolvedUrl = await urlToBase64(imageBase64);
 
     if (!resolvedUrl.startsWith('data:')) {
       throw new Error("Invalid image data for panel detection.");
@@ -84,6 +108,69 @@ export const detectComicPanels = async (
               height: { type: Type.INTEGER }
             },
             required: ["panelNumber", "x", "y", "width", "height"]
+          }
+        }
+      }
+    });
+
+    const text = response.text || '[]';
+    return JSON.parse(text);
+  } catch (error) {
+    return handleApiError(error);
+  }
+};
+
+export const detectSpeechBubbles = async (
+  imageBase64: string
+): Promise<{ x: number, y: number, width: number, height: number }[]> => {
+  try {
+    const ai = getAiClient();
+    
+    const resolvedUrl = await urlToBase64(imageBase64);
+
+    if (!resolvedUrl.startsWith('data:')) {
+      throw new Error("Invalid image data for bubble detection.");
+    }
+
+    const [header, data] = resolvedUrl.split(',');
+    const mimeType = header.split(';')[0].split(':')[1] || 'image/png';
+
+    const prompt = `Analyze this comic strip image and identify the bounding boxes for the inscribed rectangles of every speech bubble. 
+    CRITICAL INSTRUCTIONS:
+    1. Find the main body (ellipse or rounded rectangle) of each blank speech bubble.
+    2. Explicitly IGNORE the tail (the pointer part) of the speech bubble.
+    3. Calculate the largest possible rectangle that fits ENTIRELY INSIDE the main body of the speech bubble.
+    4. Do not include any coordinates that bleed into the tail or outside the bubble's border.
+    
+    Return a JSON array of objects, where each object represents the inscribed rectangle of a speech bubble:
+    - x (integer, 0-100, the left edge as a percentage of the image width)
+    - y (integer, 0-100, the top edge as a percentage of the image height)
+    - width (integer, 0-100, the width as a percentage of the image width)
+    - height (integer, 0-100, the height as a percentage of the image height)`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [
+        {
+          parts: [
+            { inlineData: { data, mimeType } },
+            { text: prompt }
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              x: { type: Type.INTEGER },
+              y: { type: Type.INTEGER },
+              width: { type: Type.INTEGER },
+              height: { type: Type.INTEGER }
+            },
+            required: ["x", "y", "width", "height"]
           }
         }
       }

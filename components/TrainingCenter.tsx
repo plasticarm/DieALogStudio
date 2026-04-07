@@ -452,7 +452,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
           const mimeType = resolved.split(';')[0].split(':')[1];
           referenceImagesPayload.push({
             image: {
-              imageBytes: base64,
+              bytesBase64Encoded: base64,
               mimeType: mimeType,
             },
             referenceType: VideoGenerationReferenceType.ASSET,

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ComicProfile, GeneratedPanelScript, SavedComicStrip, ArtModelType, TextField, PanelLayout } from '../types';
-import { generateComicScript, generateComicArt, removeTextFromComic, detectComicPanels } from '../services/gemini';
+import { generateComicScript, generateComicArt, removeTextFromComic, detectComicPanels, detectSpeechBubbles } from '../services/gemini';
 import { downloadImage, downloadJSON } from '../services/utils';
 import { downscaleImage } from '../utils/imageUtils';
 import { imageStore } from '../services/imageStore';
@@ -352,6 +352,29 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       }
       setPanelLayout(detectedLayout);
 
+      // Detect speech bubbles
+      setStatusMessage('Detecting Speech Bubbles...');
+      let detectedBubbles: TextField[] = [];
+      try {
+        const bubbles = await detectSpeechBubbles(img);
+        detectedBubbles = bubbles.map((b, i) => ({
+          id: `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          text: 'New Dialogue',
+          x: b.x,
+          y: b.y,
+          width: b.width,
+          height: b.height,
+          font: activeComic.selectedFonts?.[0] || 'Amatic SC',
+          fontSize: 32,
+          alignment: 'center',
+          characterName: 'Unknown',
+          order: i + 1
+        }));
+      } catch (bubbleErr) {
+        console.warn("Bubble detection failed:", bubbleErr);
+      }
+      setTextFields(detectedBubbles);
+
       setActiveTab('finished');
       setIsManualCleaning(false);
       if (manualCanvasRef.current) {
@@ -376,7 +399,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         finishedImageUrl: vaultedImg, 
         timestamp: Date.now(), 
         panelCount,
-        textFields: [],
+        textFields: detectedBubbles,
         panelLayout: detectedLayout
       };
       onSaveHistory(newStrip);
@@ -1267,6 +1290,39 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                     <i className="fa-solid fa-eraser"></i>
                   </button>
                   <div className="w-[1px] h-6 bg-slate-200 mx-2"></div>
+                  <button 
+                    onClick={async () => {
+                      if (!exportImage) return;
+                      setStatusMessage('Detecting Speech Bubbles...');
+                      try {
+                        const bubbles = await detectSpeechBubbles(exportImage);
+                        const newFields = bubbles.map((b, i) => ({
+                          id: `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                          text: 'New Dialogue',
+                          x: b.x,
+                          y: b.y,
+                          width: b.width,
+                          height: b.height,
+                          font: activeComic.selectedFonts?.[0] || 'Amatic SC',
+                          fontSize: 32,
+                          alignment: 'center' as const,
+                          characterName: 'Unknown',
+                          order: textFields.length + i + 1
+                        }));
+                        setTextFields(prev => [...prev, ...newFields]);
+                        setStatusMessage('Bubbles detected!');
+                        setTimeout(() => setStatusMessage(''), 3000);
+                      } catch (err) {
+                        console.error(err);
+                        setStatusMessage('Failed to detect bubbles.');
+                        setTimeout(() => setStatusMessage(''), 3000);
+                      }
+                    }}
+                    className="w-10 h-10 rounded-xl text-amber-500 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-all"
+                    title="Auto-Detect Bubbles"
+                  >
+                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                  </button>
                   <button 
                     onClick={() => { if(window.confirm('Delete all dialogue fields?')) setTextFields([]); }}
                     className="w-10 h-10 rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-all"

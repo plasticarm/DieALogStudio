@@ -84,7 +84,7 @@ export const firebaseService = {
    */
   async saveSession(session: AppSession): Promise<number> {
     if (!session.userId) throw new Error("User ID is required to save session");
-    const sessionRef = doc(db, "sessions", session.id);
+    const sessionRef = doc(db, "sessions", `${session.userId}_${session.id}`);
     
     // Sanitize data to remove undefined values which Firestore doesn't support
     const cleanSession = sanitizeData(session);
@@ -108,11 +108,20 @@ export const firebaseService = {
   /**
    * Loads a session from Firestore.
    */
-  async loadSession(sessionId: string): Promise<AppSession | null> {
-    const sessionRef = doc(db, "sessions", sessionId);
+  async loadSession(userId: string, sessionId: string): Promise<AppSession | null> {
+    const sessionRef = doc(db, "sessions", `${userId}_${sessionId}`);
     const docSnap = await getDoc(sessionRef);
     if (docSnap.exists()) {
       return docSnap.data() as AppSession;
+    }
+    // Fallback for older sessions that didn't use the composite key
+    const oldSessionRef = doc(db, "sessions", sessionId);
+    const oldDocSnap = await getDoc(oldSessionRef);
+    if (oldDocSnap.exists()) {
+      const data = oldDocSnap.data() as AppSession;
+      if (data.userId === userId) {
+        return data;
+      }
     }
     return null;
   },
@@ -128,15 +137,31 @@ export const firebaseService = {
     querySnapshot.forEach((doc) => {
       sessions.push(doc.data() as AppSession);
     });
-    return sessions;
+    
+    // Deduplicate sessions by ID, keeping the one with the latest lastModified
+    const uniqueSessions = new Map<string, AppSession>();
+    for (const session of sessions) {
+      const existing = uniqueSessions.get(session.id);
+      if (!existing || session.lastModified > existing.lastModified) {
+        uniqueSessions.set(session.id, session);
+      }
+    }
+    
+    return Array.from(uniqueSessions.values());
   },
 
   /**
    * Deletes a session from Firestore.
    */
-  async deleteSession(sessionId: string): Promise<void> {
-    const sessionRef = doc(db, "sessions", sessionId);
+  async deleteSession(userId: string, sessionId: string): Promise<void> {
+    const sessionRef = doc(db, "sessions", `${userId}_${sessionId}`);
     await deleteDoc(sessionRef);
+    // Also try deleting the old format just in case
+    const oldSessionRef = doc(db, "sessions", sessionId);
+    const oldDocSnap = await getDoc(oldSessionRef);
+    if (oldDocSnap.exists() && oldDocSnap.data()?.userId === userId) {
+      await deleteDoc(oldSessionRef);
+    }
   },
 
   /**

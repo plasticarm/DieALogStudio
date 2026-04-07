@@ -941,7 +941,7 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
     return () => {
       resizeObserver.disconnect();
     };
-  }, [text, font, alignment]);
+  }, [text, font, alignment, rounding]);
 
   return (
     <div 
