@@ -49,12 +49,13 @@ export const firebaseService = {
   /**
    * Publishes the current comics and books as global defaults for all new users.
    */
-  async publishGlobalDefaults(comics: ComicProfile[], books: ComicBook[]): Promise<void> {
+  async publishGlobalDefaults(comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[]): Promise<void> {
     try {
       const docRef = doc(db, "public_assets", "global_defaults");
       const cleanComics = sanitizeData(comics.map(c => ({...c, isGlobalDefault: true})));
       const cleanBooks = sanitizeData(books.map(b => ({...b, isGlobalDefault: true})));
-      await setDoc(docRef, { comics: cleanComics, books: cleanBooks, lastUpdated: Date.now() });
+      const cleanHistory = sanitizeData(history.map(h => ({...h, isGlobalDefault: true})));
+      await setDoc(docRef, { comics: cleanComics, books: cleanBooks, history: cleanHistory, lastUpdated: Date.now() });
       console.log("Published global defaults successfully.");
     } catch (e) {
       console.error("Failed to publish global defaults:", e);
@@ -65,12 +66,12 @@ export const firebaseService = {
   /**
    * Fetches the global defaults.
    */
-  async getGlobalDefaults(): Promise<{comics: ComicProfile[], books: ComicBook[]} | null> {
+  async getGlobalDefaults(): Promise<{comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[]} | null> {
     try {
       const docRef = doc(db, "public_assets", "global_defaults");
       const snap = await getDoc(docRef);
       if (snap.exists()) {
-        return snap.data() as {comics: ComicProfile[], books: ComicBook[]};
+        return snap.data() as {comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[]};
       }
       return null;
     } catch (e) {

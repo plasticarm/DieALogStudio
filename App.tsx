@@ -319,6 +319,8 @@ export default function App() {
         isGlobalDefault: true
       }));
 
+      let defaultHistory: SavedComicStrip[] = [];
+
       if (import.meta.env.VITE_FIREBASE_API_KEY) {
         try {
           const globalDefaults = await firebaseService.getGlobalDefaults();
@@ -329,6 +331,9 @@ export default function App() {
             
             defaultComics = [...defaultComics, ...newGlobalComics];
             defaultBooks = [...defaultBooks, ...newGlobalBooks];
+            if (globalDefaults.history) {
+              defaultHistory = globalDefaults.history;
+            }
           }
         } catch (err) {
           console.error("Failed to load global defaults:", err);
@@ -343,6 +348,7 @@ export default function App() {
         let hasChanges = false;
         let updatedComics = [...(activeSess.data.comics || [])];
         let updatedBooks = [...(activeSess.data.books || [])];
+        let updatedHistory = [...(activeSess.data.history || [])];
 
         if (missingComics.length > 0) {
           console.log(`Syncing ${missingComics.length} missing default comics into session ${activeId}`);
@@ -352,6 +358,15 @@ export default function App() {
           const missingBooks = defaultBooks.filter(b => !existingBookIds.has(b.id));
           updatedBooks = [...updatedBooks, ...missingBooks];
           hasChanges = true;
+        }
+
+        if (defaultHistory.length > 0) {
+          const existingHistoryIds = new Set(updatedHistory.map(h => h.id));
+          const missingHistory = defaultHistory.filter(h => !existingHistoryIds.has(h.id));
+          if (missingHistory.length > 0) {
+            updatedHistory = [...updatedHistory, ...missingHistory];
+            hasChanges = true;
+          }
         }
 
         // Sync metadata for existing comics
@@ -388,7 +403,8 @@ export default function App() {
             data: {
               ...activeSess.data,
               comics: updatedComics,
-              books: updatedBooks
+              books: updatedBooks,
+              history: updatedHistory
             }
           };
 
@@ -679,6 +695,7 @@ export default function App() {
   };
 
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const handlePublishDefaults = async () => {
     if (!currentUser || currentUser.role !== 'admin') return;
@@ -690,14 +707,81 @@ export default function App() {
     if (!currentUser || currentUser.role !== 'admin') return;
     if (!activeSession) return;
     
+    setIsPublishing(true);
     try {
-      await firebaseService.publishGlobalDefaults(activeSession.data.comics || [], activeSession.data.books || []);
+      // Deep copy to avoid mutating active session directly during upload
+      const comicsToPublish = JSON.parse(JSON.stringify(activeSession.data.comics || [])) as ComicProfile[];
+      const booksToPublish = JSON.parse(JSON.stringify(activeSession.data.books || [])) as ComicBook[];
+      const historyToPublish = JSON.parse(JSON.stringify(activeSession.data.history || [])) as SavedComicStrip[];
+
+      const processUrl = async (url: string | undefined) => {
+        if (!url) return url;
+        if (url.startsWith('http')) return url; // Already cloud
+        
+        let dataUrl = url;
+        if (url.startsWith('vault:')) {
+          const resolved = await imageStore.getImage(url);
+          if (resolved) dataUrl = resolved;
+        }
+        
+        if (dataUrl.startsWith('blob:')) {
+          try {
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            dataUrl = await new Promise((resolve) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          } catch (e) {
+            console.error("Failed to convert blob to data URL:", e);
+          }
+        }
+        
+        if (dataUrl.startsWith('data:')) {
+          return await imageStore.cloudify(dataUrl, currentUser.id, 'global_defaults');
+        }
+        return url;
+      };
+
+      for (const comic of comicsToPublish) {
+        if (comic.imageUrl) comic.imageUrl = await processUrl(comic.imageUrl);
+        if (comic.styleReferenceImageUrl) comic.styleReferenceImageUrl = await processUrl(comic.styleReferenceImageUrl);
+        for (const char of comic.characters || []) {
+          if (char.imageUrl) char.imageUrl = await processUrl(char.imageUrl);
+          if (char.avatarUrl) char.avatarUrl = await processUrl(char.avatarUrl);
+        }
+      }
+
+      for (const book of booksToPublish) {
+        if (book.coverImageUrl) book.coverImageUrl = await processUrl(book.coverImageUrl);
+        if (book.logoUrl) book.logoUrl = await processUrl(book.logoUrl);
+        if (book.externalPageUrls) {
+          for (let i = 0; i < book.externalPageUrls.length; i++) {
+            book.externalPageUrls[i] = await processUrl(book.externalPageUrls[i]) || book.externalPageUrls[i];
+          }
+        }
+      }
+
+      for (const strip of historyToPublish) {
+        if (strip.finishedImageUrl) strip.finishedImageUrl = await processUrl(strip.finishedImageUrl) || strip.finishedImageUrl;
+        if (strip.exportImageUrl) strip.exportImageUrl = await processUrl(strip.exportImageUrl);
+        if (strip.imageHistory) {
+          for (let i = 0; i < strip.imageHistory.length; i++) {
+            strip.imageHistory[i] = await processUrl(strip.imageHistory[i]) || strip.imageHistory[i];
+          }
+        }
+      }
+
+      await firebaseService.publishGlobalDefaults(comicsToPublish, booksToPublish, historyToPublish);
       setShowPublishConfirm(false);
+      setIsPublishing(false);
       // We can't use alert, so we just log it. A toast would be better but this works for now.
       console.log("Successfully published global defaults!");
     } catch (e) {
       console.error("Failed to publish global defaults:", e);
       setShowPublishConfirm(false);
+      setIsPublishing(false);
     }
   };
 
@@ -1112,22 +1196,33 @@ export default function App() {
       )}
 
       {showPublishConfirm && (
-        <div className="fixed inset-0 z-[3000] modal-backdrop flex items-center justify-center p-6" onClick={() => setShowPublishConfirm(false)}>
+        <div className="fixed inset-0 z-[3000] modal-backdrop flex items-center justify-center p-6" onClick={() => !isPublishing && setShowPublishConfirm(false)}>
           <div className="bg-white rounded-3xl p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <h3 className="text-3xl font-header uppercase tracking-widest mb-6 text-slate-800">Publish Defaults</h3>
-            <p className="text-slate-600 mb-8 font-medium">Are you sure you want to publish your current comics and books as the global defaults for all new users?</p>
+            <p className="text-slate-600 mb-8 font-medium">
+              {isPublishing ? "Publishing global defaults... This may take a moment as images are uploaded to the cloud." : "Are you sure you want to publish your current comics and books as the global defaults for all new users?"}
+            </p>
             <div className="flex gap-4">
               <button 
                 onClick={() => setShowPublishConfirm(false)}
-                className="flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+                disabled={isPublishing}
+                className="flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button 
                 onClick={executePublishDefaults}
-                className="flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-white bg-amber-500 hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/30"
+                disabled={isPublishing}
+                className="flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-white bg-amber-500 hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/30 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Publish
+                {isPublishing ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin"></i>
+                    Publishing...
+                  </>
+                ) : (
+                  "Publish"
+                )}
               </button>
             </div>
           </div>
