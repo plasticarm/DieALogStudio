@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ALLOW ANYONE TO READ GLOBAL DEFAULTS
+    match /public_assets/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == 'plasticarm@gmail.com';
+    }
+    
+    // ALLOW USERS TO MANAGE THEIR OWN SESSIONS
+    match /sessions/{sessionId} {
+      // Allow read if the document doesn't exist (for fallbacks) OR if the user owns it
+      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Allow create/update if the incoming data belongs to the user
+      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      
+      // Allow delete if the document doesn't exist or the user owns it
+      allow delete: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage, default as app } from "./firebase";
-import { AppSession, ProjectState, ComicProfile, ComicBook } from "../types";
+import { AppSession, ProjectState, ComicProfile, ComicBook, SavedComicStrip } from "../types";
 
 /**
  * Helper to recursively remove undefined values from an object.

@@ -745,8 +745,12 @@ export default function App() {
       };
 
       for (const comic of comicsToPublish) {
-        if (comic.imageUrl) comic.imageUrl = await processUrl(comic.imageUrl);
         if (comic.styleReferenceImageUrl) comic.styleReferenceImageUrl = await processUrl(comic.styleReferenceImageUrl);
+        if (comic.styleReferenceImageUrls) {
+          for (let i = 0; i < comic.styleReferenceImageUrls.length; i++) {
+            comic.styleReferenceImageUrls[i] = await processUrl(comic.styleReferenceImageUrls[i]) || comic.styleReferenceImageUrls[i];
+          }
+        }
         for (const char of comic.characters || []) {
           if (char.imageUrl) char.imageUrl = await processUrl(char.imageUrl);
           if (char.avatarUrl) char.avatarUrl = await processUrl(char.avatarUrl);
