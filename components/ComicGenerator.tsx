@@ -1000,8 +1000,8 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                    onChange={(e) => { setModel(e.target.value as ArtModelType); onAdvanceGuide?.(2); }}
                    className="bg-transparent border-none text-[9px] font-black uppercase text-slate-400 hover:text-slate-800 outline-none cursor-pointer"
                  >
-                   <option key="model-pro" value="gemini-3.1-flash-image-preview">Model: Pro</option>
-                   <option key="model-flash" value="gemini-2.5-flash-image">Model: Flash</option>
+                   <option key="model-pro" value="gemini-3.1-pro-image-preview">Model: Pro</option>
+                   <option key="model-flash" value="gemini-3.1-flash-image-preview">Model: Flash</option>
                  </select>
               </div>
               

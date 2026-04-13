@@ -399,6 +399,7 @@ export default function App() {
         if (hasChanges || cloudSessionLoaded) {
           const finalSession = {
             ...activeSess,
+            userId: currentUser.id, // Ensure session is attributed to current user
             lastModified: hasChanges ? Date.now() : activeSess.lastModified,
             data: {
               ...activeSess.data,
@@ -477,6 +478,7 @@ export default function App() {
         if (s.id === activeSession.id) {
           return {
             ...s,
+            userId: currentUser.id, // Ensure session is attributed to current user
             lastModified: Date.now(),
             data: { ...s.data, ...newData }
           };
@@ -1098,6 +1100,7 @@ export default function App() {
 
     return {
       ...session,
+      userId: currentUser.id, // Ensure the session belongs to the current user
       data: updatedProjectState,
       lastModified: Date.now()
     };

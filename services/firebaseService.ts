@@ -1,7 +1,58 @@
 import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
-import { db, storage, default as app } from "./firebase";
+import { db, storage, auth, default as app } from "./firebase";
 import { AppSession, ProjectState, ComicProfile, ComicBook, SavedComicStrip } from "../types";
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo, null, 2));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 /**
  * Helper to recursively remove undefined values from an object.
@@ -50,6 +101,7 @@ export const firebaseService = {
    * Publishes the current comics and books as global defaults for all new users.
    */
   async publishGlobalDefaults(comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[]): Promise<void> {
+    const path = "public_assets/global_defaults";
     try {
       const docRef = doc(db, "public_assets", "global_defaults");
       const cleanComics = sanitizeData(comics.map(c => ({...c, isGlobalDefault: true})));
@@ -58,8 +110,7 @@ export const firebaseService = {
       await setDoc(docRef, { comics: cleanComics, books: cleanBooks, history: cleanHistory, lastUpdated: Date.now() });
       console.log("Published global defaults successfully.");
     } catch (e) {
-      console.error("Failed to publish global defaults:", e);
-      throw e;
+      handleFirestoreError(e, OperationType.WRITE, path);
     }
   },
 
@@ -67,6 +118,7 @@ export const firebaseService = {
    * Fetches the global defaults.
    */
   async getGlobalDefaults(): Promise<{comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[]} | null> {
+    const path = "public_assets/global_defaults";
     try {
       const docRef = doc(db, "public_assets", "global_defaults");
       const snap = await getDoc(docRef);
@@ -75,7 +127,7 @@ export const firebaseService = {
       }
       return null;
     } catch (e) {
-      console.error("Failed to fetch global defaults:", e);
+      handleFirestoreError(e, OperationType.GET, path);
       return null;
     }
   },
@@ -85,6 +137,7 @@ export const firebaseService = {
    */
   async saveSession(session: AppSession): Promise<number> {
     if (!session.userId) throw new Error("User ID is required to save session");
+    const path = `sessions/${session.userId}_${session.id}`;
     const sessionRef = doc(db, "sessions", `${session.userId}_${session.id}`);
     
     // Sanitize data to remove undefined values which Firestore doesn't support
@@ -102,66 +155,88 @@ export const firebaseService = {
       throw new Error(`Document too large (${(size / 1024 / 1024).toFixed(2)}MB). Please prune history or assets.`);
     }
     
-    await setDoc(sessionRef, finalDoc);
-    return timestamp;
+    try {
+      await setDoc(sessionRef, finalDoc);
+      return timestamp;
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, path);
+      return timestamp;
+    }
   },
 
   /**
    * Loads a session from Firestore.
    */
   async loadSession(userId: string, sessionId: string): Promise<AppSession | null> {
-    const sessionRef = doc(db, "sessions", `${userId}_${sessionId}`);
-    const docSnap = await getDoc(sessionRef);
-    if (docSnap.exists()) {
-      return docSnap.data() as AppSession;
-    }
-    // Fallback for older sessions that didn't use the composite key
-    const oldSessionRef = doc(db, "sessions", sessionId);
-    const oldDocSnap = await getDoc(oldSessionRef);
-    if (oldDocSnap.exists()) {
-      const data = oldDocSnap.data() as AppSession;
-      if (data.userId === userId) {
-        return data;
+    const path = `sessions/${userId}_${sessionId}`;
+    try {
+      const sessionRef = doc(db, "sessions", `${userId}_${sessionId}`);
+      const docSnap = await getDoc(sessionRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as AppSession;
       }
+      // Fallback for older sessions that didn't use the composite key
+      const oldSessionRef = doc(db, "sessions", sessionId);
+      const oldDocSnap = await getDoc(oldSessionRef);
+      if (oldDocSnap.exists()) {
+        const data = oldDocSnap.data() as AppSession;
+        if (data.userId === userId) {
+          return data;
+        }
+      }
+      return null;
+    } catch (e) {
+      handleFirestoreError(e, OperationType.GET, path);
+      return null;
     }
-    return null;
   },
 
   /**
    * Loads all sessions for a specific user.
    */
   async loadUserSessions(userId: string): Promise<AppSession[]> {
-    const sessionsRef = collection(db, "sessions");
-    const q = query(sessionsRef, where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
-    const sessions: AppSession[] = [];
-    querySnapshot.forEach((doc) => {
-      sessions.push(doc.data() as AppSession);
-    });
-    
-    // Deduplicate sessions by ID, keeping the one with the latest lastModified
-    const uniqueSessions = new Map<string, AppSession>();
-    for (const session of sessions) {
-      const existing = uniqueSessions.get(session.id);
-      if (!existing || session.lastModified > existing.lastModified) {
-        uniqueSessions.set(session.id, session);
+    const path = "sessions";
+    try {
+      const sessionsRef = collection(db, "sessions");
+      const q = query(sessionsRef, where("userId", "==", userId));
+      const querySnapshot = await getDocs(q);
+      const sessions: AppSession[] = [];
+      querySnapshot.forEach((doc) => {
+        sessions.push(doc.data() as AppSession);
+      });
+      
+      // Deduplicate sessions by ID, keeping the one with the latest lastModified
+      const uniqueSessions = new Map<string, AppSession>();
+      for (const session of sessions) {
+        const existing = uniqueSessions.get(session.id);
+        if (!existing || session.lastModified > existing.lastModified) {
+          uniqueSessions.set(session.id, session);
+        }
       }
+      
+      return Array.from(uniqueSessions.values());
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, path);
+      return [];
     }
-    
-    return Array.from(uniqueSessions.values());
   },
 
   /**
    * Deletes a session from Firestore.
    */
   async deleteSession(userId: string, sessionId: string): Promise<void> {
-    const sessionRef = doc(db, "sessions", `${userId}_${sessionId}`);
-    await deleteDoc(sessionRef);
-    // Also try deleting the old format just in case
-    const oldSessionRef = doc(db, "sessions", sessionId);
-    const oldDocSnap = await getDoc(oldSessionRef);
-    if (oldDocSnap.exists() && oldDocSnap.data()?.userId === userId) {
-      await deleteDoc(oldSessionRef);
+    const path = `sessions/${userId}_${sessionId}`;
+    try {
+      const sessionRef = doc(db, "sessions", `${userId}_${sessionId}`);
+      await deleteDoc(sessionRef);
+      // Also try deleting the old format just in case
+      const oldSessionRef = doc(db, "sessions", sessionId);
+      const oldDocSnap = await getDoc(oldSessionRef);
+      if (oldDocSnap.exists() && oldDocSnap.data()?.userId === userId) {
+        await deleteDoc(oldSessionRef);
+      }
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, path);
     }
   },
 

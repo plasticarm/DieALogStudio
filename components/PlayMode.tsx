@@ -2361,7 +2361,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           wheel={{ step: 0.1 }}
                           ref={transformComponentRef}
                           disabled={isEnlarged || viewMode === 'full'}
-                          className="w-full h-full"
                         >
                           {() => (
                             <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">

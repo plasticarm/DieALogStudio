@@ -32,10 +32,14 @@ const getAiClient = () => {
 /**
  * Detects comic panels in an image and returns their coordinates.
  */
+/**
+ * Converts a URL (vault, data, or http) to a base64 data URL.
+ */
 const urlToBase64 = async (url: string): Promise<string> => {
+  if (!url) return "";
   let resolvedUrl = url;
   if (url.startsWith('vault:')) {
-    resolvedUrl = await imageStore.getSafeUrl(url) || url;
+    resolvedUrl = await imageStore.getImage(url) || url;
   }
 
   if (resolvedUrl.startsWith('data:')) {
@@ -59,6 +63,22 @@ const urlToBase64 = async (url: string): Promise<string> => {
   });
 };
 
+/**
+ * Safely extracts mimeType and data from a data URL for Gemini inlineData.
+ */
+const toInlineData = (dataUrl: string) => {
+  if (!dataUrl || !dataUrl.startsWith('data:')) {
+    return null;
+  }
+  const [header, data] = dataUrl.split(',');
+  let mimeType = 'image/png';
+  const match = header.match(/data:(.*?);/);
+  if (match && match[1] && match[1] !== 'application/octet-stream') {
+    mimeType = match[1];
+  }
+  return { inlineData: { data, mimeType } };
+};
+
 export const detectComicPanels = async (
   imageBase64: string
 ): Promise<PanelLayout[]> => {
@@ -66,13 +86,11 @@ export const detectComicPanels = async (
     const ai = getAiClient();
     
     const resolvedUrl = await urlToBase64(imageBase64);
+    const inlineData = toInlineData(resolvedUrl);
 
-    if (!resolvedUrl.startsWith('data:')) {
+    if (!inlineData) {
       throw new Error("Invalid image data for panel detection.");
     }
-
-    const [header, data] = resolvedUrl.split(',');
-    const mimeType = header.split(';')[0].split(':')[1] || 'image/png';
 
     const prompt = `Analyze this comic strip image and identify the bounding boxes for each individual panel. 
     Return a JSON array of objects, where each object has:
@@ -89,7 +107,7 @@ export const detectComicPanels = async (
       contents: [
         {
           parts: [
-            { inlineData: { data, mimeType } },
+            inlineData,
             { text: prompt }
           ]
         }
@@ -127,13 +145,11 @@ export const detectSpeechBubbles = async (
     const ai = getAiClient();
     
     const resolvedUrl = await urlToBase64(imageBase64);
+    const inlineData = toInlineData(resolvedUrl);
 
-    if (!resolvedUrl.startsWith('data:')) {
+    if (!inlineData) {
       throw new Error("Invalid image data for bubble detection.");
     }
-
-    const [header, data] = resolvedUrl.split(',');
-    const mimeType = header.split(';')[0].split(':')[1] || 'image/png';
 
     const prompt = `Analyze this comic strip image and identify the bounding boxes for the inscribed rectangles of every speech bubble. 
     CRITICAL INSTRUCTIONS:
@@ -153,7 +169,7 @@ export const detectSpeechBubbles = async (
       contents: [
         {
           parts: [
-            { inlineData: { data, mimeType } },
+            inlineData,
             { text: prompt }
           ]
         }
@@ -370,16 +386,10 @@ export const generateComicArt = async (
     // Add Style References (Master Aesthetic Anchor)
     for (const url of profile.styleReferenceImageUrls || []) {
       if (url) {
-        const resolvedUrl = await imageStore.getImage(url);
-        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
-          const [header, data] = resolvedUrl.split(',');
-          const mimeType = header.split(';')[0].split(':')[1];
-          parts.push({
-            inlineData: {
-              data: data,
-              mimeType: mimeType
-            }
-          });
+        const resolvedUrl = await urlToBase64(url);
+        const inlineData = toInlineData(resolvedUrl);
+        if (inlineData) {
+          parts.push(inlineData);
         }
       }
     }
@@ -387,16 +397,10 @@ export const generateComicArt = async (
     // Add Character References
     for (const char of profile.characters || []) {
       if (char.imageUrl) {
-        const resolvedUrl = await imageStore.getImage(char.imageUrl);
-        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
-          const [header, data] = resolvedUrl.split(',');
-          const mimeType = header.split(';')[0].split(':')[1];
-          parts.push({
-            inlineData: {
-              data: data,
-              mimeType: mimeType
-            }
-          });
+        const resolvedUrl = await urlToBase64(char.imageUrl);
+        const inlineData = toInlineData(resolvedUrl);
+        if (inlineData) {
+          parts.push(inlineData);
         }
       }
     }
@@ -442,13 +446,12 @@ export const removeTextFromComic = async (
       prompt = `Remove all text, letters, dialogue, AND all speech bubbles from this comic image. Retain only the background art and characters. Fill in the areas where speech bubbles were with appropriate background art. CRITICAL: Do not alter the characters or the rest of the background; preserve the original art exactly as it is.`;
     }
     
-    const resolvedUrl = await imageStore.getImage(imageBase64);
-    if (!resolvedUrl || !resolvedUrl.startsWith('data:')) {
+    const resolvedUrl = await urlToBase64(imageBase64);
+    const inlineData = toInlineData(resolvedUrl);
+
+    if (!inlineData) {
       throw new Error("Invalid image data provided to text removal.");
     }
-
-    const [header, data] = resolvedUrl.split(',');
-    const mimeType = header.split(';')[0].split(':')[1] || 'image/png';
 
     const imageConfig: any = { aspectRatio: "16:9" };
     if (model === 'gemini-3.1-flash-image-preview') {
@@ -459,12 +462,7 @@ export const removeTextFromComic = async (
       model: model,
       contents: { 
         parts: [
-          { 
-            inlineData: { 
-              data: data, 
-              mimeType: mimeType
-            } 
-          }, 
+          inlineData, 
           { text: prompt }
         ] 
       },
@@ -518,16 +516,10 @@ export const generateCharacterImage = async (
     // Add Style References (Master Aesthetic Anchor)
     for (const url of profile.styleReferenceImageUrls || []) {
       if (url) {
-        const resolvedUrl = await imageStore.getImage(url);
-        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
-          const [header, data] = resolvedUrl.split(',');
-          const mimeType = header.split(';')[0].split(':')[1];
-          parts.push({
-            inlineData: {
-              data: data,
-              mimeType: mimeType
-            }
-          });
+        const resolvedUrl = await urlToBase64(url);
+        const inlineData = toInlineData(resolvedUrl);
+        if (inlineData) {
+          parts.push(inlineData);
         }
       }
     }
@@ -588,24 +580,17 @@ export const generateCharacterSheet = async (
     // Add Style References (Master Aesthetic Anchor)
     for (const url of profile.styleReferenceImageUrls || []) {
       if (url) {
-        const resolvedUrl = await imageStore.getImage(url);
-        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
-          const [header, data] = resolvedUrl.split(',');
-          const mimeType = header.split(';')[0].split(':')[1];
-          parts.push({
-            inlineData: {
-              data: data,
-              mimeType: mimeType
-            }
-          });
+        const resolvedUrl = await urlToBase64(url);
+        const inlineData = toInlineData(resolvedUrl);
+        if (inlineData) {
+          parts.push(inlineData);
         }
       }
     }
 
-    if (referenceImageUrl.startsWith('data:')) {
-      const [header, data] = referenceImageUrl.split(',');
-      const mimeType = header.split(';')[0].split(':')[1];
-      parts.push({ inlineData: { data: data, mimeType: mimeType } });
+    const referenceInlineData = toInlineData(await urlToBase64(referenceImageUrl));
+    if (referenceInlineData) {
+      parts.push(referenceInlineData);
     }
     
     parts.push({ text: prompt });
@@ -657,24 +642,17 @@ export const generateExpressionSheet = async (
     // Add Style References (Master Aesthetic Anchor)
     for (const url of profile.styleReferenceImageUrls || []) {
       if (url) {
-        const resolvedUrl = await imageStore.getImage(url);
-        if (resolvedUrl && resolvedUrl.startsWith('data:')) {
-          const [header, data] = resolvedUrl.split(',');
-          const mimeType = header.split(';')[0].split(':')[1];
-          parts.push({
-            inlineData: {
-              data: data,
-              mimeType: mimeType
-            }
-          });
+        const resolvedUrl = await urlToBase64(url);
+        const inlineData = toInlineData(resolvedUrl);
+        if (inlineData) {
+          parts.push(inlineData);
         }
       }
     }
 
-    if (referenceImageUrl.startsWith('data:')) {
-      const [header, data] = referenceImageUrl.split(',');
-      const mimeType = header.split(';')[0].split(':')[1];
-      parts.push({ inlineData: { data: data, mimeType: mimeType } });
+    const referenceInlineData = toInlineData(await urlToBase64(referenceImageUrl));
+    if (referenceInlineData) {
+      parts.push(referenceInlineData);
     }
     
     parts.push({ text: prompt });
@@ -713,8 +691,12 @@ export const generateVeoVideo = async (
     const ai = getAiClient();
     const prompt = `Using the attached comic image, generate a sequential video that transitions chronologically through each panel. Expand the background art of every panel to seamlessly fill a 16:9 widescreen format. Animate the action within each panel. When a character speaks, generate voice audio and synchronize it with the original speech bubbles popping onto the screen to display the comic's text.`;
 
-    const [header, data] = imageBase64.split(',');
-    const mimeType = header.split(';')[0].split(':')[1] || 'image/png';
+    const resolvedUrl = await urlToBase64(imageBase64);
+    const inlineData = toInlineData(resolvedUrl);
+
+    if (!inlineData) {
+      throw new Error("Invalid image data provided to video generation.");
+    }
 
     onProgress?.("Initializing video generation...");
     
@@ -722,8 +704,8 @@ export const generateVeoVideo = async (
       model: model,
       prompt: prompt,
       image: {
-        imageBytes: data,
-        mimeType: mimeType,
+        imageBytes: inlineData.inlineData.data,
+        mimeType: inlineData.inlineData.mimeType,
       },
       config: {
         numberOfVideos: 1,
