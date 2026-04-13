@@ -325,12 +325,19 @@ export default function App() {
         try {
           const globalDefaults = await firebaseService.getGlobalDefaults();
           if (globalDefaults) {
-            const existingIds = new Set(defaultComics.map(c => c.id));
-            const newGlobalComics = globalDefaults.comics.filter(c => !existingIds.has(c.id));
-            const newGlobalBooks = globalDefaults.books.filter(b => !existingIds.has(b.id));
+            // Override INITIAL_COMICS with global defaults if they exist
+            if (globalDefaults.comics && globalDefaults.comics.length > 0) {
+              const globalComicIds = new Set(globalDefaults.comics.map(c => c.id));
+              const remainingDefaultComics = defaultComics.filter(c => !globalComicIds.has(c.id));
+              defaultComics = [...remainingDefaultComics, ...globalDefaults.comics];
+            }
             
-            defaultComics = [...defaultComics, ...newGlobalComics];
-            defaultBooks = [...defaultBooks, ...newGlobalBooks];
+            if (globalDefaults.books && globalDefaults.books.length > 0) {
+              const globalBookIds = new Set(globalDefaults.books.map(b => b.id));
+              const remainingDefaultBooks = defaultBooks.filter(b => !globalBookIds.has(b.id));
+              defaultBooks = [...remainingDefaultBooks, ...globalDefaults.books];
+            }
+
             if (globalDefaults.history) {
               defaultHistory = globalDefaults.history;
             }
@@ -353,9 +360,12 @@ export default function App() {
         if (missingComics.length > 0) {
           console.log(`Syncing ${missingComics.length} missing default comics into session ${activeId}`);
           updatedComics = [...updatedComics, ...missingComics];
-          
-          const existingBookIds = new Set(updatedBooks.map(b => b.id));
-          const missingBooks = defaultBooks.filter(b => !existingBookIds.has(b.id));
+          hasChanges = true;
+        }
+        
+        const existingBookIds = new Set(updatedBooks.map(b => b.id));
+        const missingBooks = defaultBooks.filter(b => !existingBookIds.has(b.id));
+        if (missingBooks.length > 0) {
           updatedBooks = [...updatedBooks, ...missingBooks];
           hasChanges = true;
         }
@@ -367,6 +377,21 @@ export default function App() {
             updatedHistory = [...updatedHistory, ...missingHistory];
             hasChanges = true;
           }
+          
+          updatedHistory = updatedHistory.map(h => {
+            const initial = defaultHistory.find(ih => ih.id === h.id);
+            if (initial) {
+              let changed = false;
+              const updated = { ...h };
+              if (!updated.finishedImageUrl && initial.finishedImageUrl) { updated.finishedImageUrl = initial.finishedImageUrl; changed = true; }
+              if (!updated.exportImageUrl && initial.exportImageUrl) { updated.exportImageUrl = initial.exportImageUrl; changed = true; }
+              if (changed) {
+                hasChanges = true;
+                return updated;
+              }
+            }
+            return h;
+          });
         }
 
         // Sync metadata for existing comics
@@ -393,6 +418,24 @@ export default function App() {
                 updated.characters = [...(updated.characters || []), ...missingChars];
                 changed = true;
               }
+              
+              // Sync images for existing characters
+              updated.characters = (updated.characters || []).map(ch => {
+                const initialChar = initial.characters.find(ic => ic.id === ch.id);
+                if (initialChar) {
+                  let charChanged = false;
+                  const updatedChar = { ...ch };
+                  if (!updatedChar.imageUrl && initialChar.imageUrl) { updatedChar.imageUrl = initialChar.imageUrl; charChanged = true; }
+                  if (!updatedChar.avatarUrl && initialChar.avatarUrl) { updatedChar.avatarUrl = initialChar.avatarUrl; charChanged = true; }
+                  if (!updatedChar.characterSheetUrl && initialChar.characterSheetUrl) { updatedChar.characterSheetUrl = initialChar.characterSheetUrl; charChanged = true; }
+                  if (!updatedChar.expressionSheetUrl && initialChar.expressionSheetUrl) { updatedChar.expressionSheetUrl = initialChar.expressionSheetUrl; charChanged = true; }
+                  if (charChanged) {
+                    changed = true;
+                    return updatedChar;
+                  }
+                }
+                return ch;
+              });
             }
             
             // Sync environments
@@ -403,6 +446,21 @@ export default function App() {
                 updated.environments = [...(updated.environments || []), ...missingEnvs];
                 changed = true;
               }
+              
+              // Sync images for existing environments
+              updated.environments = (updated.environments || []).map(env => {
+                const initialEnv = initial.environments.find(ie => ie.id === env.id);
+                if (initialEnv) {
+                  let envChanged = false;
+                  const updatedEnv = { ...env };
+                  if (!updatedEnv.imageUrl && initialEnv.imageUrl) { updatedEnv.imageUrl = initialEnv.imageUrl; envChanged = true; }
+                  if (envChanged) {
+                    changed = true;
+                    return updatedEnv;
+                  }
+                }
+                return env;
+              });
             }
 
             if (changed) {
