@@ -13,7 +13,7 @@ interface CachedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
  */
 export const CachedImage: React.FC<CachedImageProps> = ({ src, fallback, ...props }) => {
   const [resolvedSrc, setResolvedSrc] = useState<string | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Optimization: If it's already a data or blob URL, we can use it directly
@@ -28,6 +28,7 @@ export const CachedImage: React.FC<CachedImageProps> = ({ src, fallback, ...prop
     }
 
     let isMounted = true;
+    setIsLoading(true);
 
     const resolve = async () => {
       setIsLoading(true);
@@ -91,7 +92,7 @@ export const CachedImage: React.FC<CachedImageProps> = ({ src, fallback, ...prop
     );
   }
 
-  if (error || !displaySrc) {
+  if (error || (!displaySrc && !isLoading)) {
     console.warn(`[CachedImage] Rendering error state for: ${src}`, { error, displaySrc });
     return (
       <div className={`bg-slate-50 border border-slate-200 flex flex-col items-center justify-center text-slate-400 p-4 ${props.className || ''}`} style={{ minHeight: '100px', ...props.style }}>
@@ -105,5 +106,16 @@ export const CachedImage: React.FC<CachedImageProps> = ({ src, fallback, ...prop
     );
   }
 
-  return <img src={displaySrc} referrerPolicy="no-referrer" {...props} />;
+  return (
+    <img 
+      src={displaySrc} 
+      referrerPolicy="no-referrer" 
+      {...props} 
+      onError={(e) => {
+        console.error(`[CachedImage] Browser failed to load image: ${displaySrc}`);
+        setError("Failed to load image");
+        if (props.onError) props.onError(e);
+      }}
+    />
+  );
 };

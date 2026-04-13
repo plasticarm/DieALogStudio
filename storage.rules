@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 1. If you manually uploaded images directly to the root of the storage bucket
+    // Allow anyone logged in to read them, but only the admin can write to the root.
+    match /{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.token.email == 'plasticarm@gmail.com';
+    }
+
+    // 2. For images uploaded through the app, they go into a folder named after the User's ID
+    match /{userId}/{allPaths=**} {
+      // Allow reading if:
+      // A) The user is requesting their own files
+      // B) The files belong to the Admin (plasticarm@gmail.com's UID: sOP1Yum3j2VopmiaxpL3cWSE0h13)
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        userId == 'sOP1Yum3j2VopmiaxpL3cWSE0h13'
+      );
+      
+      // Allow writing ONLY if the user is modifying their own folder
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+  }
+}
