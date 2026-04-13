@@ -379,6 +379,32 @@ export default function App() {
             if (!updated.archetypes && initial.archetypes) { updated.archetypes = initial.archetypes; changed = true; }
             if (!updated.styleDescription && initial.styleDescription) { updated.styleDescription = initial.styleDescription; changed = true; }
             if (!updated.isGlobalDefault) { updated.isGlobalDefault = true; changed = true; }
+            
+            // Sync images if missing
+            if (!updated.styleReferenceImageUrl && initial.styleReferenceImageUrl) { updated.styleReferenceImageUrl = initial.styleReferenceImageUrl; changed = true; }
+            if (!updated.styleReferenceImageUrls && initial.styleReferenceImageUrls) { updated.styleReferenceImageUrls = initial.styleReferenceImageUrls; changed = true; }
+            if (!updated.libraryVideoUrl && initial.libraryVideoUrl) { updated.libraryVideoUrl = initial.libraryVideoUrl; changed = true; }
+            
+            // Sync characters
+            if (initial.characters && initial.characters.length > 0) {
+              const existingCharIds = new Set((updated.characters || []).map(ch => ch.id));
+              const missingChars = initial.characters.filter(ch => !existingCharIds.has(ch.id));
+              if (missingChars.length > 0) {
+                updated.characters = [...(updated.characters || []), ...missingChars];
+                changed = true;
+              }
+            }
+            
+            // Sync environments
+            if (initial.environments && initial.environments.length > 0) {
+              const existingEnvIds = new Set((updated.environments || []).map(env => env.id));
+              const missingEnvs = initial.environments.filter(env => !existingEnvIds.has(env.id));
+              if (missingEnvs.length > 0) {
+                updated.environments = [...(updated.environments || []), ...missingEnvs];
+                changed = true;
+              }
+            }
+
             if (changed) {
               hasChanges = true;
               return updated;
@@ -389,9 +415,27 @@ export default function App() {
         
         updatedBooks = updatedBooks.map(b => {
           const initial = defaultBooks.find(ib => ib.id === b.id);
-          if (initial && !b.isGlobalDefault) {
-            hasChanges = true;
-            return { ...b, isGlobalDefault: true };
+          if (initial) {
+            let changed = false;
+            const updated = { ...b };
+            if (!updated.isGlobalDefault) { updated.isGlobalDefault = true; changed = true; }
+            if (!updated.coverImageUrl && initial.coverImageUrl) { updated.coverImageUrl = initial.coverImageUrl; changed = true; }
+            if (!updated.logoUrl && initial.logoUrl) { updated.logoUrl = initial.logoUrl; changed = true; }
+            
+            // Sync pages
+            if (initial.pages && initial.pages.length > 0) {
+              const existingPageIds = new Set(updated.pages || []);
+              const missingPages = initial.pages.filter(p => !existingPageIds.has(p));
+              if (missingPages.length > 0) {
+                updated.pages = [...(updated.pages || []), ...missingPages];
+                changed = true;
+              }
+            }
+
+            if (changed) {
+              hasChanges = true;
+              return updated;
+            }
           }
           return b;
         });
