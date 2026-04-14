@@ -63,7 +63,7 @@ export const CoverGenerator: React.FC<CoverGeneratorProps> = ({ book, activeComi
               <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Art Model</label>
               <select value={model} onChange={e => setModel(e.target.value as ArtModelType)} className="w-full bg-slate-100 border border-slate-300 rounded-xl p-3 font-bold">
                 <option value="gemini-3.1-flash-image-preview">⚡ Fast Render</option>
-                <option value="gemini-3.1-pro-image-preview">💎 Pro Render</option>
+                <option value="gemini-3-pro-image-preview">💎 Pro Render</option>
               </select>
             </div>
             <div className="flex gap-4">

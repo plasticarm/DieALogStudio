@@ -180,4 +180,4 @@ export interface ProjectState {
   currentGuideStep?: number;
 }
 
-export type ArtModelType = 'gemini-3.1-flash-image-preview' | 'gemini-3.1-pro-image-preview';
+export type ArtModelType = 'gemini-3.1-flash-image-preview' | 'gemini-3-pro-image-preview';
