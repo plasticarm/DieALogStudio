@@ -5,7 +5,7 @@ import { downscaleImage } from '../utils/imageUtils';
 import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { COMIC_FONTS, CANNED_PHRASES } from '../constants';
+import { COMIC_FONTS, CANNED_CATEGORIES, CANNED_PHRASES_DATA } from '../constants';
 
 const getFontFamily = (fontName: string) => {
   const font = COMIC_FONTS.find(f => f.name === fontName);
@@ -58,7 +58,20 @@ export const TestingLab: React.FC<TestingLabProps> = ({
     if (localTextFields.length > 0) {
       return [...localTextFields]
         .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .map(tf => ({ x: tf.x, y: tf.y, width: tf.width, height: tf.height, id: tf.id, overridePanZoom: tf.overridePanZoom }));
+        .map(tf => {
+          const panelScript = selectedStrip.script?.find(p => p.dialogue.some(d => d.id === tf.dialogueId));
+          const panelLayout = selectedStrip.panelLayout?.find(p => p.panelNumber === panelScript?.panelNumber);
+          return { 
+            x: tf.x, 
+            y: tf.y, 
+            width: tf.width, 
+            height: tf.height, 
+            id: tf.id, 
+            overridePanZoom: tf.overridePanZoom,
+            panelHeight: panelLayout?.height,
+            panelWidth: panelLayout?.width
+          };
+        });
     }
     // Fallback to panel layout if no text fields
     if (selectedStrip.panelLayout && selectedStrip.panelLayout.length > 0) {
@@ -135,7 +148,16 @@ export const TestingLab: React.FC<TestingLabProps> = ({
           setTransform(newX, newY, scale, 500, "easeOut");
         }, 50);
       } else {
-        const scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
+        let scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
+        
+        // If we have panel information, adjust scale to fit the panel height better
+        if ((focusTarget as any).panelHeight) {
+          const panelHeight = (focusTarget as any).panelHeight;
+          // Aim for the panel to take up about 85% of the view height
+          const panelScale = 85 / panelHeight;
+          scale = Math.max(1, Math.min(panelScale, 5));
+        }
+
         setTimeout(() => {
           zoomToElement(`target-${focusTarget.id}`, scale, 500, "easeOut");
         }, 50);
@@ -219,10 +241,30 @@ export const TestingLab: React.FC<TestingLabProps> = ({
     setLocalTextFields(prev => prev.map(tf => tf.id === id ? { ...tf, text } : tf));
   };
 
-  const handleCanned = (tfId: string) => {
+  const [activeCannedMenu, setActiveCannedMenu] = useState<{ id: string, x: number, y: number } | null>(null);
+
+  const handleCanned = (tfId: string, category: string) => {
     if (branches <= 0) return;
     
-    const randomPhrase = CANNED_PHRASES[Math.floor(Math.random() * CANNED_PHRASES.length)];
+    // Determine placement based on the strip's position in history
+    const stripIndex = filteredHistory.findIndex(s => s.id === selectedStripId);
+    let placement = 'Bridger';
+    
+    // history is newest first, so the last item is the first panel
+    if (stripIndex === filteredHistory.length - 1) {
+      placement = 'Opener';
+    } else if (stripIndex === 0 && filteredHistory.length > 1) {
+      placement = 'Closer';
+    }
+
+    const matchingPhrases = CANNED_PHRASES_DATA.filter(p => p.category === category && p.placement === placement);
+    const fallbackPhrases = CANNED_PHRASES_DATA.filter(p => p.category === category);
+    
+    const phrasesToUse = matchingPhrases.length > 0 ? matchingPhrases : fallbackPhrases;
+    if (phrasesToUse.length === 0) return;
+
+    const randomPhrase = phrasesToUse[Math.floor(Math.random() * phrasesToUse.length)].phrase;
+    
     const tf = localTextFields.find(t => t.id === tfId);
     if (tf) {
       const match = tf.text.match(/^[^:]+:\s*/);
@@ -230,7 +272,33 @@ export const TestingLab: React.FC<TestingLabProps> = ({
       handleUpdateText(tfId, prefix + randomPhrase);
       setBranches(prev => Math.max(0, prev - 1));
     }
+    setActiveCannedMenu(null);
   };
+
+  const toggleCannedMenu = (e: React.MouseEvent, tfId: string) => {
+    if (activeCannedMenu?.id === tfId) {
+      setActiveCannedMenu(null);
+    } else {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setActiveCannedMenu({
+        id: tfId,
+        x: rect.left + rect.width / 2,
+        y: rect.top
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (activeCannedMenu && 
+          !(e.target as HTMLElement).closest('.canned-menu-trigger') && 
+          !(e.target as HTMLElement).closest('.canned-menu-container')) {
+        setActiveCannedMenu(null);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [activeCannedMenu]);
 
   const handleOverridePanZoom = () => {
     if (!transformComponentRef.current || !focusTarget || !selectedStrip) return;
@@ -691,6 +759,26 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         )}
       </div>
 
+      {/* Fixed Canned Menu Portal-like */}
+      {activeCannedMenu && (
+        <div 
+          className="canned-menu-container fixed bg-white rounded-xl shadow-2xl border border-slate-200 p-2 flex gap-2 z-[9999] -translate-x-1/2 -translate-y-full mb-2"
+          style={{ left: activeCannedMenu.x, top: activeCannedMenu.y }}
+        >
+          {CANNED_CATEGORIES.map(cat => (
+            <button
+              key={cat.name}
+              onClick={() => handleCanned(activeCannedMenu.id, cat.name)}
+              className="w-8 h-8 flex items-center justify-center text-lg hover:bg-slate-100 rounded-lg transition-colors"
+              title={cat.name}
+            >
+              {cat.emoji}
+            </button>
+          ))}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-slate-200 transform rotate-45"></div>
+        </div>
+      )}
+
       <div className="flex-1 flex flex-col overflow-hidden">
         {selectedStrip ? (
           <div className="flex-1 flex gap-4 overflow-hidden bg-white/10 rounded-[2.5rem] border border-white/10">
@@ -787,17 +875,19 @@ export const TestingLab: React.FC<TestingLabProps> = ({
                               <i className="fa-solid fa-lightbulb text-[7px]"></i>
                               Hint
                             </button>
-                            <button 
-                              onClick={() => handleCanned(tf.id)}
-                              disabled={branches <= 0}
-                              className={`text-[8px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 shrink-0 ${
-                                branches <= 0 ? 'bg-slate-50 text-slate-300 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
-                              }`}
-                              title="Fill with random canned phrase"
-                            >
-                              <i className="fa-solid fa-comment-dots text-[7px]"></i>
-                              Canned
-                            </button>
+                            <div className="relative">
+                              <button 
+                                onClick={(e) => toggleCannedMenu(e, tf.id)}
+                                disabled={branches <= 0}
+                                className={`canned-menu-trigger text-[8px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 shrink-0 ${
+                                  branches <= 0 ? 'bg-slate-50 text-slate-300 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
+                                }`}
+                                title="Fill with random canned phrase"
+                              >
+                                <i className="fa-solid fa-comment-dots text-[7px]"></i>
+                                Canned
+                              </button>
+                            </div>
                             <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-full">
                               <span className="text-[8px] font-bold text-slate-500 uppercase">Round</span>
                               <input 

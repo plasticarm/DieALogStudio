@@ -1,3 +1,12 @@
+export type PhraseCategory = 'Aggressive Apathy' | 'Existential Surrender' | 'Mundane Pivot' | 'Petty Snark' | 'Onomatopoeia';
+export type PhrasePlacement = 'Opener' | 'Bridger' | 'Closer';
+
+export interface CannedPhrase {
+  category: PhraseCategory;
+  placement: PhrasePlacement;
+  phrase: string;
+}
+
 export interface ApiKeys {
   gemini?: string;
   elevenLabs?: string;

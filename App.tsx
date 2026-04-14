@@ -320,6 +320,7 @@ export default function App() {
       }));
 
       let defaultHistory: SavedComicStrip[] = [];
+      let defaultRatings: RatedComic[] = [];
 
       if (import.meta.env.VITE_FIREBASE_API_KEY) {
         try {
@@ -341,6 +342,10 @@ export default function App() {
             if (globalDefaults.history) {
               defaultHistory = globalDefaults.history;
             }
+
+            if (globalDefaults.ratings) {
+              defaultRatings = globalDefaults.ratings;
+            }
           }
         } catch (err) {
           console.error("Failed to load global defaults:", err);
@@ -356,6 +361,7 @@ export default function App() {
         let updatedComics = [...(activeSess.data.comics || [])];
         let updatedBooks = [...(activeSess.data.books || [])];
         let updatedHistory = [...(activeSess.data.history || [])];
+        let updatedRatings = [...(activeSess.data.ratings || [])];
 
         if (missingComics.length > 0) {
           console.log(`Syncing ${missingComics.length} missing default comics into session ${activeId}`);
@@ -392,6 +398,15 @@ export default function App() {
             }
             return h;
           });
+        }
+
+        if (defaultRatings.length > 0) {
+          const existingRatingIds = new Set(updatedRatings.map(r => r.id));
+          const missingRatings = defaultRatings.filter(r => !existingRatingIds.has(r.id));
+          if (missingRatings.length > 0) {
+            updatedRatings = [...updatedRatings, ...missingRatings];
+            hasChanges = true;
+          }
         }
 
         // Sync metadata for existing comics
@@ -507,7 +522,8 @@ export default function App() {
               ...activeSess.data,
               comics: updatedComics,
               books: updatedBooks,
-              history: updatedHistory
+              history: updatedHistory,
+              ratings: updatedRatings
             }
           };
 
@@ -817,6 +833,7 @@ export default function App() {
       const comicsToPublish = JSON.parse(JSON.stringify(activeSession.data.comics || [])) as ComicProfile[];
       const booksToPublish = JSON.parse(JSON.stringify(activeSession.data.books || [])) as ComicBook[];
       const historyToPublish = JSON.parse(JSON.stringify(activeSession.data.history || [])) as SavedComicStrip[];
+      const ratingsToPublish = JSON.parse(JSON.stringify(activeSession.data.ratings || [])) as RatedComic[];
 
       const processUrl = async (url: string | undefined) => {
         if (!url) return url;
@@ -881,7 +898,11 @@ export default function App() {
         }
       }
 
-      await firebaseService.publishGlobalDefaults(comicsToPublish, booksToPublish, historyToPublish);
+      for (const rating of ratingsToPublish) {
+        if (rating.imageUrl) rating.imageUrl = await processUrl(rating.imageUrl) || rating.imageUrl;
+      }
+
+      await firebaseService.publishGlobalDefaults(comicsToPublish, booksToPublish, historyToPublish, ratingsToPublish);
       setShowPublishConfirm(false);
       setIsPublishing(false);
       // We can't use alert, so we just log it. A toast would be better but this works for now.

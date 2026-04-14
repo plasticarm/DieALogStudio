@@ -1440,441 +1440,3174 @@ export const COMIC_FONTS = [
   { name: 'Titan One', family: '"Titan One", cursive' }
 ];
 
-export const CANNED_PHRASES = [
-  "Where’s the beef?",
-  "Pass me a candle, I'm about to light this place up.",
-  "If laughter is the best medicine, is my doctor just a failed stand-up comedian?",
-  "Why do we press harder on the remote control when we know the batteries are weak? Is it a secret workout for our fingers?",
-  "Do parallel universes have better Wi-Fi, or do they also suffer from endless loading screens?",
-  "If procrastination were an Olympic sport, would I finally have a gold medal by now?",
-  "Why do we park on driveways and drive on parkways? Is there a cosmic traffic planner with a sense of humor?",
-  "Is the refrigerator light really off when I close the door, or does it just throw the wildest parties in there?",
-  "If time is money, can I get a refund for all those hours spent trying to find my keys?",
-  "Why is 'abbreviation' such a long word? Are words trying to be ironic?",
-  "If I'm talking to myself, am I having a team meeting or just a really exclusive solo brainstorming session?",
-  "If life is a highway, why do I feel like I'm stuck in perpetual traffic with a broken GPS?",
-  "If a cat's got nine lives, how many does it lose when it knocks a glass off the table?",
-  "Why is there no 'Ctrl+Z' in real life? I could use that feature for Monday mornings.",
-  "If I had a dollar for every time someone called me lazy, I'd probably hire someone to count my money for me.",
-  "Do aliens visit Earth and go back home thinking, 'Well, that was weird'?",
-  "If I had a superpower, it would be the ability to find things I've misplaced. Move over, invisibility!",
-  "If Cinderella's shoe fit perfectly, why did it fall off in the first place? Did the Fairy Godmother skip the measurements?",
-  "Why do we call it 'getting in shape' when round is a shape too, right?",
-  "If laughter is contagious, why haven't I become a comedy tycoon by now?",
-  "Do spiders think humans are messy roommates who leave decorations on the ceiling?",
-  "If life is like a box of chocolates, why do I always end up with the one filled with nuts?",
-  "If I had a dime for every time I lost my keys, would I finally be able to afford a key-finding butler?",
-  "Why do we say 'sleep like a baby' when babies wake up every two hours demanding attention?",
-  "If I had a dollar for every brilliant idea I had in the shower, I'd be the Jeff Bezos of hygiene innovation.",
-  "Do clouds ever look down on us and think, \"Hey, that one looks like a potato\"?",
-  "Why is 'abbreviated' such a long word? Shouldn't it be abbrv8ed?",
-  "If my dog could talk, would he spill all my secrets or just ask for more treats?",
-  "Why do we call it a 'shortcut' when taking a detour through a confusing maze of backstreets?",
-  "If life is a game, why does it feel like I'm playing Monopoly and landing on 'Go to Jail' all the time?",
-  "If time flies when you're having fun, does it crawl when you're stuck in a boring meeting?",
-  "If I were a detective, my first case would be solving the mystery of missing socks from the laundry.",
-  "If I could time travel, would I go back to fix my mistakes or forward to see if I ever learn from them?",
-  "Why do we call it 'fast food' when the drive-thru line moves slower than a sloth on a coffee break?",
-  "If my bed could talk, would it say, \"You again? Back for another nap?\"",
-  "Do aliens abduct humans for research, or are they just intergalactic tourists collecting souvenirs?",
-  "If I could be any mythical creature, would I choose a dragon for the fire-breathing or a unicorn for the stylish horn?",
-  "Why do we say 'heads up' when we're about to throw something at someone's face? Shouldn't it be 'heads down'?",
-  "If my life were a movie, would it be a blockbuster or a straight-to-DVD comedy?",
-  "Why do we press harder on the elevator button when it's already been pressed? Is impatience an Olympic sport?",
-  "If my GPS had a sense of humor, would it tell me, \"You have arrived...at the wrong address\"?",
-  "If laughter is the key to a happy life, why don't I have a Nobel Prize in Comedy yet?",
-  "Welcome to the circus of my mind, where even the elephants have PhDs in chaos theory.",
-  "Step right up and witness the spectacular spectacle of my daily life – it's like a rollercoaster, but with more snacks and fewer safety measures.",
-  "In the grand sitcom of my existence, I play all the roles and none of them particularly well. Enjoy the show!",
-  "Life is a comedy, and I'm the punchline trying to set up a knock-knock joke.",
-  "They say laughter is the best medicine, but my life is a pharmacy of hilarity. Side effects may include snorting and tears of joy.",
-  "Grab a front-row seat to the circus of my existence – popcorn optional, laughter mandatory.",
-  "If life gives you lemons, make a lemonade stand at the intersection of Chaos Street and Absurdity Avenue.",
-  "I've mastered the art of adulting: it's like juggling, but with bills, responsibilities, and the occasional existential crisis.",
-  "Greetings, Earthlings! Prepare to be entertained by the extraterrestrial absurdity that is my daily existence.",
-  "Step into my world, where the only thing more unpredictable than the plot is the punchline. Spoiler alert: there isn't one.",
-  "Why does my cat think knocking things off the table is a valid form of communication?",
-  "If my cat had a resume, would 'professional napper' be listed as a skill?",
-  "Why does my cat stare at me like I'm the strange one when I interrupt her 18-hour nap?",
-  "If my cat could talk, would she critique my fashion choices or demand more treats?",
-  "Why does my cat act like she's auditioning for a gymnastics competition when she's chasing a tiny ball?",
-  "Does my cat believe she's the CEO of the household, or is she just a benevolent dictator?",
-  "If my cat wrote a self-help book, would it be titled \"The Zen of Napping\"?",
-  "Why does my cat look at me like I've betrayed her when I bring out the dreaded vacuum cleaner?",
-  "If my cat hosted a cooking show, would it involve knocking ingredients off the counter and staring at the oven until it cooked itself?",
-  "Does my cat think I'm a terrible hunter because I can never catch the elusive red dot?",
-  "Why do vampires never need dental work, considering their eternal commitment to biting?",
-  "If a vampire goes to therapy, is it considered a 'bite-sized' session?",
-  "Do vampires ever get annoyed by the garlic bread smell at Italian restaurants, or is it just a tasty reminder of their weaknesses?",
-  "If a vampire became a stand-up comedian, would his jokes suck the life out of the audience?",
-  "Do vampires have a 'night shift' at blood banks, or is that too on the nose?",
-  "If a priest and a vampire opened a bakery together, would their slogan be \"Bite into Holiness\"?",
-  "Can a vampire attend a beach party, or is SPF forever out of their league?",
-  "Why do vampires always seem to choose the most dramatic entrances? Is subtlety not in their undead handbook?",
-  "If a vampire decided to become a vegetarian, would they crave the taste of rare tomatoes?",
-  "Do vampires get irked when people assume they can transform into bats at will, or is it just a bat-misunderstanding?",
-  "If music be the food of love, does that mean my fridge is a symphony?",
-  "Why do we sing in the shower, and more importantly, does the shampoo bottle enjoy the encore?",
-  "If life had a soundtrack, would my theme song be a comedy or a tragedy?",
-  "Why do musicians always seem to have the best hair? Is it a secret skill learned at music school?",
-  "Can I blame my terrible dance moves on a malfunctioning rhythm detector?",
-  "If I plant a question, will it grow into a tree of wisdom or just a shrub of confusion?",
-  "Do birds get annoyed when humans try to sing along, or do they appreciate the attempted duet?",
-  "If my car radio had a mind of its own, would it be a DJ or a rebellious teenager constantly changing the station?",
-  "Why does my cat look at me like I've lost my mind every time I attempt to serenade her?",
-  "Can I officially claim \"air guitar virtuoso\" as a hidden talent on my resume?",
-  "Why do song lyrics become deeply profound when I'm in the shower but turn into gibberish when I try to sing them in public?",
-  "If music could solve world problems, would we just need a global jukebox?",
-  "Do headphones double as a \"Do Not Disturb\" sign, or do people enjoy interrupting a musical moment?",
-  "Can I blame my inability to remember names on having too many catchy tunes stuck in my head?",
-  "Why do musicians always look so mysterious in their album covers? Is there a secret handbook for brooding poses?",
-  "If life were a musical, would my neighbors appreciate my spontaneous bursts into song, or would they start a petition for silence?",
-  "Can I hire a personal soundtrack composer to follow me around and make every moment more epic?",
-  "Do air drums count as a valid form of exercise, or am I just fooling myself?",
-  "If a tree falls in a forest and there's no one around to hear it, does it make a sound? And more importantly, what genre would it be?",
-  "Can I blame my messy room on the fact that organizing my CDs takes priority over cleaning?",
-  "If life is a journey, can I take the scenic route even if I have no sense of direction?",
-  "Why do we call it a \"midlife crisis\"? Is there a quarterly report on happiness I missed?",
-  "If time is money, can I get a refund for all those hours spent trying to find my keys?",
-  "Is the universe expanding, or is it just having commitment issues?",
-  "If I discover the meaning of life, do I win a prize, or is it just a participation trophy?",
-  "Can I blame my existential dread on the weather, or is it an all-season, all-weather condition?",
-  "If a tree falls in a forest and no one hears it, does it still question its purpose?",
-  "Is life a comedy, tragedy, or just a really confusing improv show?",
-  "If I find the meaning of life in a fortune cookie, should I take it seriously or order another plate of sweet and sour chicken?",
-  "Is the glass half full, half empty, or just experiencing an identity crisis?",
-  "If I question the meaning of existence while eating pizza, does it make the pizza more profound or just cheesier?",
-  "Why do we search for the meaning of life on Google when we know it's just going to lead to more questions?",
-  "Can I use my existential crisis as a valid excuse for not doing laundry, or is that just a laundry list of excuses?",
-  "If I'm lost in thought, should I leave breadcrumbs or follow the trail of deep pondering?",
-  "If life is a puzzle, am I missing a few pieces or did I accidentally assemble it upside down?",
-  "Is the pursuit of happiness a marathon or a never-ending game of hide-and-seek?",
-  "If time is an illusion, does that mean I can show up late without consequences?",
-  "Can I blame my procrastination on the philosophical debate of whether time is linear or just a messy ball of wibbly-wobbly, timey-wimey stuff?",
-  "If I find inner peace but still can't find my car keys, did I really find inner peace?",
-  "Is the meaning of life at the bottom of a coffee cup, or am I just addicted to caffeine and existential crises?",
-  "I don't know but I've been told...",
-  "If my life had a theme song, it would be a mix of circus music and the Benny Hill theme.",
-  "I'm not lazy; I'm in energy-saving mode.",
-  "Note to self: next time, read the fine print of adulthood before signing up.",
-  "My to-do list is longer than a CVS receipt, and just as confusing.",
-  "My superpower? Procrastination. I can save the world, just not today.",
-  "I'm not lost; I'm on an unplanned adventure through the scenic route of life.",
-  "If my cat wrote a memoir, it would be titled \"My Human: A Comedy of Errors.\"",
-  "Life's a puzzle, and I'm missing a few crucial pieces. No wonder it doesn't make sense.",
-  "My life is like a romantic comedy, minus the romance and more awkward pauses.",
-  "If I were a detective, my signature move would be losing the case file.",
-  "I've reached the level of multitasking where I can make mistakes in multiple ways simultaneously.",
-  "My idea of a balanced diet is a cupcake in each hand.",
-  "If my plants could talk, they'd probably request a new gardener.",
-  "I'm not a morning person or a night owl; I'm more of a perpetually exhausted pigeon.",
-  "My dance moves are so legendary that they're still waiting to be discovered by the rest of humanity.",
-  "My autobiography would be titled \"Life: A Comedy of Terrors.\"",
-  "I have a black belt in karate, but it's more of a fashion statement than a combat skill.",
-  "If common sense were a superpower, I'd be the superhero the world never knew it needed.",
-  "My level of adulting is somewhere between knowing how to pay bills and calling my mom to ask how to pay bills.",
-  "I'm not indecisive; I'm just exploring all the options before making the wrong choice.",
-  "If overthinking were an Olympic sport, I'd have a gold medal, three silvers, and a bronze by now.",
-  "My kitchen skills are so elite that I once burnt water while attempting to boil it.",
-  "I'm not a chef; I just play one in my microwave's fantasy world.",
-  "My life is like a sitcom, and every day is a new episode of \"Oops, I did it again.\"",
-  "If my phone could talk, it would probably request therapy for the trauma of witnessing my awkward text messages.",
-  "I'm not lazy; I'm in energy-saving mode. Wait, did I say that already? Well, it's still true.",
-  "My sense of direction is so bad that even my GPS has trust issues.",
-  "I'm not aging; I'm gaining XP in the game of life. Too bad the rewards are just gray hairs and wrinkles.",
-  "I'm not lazy, just on a permanent coffee break.",
-  "My plants think I'm a botanist for how well I ignore them.",
-  "I'm not forgetful; I'm just creating surprise memories.",
-  "I'm not clumsy; the floor just enjoys playing catch with my feet.",
-  "I'm not indecisive; I'm just exploring all the wrong options.",
-  "I'm not short; I'm vertically efficient.",
-  "I'm on a seafood diet. I see food and eat it. Mostly tacos.",
-  "I'm not disorganized; I have a unique filing system called 'organized chaos.'",
-  "I'm not a control freak; I just have a better plan.",
-  "I have a black belt in karate, but it's mostly decorative.",
-  "I'm not a morning person; I'm more of a 'give me five more minutes' person.",
-  "I'm not aging; I'm just increasing my wisdom highlights.",
-  "I'm not a chef; I'm a culinary improviser.",
-  "I'm not a night owl; I'm a midnight snack enthusiast.",
-  "I'm not a superhero; I just excel at napping.",
-  "I'm not antisocial; I'm just on a solo vacation from reality.",
-  "I'm not procrastinating; I'm giving my ideas time to marinate.",
-  "I'm not a superhero; I just have a super appetite.",
-  "Can anyone become a critic or do you have to have a natural disliking of all things?",
-  "I need a way to preserve all my thoughts in stone.",
-  "Whatever you can squeeze out, I'll drink ",
-  "Nailed it.",
-  "Butt of coarse fine prince.",
-  "Looks like my life is sponsored by Murphy's Law – if something can go wrong, it will.",
-  "Forget adulting, I'm applying for a refund. This is not what I signed up for.",
-  "I'm going to kiss you violently.",
-  "Keep up the great work!",
-  "The Mario in my head is saying, \"Let's a go!\".",
-  "Believe in yourself. Otherwise you're capable of amazing mistakes.",
-  "Don't give up; you're closer than you think.",
-  "Just keep trucking and F#c#ing",
-  "You're doing better than you realize.",
-  "Stay positive; you're on the right track.",
-  "Keep pushing forward; you're unstoppable!",
-  "You're stronger than you know; keep shining!",
-  "You've got what it takes; keep believing in yourself.",
-  "You're making a difference; keep up the good work.",
-  "Trust in yourself; you've got this under control.",
-  "Keep going; you're doing fantastic!",
-  "You're on your way to greatness; keep moving forward.",
-  "Your hard work is inspiring; keep it up!",
-  "You're capable of achieving anything you set your mind to.",
-  "Keep chasing your dreams; you're closer than ever.",
-  "Your determination is admirable; keep going strong!",
-  "You're on the path to success; keep believing in yourself.",
-  "Well, butter my biscuit and call me a muffin!",
-  "Well, tickle me pink and call me a flamingo!",
-  "Well, slap me with a feather and call me a chicken!",
-  "Well, paint me green and call me a pickle!",
-  "Well, slap me with a fish and call me sushi!",
-  "Well, tie me to an antelope and call me a backpack!",
-  "Well, dip me in honey and call me a bear!",
-  "Well, wrap me in bacon and call me an inside out pig!",
-  "Well, flatten my tires and call me a tow!",
-  "Well, tickle my toes and call me a Teletubby!",
-  "Well, whisk me away and call me an omelette!",
-  "Well, pour me a cup of tea and call me a doctor.",
-  "Well, stack me like pancakes and call me breakfast!",
-  "Well, bounce me like a ball and call me bouncy!",
-  "Well, swirl me like spaghetti and call me tangled!",
-  "Well, douse me in glitter and call me fabulous!",
-  "Well, toss me in the air and call me airborne!",
-  "Well, roll me like a dice and call me lucky!",
-  "Well, bury me in sand and call me a beach bum!",
-  "Well, dress me in polka dots and call me dotty!",
-  "Well, scratch me behind the ears and call me purr-fect!",
-  "Slap me with a pancake and call me flapjack!",
-  "Wrap me in seaweed and call me a sushi roll!",
-  "Dunk me in chocolate and call me a truffle!",
-  "Toss me in the air and call me a frisbee!",
-  "Stick me to a wall and call me wallpaper!",
-  "Tickle me with a feather and call me ticklish!",
-  "Drape me in curtains and call me a window!",
-  "Balance me on a ball and call me a circus act!",
-  "Put me on a shelf and call me a knickknack!",
-  "Hang me from a tree and call me a swing!",
-  "Drop me in a bucket and call me a drop in the ocean!",
-  "Roll me in flour and call me a dumpling!",
-  "Spin me like a top and call me dizzy!",
-  "Bury me in sand and call me a beachcomber!",
-  "Tangle me in yarn and call me a cat's cradle!",
-  "Freeze me in ice and call me a popsicle!",
-  "Stuff me in a suitcase and call me an adventurer!",
-  "Wrap me in a blanket and call me a burrito!",
-  "Stick me in a bubble and call me a bubble wrap!",
-  "Toss me in the air and call me a confetti!",
-  "If I find the meaning of life in a fortune cookie, is it destiny or just dessert?",
-  "If time is a social construct, can I be fashionably late to my existential crisis?",
-  "Existentialism: where every 'why' leads to another 'why' in an infinite loop.",
-  "Is the universe expanding, or is it just giving itself more room for an existential meltdown?",
-  "If I'm lost in thought, should I leave breadcrumbs or follow the trail of deep pondering?",
-  "Why does my coffee understand my need for existential contemplation better than most people?",
-  "If life is a sitcom, my laugh track is on an extended coffee break.",
-  "Can I blame my procrastination on the philosophical debate of whether time is linear or just a messy ball of wibbly-wobbly, timey-wimey stuff?",
-  "Do I look like I'm listening to you, because I'm trying very hard to male it look like it.",
-  "No! No. No, no, no, no, no, no. NO!... Ok.",
-  "Garbage can of the universe.",
-  "At least that's what I'm told.",
-  "Did you get lost on your way to common sense?",
-  "If stupidity were an Olympic sport, you'd be a gold medalist.",
-  "I'd call you a tool, but at least tools serve a purpose.",
-  "Your intelligence called, it wants a divorce from you.",
-  "Are you always this dense, or are you making a special effort today?",
-  "If you were any slower, you'd be going backward.",
-  "It's a good thing you're not paid for thinking; you'd be bankrupt.",
-  "Did you swallow a dictionary or do you just enjoy sounding like a fool?",
-  "You're like a broken record – annoying and stuck on repeat.",
-  "Do you ever wonder what life is like for those who actually use their brains?",
-  "If stupidity were a superpower, you'd be the world's mightiest hero.",
-  "I'd tell you to take a mental vacation, but I think you're already there.",
-  "You're not the sharpest tool in the shed, but at least you're consistent.",
-  "If ignorance is bliss, you must be in a constant state of euphoria.",
-  "Did you fall from heaven? Because it looks like you landed on your head.",
-  "I'd insult you, but you seem to be doing a fine job of it yourself.",
-  "You must have a PhD in idiocy with all the expertise you display.",
-  "You're like a human vending machine – full of snacks but lacking in substance.",
-  "Did you run out of brain cells, or were you born with a deficit?",
-  "If brains were taxed, you'd get a refund for being exempt.",
-  "Do you have a license for that level of incompetence?",
-  "Are you the president of the Dullsville Chamber of Commerce?",
-  "You're a few fries short of a Happy Meal, aren't you?",
-  "You're like a broken clock – right twice a day, but still useless.",
-  "Do you need a GPS to find your own thoughts?",
-  "Are you auditioning for the role of village idiot, or is it a natural talent?",
-  "Congratulations, you've reached the pinnacle of dumbness.",
-  "Did you take a wrong turn on the highway of intelligence and end up in Dumbville?",
-  "You're not the brightest bulb in the box, are you?",
-  "Are you allergic to logic or just immune to common sense?",
-  "If stupidity were a currency, you'd be filthy rich.",
-  "Did you forget to upgrade your brain's software?",
-  "You're like a black hole for intelligence – everything gets sucked in and never escapes.",
-  "Did you skip the IQ test and go straight to the stupidity contest?",
-  "You're not the full picnic basket, are you?",
-  "If brains were dynamite, you wouldn't have enough to blow your nose.",
-  "Did you fall off the dumb tree and hit every branch on the way down?",
-  "You're not the brightest bulb in the chandelier, are you?",
-  "You must be allergic to knowledge, because you seem to avoid it at all costs.",
-  "If ignorance is bliss, you must be the happiest person alive.",
-  "Oh, congratulations, Captain Obvious!",
-  "Well, aren't you just a ray of sunshine?",
-  "Oh, forgive me for not realizing you were the expert on everything.",
-  "Wow, your wit is as sharp as a butter knife.",
-  "Oh, sorry, I must have confused you with someone who actually cares.",
-  "And here I thought we were having a conversation, but it seems I was mistaken.",
-  "Oh, please, enlighten us all with your vast wisdom.",
-  "Well, isn't that just the most fascinating thing I've ever heard? (eye roll)",
-  "Oh, my mistake, I didn't realize sarcasm was your second language.",
-  "Oh, the sarcasm is strong with this one.",
-  "Oh, pardon me for interrupting your soliloquy of brilliance.",
-  "Well, aren't you just a fountain of originality?",
-  "Oh, look, it's the mayor of Sarcasm City!",
-  "Oh, forgive me for not bowing down to your unparalleled intellect.",
-  "Well, I must say, your grasp of the obvious is truly awe-inspiring.",
-  "Oh, I didn't realize we were playing the game of 'Who Can Be the Most Sarcastic.'",
-  "Oh, how could I have missed your subtle and nuanced commentary?",
-  "Well, aren't you just a regular comedian? (eye roll)",
-  "Oh, I see, you've been appointed the official spokesperson for Sarcasm Incorporated.",
-  "Well, color me impressed. And by 'impressed,' I mean 'not impressed at all.'",
-  "Big deal, mine is the size of a trout.",
-  "You should quit now. While everyone else is ahead and no one will notice you're gone.",
-  "Let me introduce you to my little friend.",
-  "You're killing it.",
-  "Well, that's my daily dose of chaos.",
-  "Another day survived; they should give out medals for this.",
-  "And that's a wrap on today's circus performance.",
-  "Stay tuned for more thrilling episodes of 'Adventures in Absurdity.'",
-  "Life's a comedy, and I'm the punchline.",
-  "Until next time, keep laughing at life's absurdity.",
-  "And scene. Fade to black. Or maybe just a shade of grey.",
-  "That's all for today's rollercoaster ride; hope you didn't lose your lunch.",
-  "The end – or is it just the beginning of another sitcom episode?",
-  "And that, my friends, is how you expertly navigate the maze of daily madness.",
-  "Plot twist: I still have no idea what I'm doing.",
-  "Time for a coffee break.",
-  "That's it for today's comedy hour; I'll be here all week, unfortunately.",
-  "Another day conquered, or maybe just survived—details are fuzzy.",
-  "Cue the credits. If only life had a fast forward button.",
-  "Fin. Or as I like to call it, the grand finale of my daily sitcom.",
-  "The saga continues... because apparently, life has no season finale.",
-  "And that, my friends, is how you turn a routine task into a three-act play.",
-  "That's a wrap! If life were a movie, I'd be asking for a refund.",
-  "Exit stage right, pursued by a sense of impending doom.",
-  "The credits are rolling, but the bloopers reel never stops.",
-  "That's all for today's episode of 'How Not to Adult.'",
-  "And scene, but the drama of my life is an ongoing series.",
-  "Curtain call – because even my daily routine deserves applause.",
-  "Another day, another opportunity for life to surprise me.",
-  "And that concludes today's masterclass in controlled chaos.",
-  "Fade out, but the chaos lingers like a cliffhanger.",
-  "That's a wrap, but the sequel is just a snooze away.",
-  "The end... until tomorrow hits the play button again.",
-  "And with that, I bid adieu to today's episode of 'Life Unscripted.'",
-  "Ta-da!",
-  "Oops!",
-  "Tomorrow...",
-  "Seriously?",
-  "Finale!",
-  "Chaos!",
-  "Epic!",
-  "Tada!",
-  "Jazzed!",
-  "Next!",
-  "Poof!",
-  "Kaboom!",
-  "Hilarious!",
-  "Tangled!",
-  "Nailed it!",
-  "Vanished!",
-  "Shazam!",
-  "Puzzled!",
-  "Chaos!",
-  "Tomorrow!",
-  "Outro!",
-  "Encore!",
-  "Quirky!",
-  "Laughs!",
-  "Victory!",
-  "Unbelievable!",
-  "Whew!",
-  "Loop!",
-  "Wacky!",
-  "Mystery!",
-  "Bam!",
-  "Sizzle!",
-  "Kaboom!",
-  "Yikes!",
-  "Zing!",
-  "Pop!",
-  "Crunch!",
-  "Bang!",
-  "Swish!",
-  "Whoosh!",
-  "Gulp!",
-  "Bonk!",
-  "Uh... uh huh.",
-  "The dude abides.",
-  "Slapadoodle!",
-  "I’d agree with you, but then we’d both be wrong.",
-  "Oh, look. My care meter is at zero.",
-  "Is there an unsubscribe link to this conversation?",
-  "I’ll file that under Things I Don't Care About.",
-  "Fascinating. Tell it to my spam folder.",
-  "I’m practicing my listening face.",
-  "This sounds like a you problem.",
-  "Cool story, bro. Needs more dragons.",
-  "I’m emotionally exhausted just looking at you.",
-  "Let me check my schedule... nope, no time for this.",
-  "My inner child just rolled its eyes.",
-  "Wow. Changing my life right now.",
-  "I’d explain it to you, but I don't have crayons.",
-  "Are you always this exhausting, or is today special?",
-  "If I throw a stick, will you leave?",
-  "You’re the reason we have warning labels.",
-  "I’m returning your nose. I found it in my business.",
-  "I love what you’ve done with your ignorance.",
-  "Somewhere, a tree is working hard to produce the oxygen you’re wasting.",
-  "I’m not insulting you, I’m describing you.",
-  "I’ve been called worse things by better people.",
-  "I don’t have the energy to pretend I like you today.",
-  "And that’s why we can’t have nice things!",
-  "Release the hounds!",
-  "To the escape pod!",
-  "I refuse to participate in this reality!",
-  "Cancel all my appointments!",
-  "I have a sudden urge to flee the country.",
-  "I demand a recount!",
-  "My lawyer will be in touch.",
-  "This wasn’t in the brochure!",
-  "Acknowledge my brilliance!",
-  "I blame the government.",
-  "Error 404: Motivation not found.",
-  "Is this the bad place?",
-  "I’m just a series of awkward moments strung together.",
-  "My last brain cell is crying.",
-  "I need a nap, or a new identity.",
-  "I’m 90% caffeine and 10% existential dread.",
-  "Please reboot my consciousness.",
-  "Does this count as cardio?",
-  "Is it too late to be an astronaut instead?",
-  "I am currently unsupervised. Proceed with caution.",
-  "Yoink!",
-  "Blorp!",
-  "Sploosh!",
-  "Boop!",
-  "Zorp!",
-  "Pew pew pew!",
-  "Sad trombone noise.",
-  "Record scratch.",
-  "Squelch!",
-  "Ker-plunk!",
-  "Thwack!",
-  "Pffft.",
-  "Gadzooks!",
-  "Zonk!"
+export const CANNED_CATEGORIES = [
+  { name: 'Aggressive Apathy', emoji: '🙄' },
+  { name: 'Existential Surrender', emoji: '💀' },
+  { name: 'Mundane Pivot', emoji: '🤔' },
+  { name: 'Petty Snark', emoji: '🤡' },
+  { name: 'Onomatopoeia', emoji: '💥' }
+];
+
+export const CANNED_PHRASES_DATA: { category: string, placement: string, phrase: string }[] = [
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I am already tired of whatever this is."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "Do I actually have to be here for this?"
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I am putting my care meter exactly at zero."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "Look, my shift ended three minutes ago."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Let me stop you right there: I don't care."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I am going to pretend I didn't see that."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Fascinating. Tell it to my spam folder."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Is there an unsubscribe link to this conversation?"
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I do not get paid enough to deal with this."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "Please submit a ticket to IT."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "Cool. I am going to go stare at a wall now."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I will file that under Things I Don't Care About."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Why does the universe hate me specifically?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Ah, the consequences of my own actions."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "I am 90 percent caffeine and 10 percent existential dread."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Is this the bad place?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Of course this is happening."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Every choice I’ve ever made has led to this exact disaster."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I would ask for a sign, but I probably couldn't read it."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Error 404: Motivation not found."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Just put me in the garbage where I belong."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I accept my fate. Do your worst."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And so, the simulation finally collapses."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Please reboot my consciousness."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Did anyone remember to feed the cat?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "I think I left the stove on."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Does anyone have a breath mint?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "I really hope I remembered to record my show."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "That is great, but you still owe me five bucks."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Are we still on for tacos later, or what?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Does this count as cardio?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Do you think this makes me look bloated?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Okay, but who is going to clean this up?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Did you keep the receipt for that?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "I am going to need that in an email."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Anyway, how is your mother doing?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Your entire aesthetic is giving me a migraine."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "I see we are skipping basic logic today."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "I love what you have done with your ignorance."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Are you always this exhausting, or is today special?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I would use smaller words, but I don't think it would help."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Are you taking notes? Because you really should be."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I am not insulting you, I am describing you."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "If I throw a stick, will you leave?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "I love how you are just embracing being wrong today."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "I have seen better execution from a broken toaster."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You are the reason we have warning labels."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "I am returning your nose. I found it in my business."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Sigh."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Gasp!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Yawn."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Ahem."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Blink. Blink."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Cricket noises."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Squelch!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Gulp."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Sad trombone noise."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Record scratch."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Thud."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Poof!"
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I am emotionally unavailable for whatever this is."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "Wake me up when the world is actually ending."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I have reached my daily limit of caring."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "This sounds like a problem for tomorrow me."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Wow, that is incredibly not my business."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I am going to politely ignore everything you just did."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Please direct all inquiries to the brick wall behind me."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Mmhmm. Sure. Wow. So crazy."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I am clocking out. Good luck with the chaos."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "If anyone needs me, I will be staring into the void."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "My shift is over and so is my patience."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I am just going to walk backwards until I disappear."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "The universe is just openly mocking me now."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "I knew I should have stayed in bed this decade."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "This is exactly why I do not have hopes or dreams."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "I am ready to be abducted by aliens now."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "And the plot thickens into a disgusting sludge."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I guess this is my life now."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Just throw me directly into the sun."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Everything is terrible and I want a refund."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I welcome the sweet release of the end credits."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Cancel my subscription to reality."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I will just lay here and let the moss claim me."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Please tell my Wi-Fi router I loved her."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Does this lighting make me look pale?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Has anyone seen my favorite spatula?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "I really need to renew my car registration."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Are those shoes comfortable for running away in?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Can we wrap this up? I have a pizza on the way."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Do you think it is going to rain later?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I knew I should have worn layers today."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Remind me to pick up milk on the way home."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "So, are we still splitting the check?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "I am giving this experience a one-star review."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Anyway, my fantasy football team is doing terrible."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "At least it is not a Monday."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Who dressed you, a blind raccoon?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Oh good, the village idiot has arrived."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "I was having a great day until you spoke."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you practice being this annoying, or is it natural?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I am trying to see things from your perspective, but my head hurts."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "You are a walking advertisement for common sense."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "That was a brilliant thought. Who did you steal it from?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I would clap, but I do not want to encourage you."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "May your Wi-Fi forever buffer."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "I hope you step on a very sharp Lego."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You are the human equivalent of a typo."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Please go be awful somewhere else."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Ugh."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Gack!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Meh."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Hiss!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Facepalm."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Whoosh."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Crunch."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Buzz."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Plop."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Wah-wah."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Bam!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Zzzzz."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I would pretend to care, but I am too tired."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "Wake me up when this is over."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I am actively ignoring this situation."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "You have mistaken me for someone who cares."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Wow, that sounds like a lot of work for you."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I am going to let you finish that thought somewhere else."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Fascinating. Please tell a wall."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Let me know how that works out for you."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I am officially resigning from this conversation."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "Good luck with whatever that was."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I am going to walk away now and never look back."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "Unsubscribe."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Hello darkness, my old friend."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "I am just a meat sack floating on a rock."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Everything is pointless and my back hurts."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Did I do something to anger the cosmos?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "The void is looking really cozy right now."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I am mentally crawling under a blanket."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Just leave me here for the scavengers."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Why fight the inevitable tide of doom?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Bury me with my unresolved trauma."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I am returning to dust now. Goodbye."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Let the abyss consume us all."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Check please. I am done with this timeline."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Did you know tomatoes are technically fruit?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "I really need a haircut."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Is it too early for a sandwich?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "I think I left my coupons in the car."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Do you prefer crunchy or smooth peanut butter?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I should probably floss more often."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Wow, look at the time. I have nowhere to be."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Have you noticed how expensive cheese is lately?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Anyway, I am going to go sort my socks."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Let us circle back after I have a snack."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "So, how about that local sports team?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "I need to go water my plastic plants."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you fall asleep while dressing yourself today?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Oh, I see the clown car finally arrived."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Are you naturally this confusing or is it a hobby?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "I would agree with you, but then we would both be idiots."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Your train of thought must have derailed miles ago."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "It is cute how you think you are helping."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Do you ever listen to the words coming out of your mouth?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I am taking away your talking privileges."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "May your socks always be slightly damp."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "I hope you lose your favorite pen."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Do us all a favor and just stop."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You are a walking typo."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Phew."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Grrrr."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Eek!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Hmm."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Sizzle."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Glug glug."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Zap!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Honk."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Splat."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Ding!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Whomp whomp."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Click."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Where’s the beef?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Pass me a candle, I'm about to light this place up."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "If laughter is the best medicine, is my doctor just a failed stand-up comedian?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why do we press harder on the remote control when we know the batteries are weak?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Is it a secret workout for our fingers?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Do parallel universes have better Wi-Fi, or do they also suffer from endless loading screens?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "If procrastination were an Olympic sport, would I finally have a gold medal by now?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why do we park on driveways and drive on parkways?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Is there a cosmic traffic planner with a sense of humor?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Is the refrigerator light really off when I close the door, or does it just throw the wildest parties in there?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If time is money, can I get a refund for all those hours spent trying to find my keys?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why is 'abbreviation' such a long word? Are words trying to be ironic?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If I'm talking to myself, am I having a team meeting or just a really exclusive solo brainstorming session?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "If life is a highway, why do I feel like I'm stuck in perpetual traffic with a broken GPS?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If a cat's got nine lives, how many does it lose when it knocks a glass off the table?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Why is there no 'Ctrl+Z' in real life? I could use that feature for Monday mornings."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "If I had a dollar for every time someone called me lazy, I'd probably hire someone to count my money for me."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Do aliens visit Earth and go back home thinking, 'Well, that was weird'?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "If I had a superpower, it would be the ability to find things I've misplaced. Move over, invisibility!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "If Cinderella's shoe fit perfectly, why did it fall off in the first place?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Did the Fairy Godmother skip the measurements?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why do we call it 'getting in shape' when round is a shape too, right?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "If laughter is contagious, why haven't I become a comedy tycoon by now?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Do spiders think humans are messy roommates who leave decorations on the ceiling?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If life is like a box of chocolates, why do I always end up with the one filled with nuts?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If I had a dime for every time I lost my keys, would I finally be able to afford a key-finding butler?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why do we say 'sleep like a baby' when babies wake up every two hours demanding attention?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "If I had a dollar for every brilliant idea I had in the shower, I'd be the Jeff Bezos of hygiene innovation."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Do clouds ever look down on us and think, \"Hey, that one looks like a potato\"?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why is 'abbreviated' such a long word? Shouldn't it be abbrv8ed?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If my dog could talk, would he spill all my secrets or just ask for more treats?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why do we call it a 'shortcut' when taking a detour through a confusing maze of backstreets?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If life is a game, why does it feel like I'm playing Monopoly and landing on 'Go to Jail' all the time?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If time flies when you're having fun, does it crawl when you're stuck in a boring meeting?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "If I were a detective, my first case would be solving the mystery of missing socks from the laundry."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If I could time travel, would I go back to fix my mistakes or forward to see if I ever learn from them?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Why do we call it 'fast food' when the drive-thru line moves slower than a sloth on a coffee break?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If my bed could talk, would it say, \"You again? Back for another nap?\""
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Do aliens abduct humans for research, or are they just intergalactic tourists collecting souvenirs?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If I could be any mythical creature, would I choose a dragon for the fire-breathing or a unicorn for the stylish horn?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why do we say 'heads up' when we're about to throw something at someone's face? Shouldn't it be 'heads down'?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If my life were a movie, would it be a blockbuster or a straight-to-DVD comedy?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Why do we press harder on the elevator button when it's already been pressed? Is impatience an Olympic sport?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If my GPS had a sense of humor, would it tell me, \"You have arrived...at the wrong address\"?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If laughter is the key to a happy life, why don't I have a Nobel Prize in Comedy yet?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Welcome to the circus of my mind, where even the elephants have PhDs in chaos theory."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Step right up and witness the spectacular spectacle of my daily life – it's like a rollercoaster, but with more snacks and fewer safety measures."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "In the grand sitcom of my existence, I play all the roles and none of them particularly well."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "Enjoy the show!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Life is a comedy, and I'm the punchline trying to set up a knock-knock joke."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "They say laughter is the best medicine, but my life is a pharmacy of hilarity."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Side effects may include snorting and tears of joy."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Grab a front-row seat to the circus of my existence – popcorn optional, laughter mandatory."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If life gives you lemons, make a lemonade stand at the intersection of Chaos Street and Absurdity Avenue."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I've mastered the art of adulting: it's like juggling, but with bills, responsibilities, and the occasional existential crisis."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Greetings, Earthlings!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Prepare to be entertained by the extraterrestrial absurdity that is my daily existence."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Step into my world, where the only thing more unpredictable than the plot is the punchline."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Spoiler alert: there isn't one."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why does my cat think knocking things off the table is a valid form of communication?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If my cat had a resume, would 'professional napper' be listed as a skill?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Why does my cat stare at me like I'm the strange one when I interrupt her 18-hour nap?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "If my cat could talk, would she critique my fashion choices or demand more treats?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Why does my cat act like she's auditioning for a gymnastics competition when she's chasing a tiny ball?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Does my cat believe she's the CEO of the household, or is she just a benevolent dictator?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "If my cat wrote a self-help book, would it be titled \"The Zen of Napping\"?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Why does my cat look at me like I've betrayed her when I bring out the dreaded vacuum cleaner?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If my cat hosted a cooking show, would it involve knocking ingredients off the counter and staring at the oven until it cooked itself?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Does my cat think I'm a terrible hunter because I can never catch the elusive red dot?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why do vampires never need dental work, considering their eternal commitment to biting?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If a vampire goes to therapy, is it considered a 'bite-sized' session?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Do vampires ever get annoyed by the garlic bread smell at Italian restaurants, or is it just a tasty reminder of their weaknesses?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "If a vampire became a stand-up comedian, would his jokes suck the life out of the audience?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Do vampires have a 'night shift' at blood banks, or is that too on the nose?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If a priest and a vampire opened a bakery together, would their slogan be \"Bite into Holiness\"?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Can a vampire attend a beach party, or is SPF forever out of their league?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Why do vampires always seem to choose the most dramatic entrances? Is subtlety not in their undead handbook?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If a vampire decided to become a vegetarian, would they crave the taste of rare tomatoes?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Do vampires get irked when people assume they can transform into bats at will, or is it just a bat-misunderstanding?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "If music be the food of love, does that mean my fridge is a symphony?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Why do we sing in the shower, and more importantly, does the shampoo bottle enjoy the encore?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If life had a soundtrack, would my theme song be a comedy or a tragedy?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Why do musicians always seem to have the best hair? Is it a secret skill learned at music school?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Can I blame my terrible dance moves on a malfunctioning rhythm detector?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If I plant a question, will it grow into a tree of wisdom or just a shrub of confusion?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Do birds get annoyed when humans try to sing along, or do they appreciate the attempted duet?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If my car radio had a mind of its own, would it be a DJ or a rebellious teenager constantly changing the station?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Why does my cat look at me like I've lost my mind every time I attempt to serenade her?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Can I officially claim \"air guitar virtuoso\" as a hidden talent on my resume?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Why do song lyrics become deeply profound when I'm in the shower but turn into gibberish when I try to sing them in public?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If music could solve world problems, would we just need a global jukebox?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Do headphones double as a \"Do Not Disturb\" sign, or do people enjoy interrupting a musical moment?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Can I blame my inability to remember names on having too many catchy tunes stuck in my head?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Why do musicians always look so mysterious in their album covers? Is there a secret handbook for brooding poses?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If life were a musical, would my neighbors appreciate my spontaneous bursts into song, or would they start a petition for silence?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Can I hire a personal soundtrack composer to follow me around and make every moment more epic?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Do air drums count as a valid form of exercise, or am I just fooling myself?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "If a tree falls in a forest and there's no one around to hear it, does it make a sound?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "And more importantly, what genre would it be?"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Can I blame my messy room on the fact that organizing my CDs takes priority over cleaning?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If life is a journey, can I take the scenic route even if I have no sense of direction?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Why do we call it a \"midlife crisis\"? Is there a quarterly report on happiness I missed?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If time is money, can I get a refund for all those hours spent contemplating the meaning of life?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Is the universe expanding, or is it just having commitment issues?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If I discover the meaning of life, do I win a prize, or is it just a participation trophy?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Can I blame my existential dread on the weather, or is it an all-season, all-weather condition?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If a tree falls in a forest and no one hears it, does it still question its purpose?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Is life a comedy, tragedy, or just a really confusing improv show?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If I find the meaning of life in a fortune cookie, should I take it seriously or order another plate of sweet and sour chicken?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Is the glass half full, half empty, or just experiencing an identity crisis?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If I question the meaning of existence while eating pizza, does it make the pizza more profound or just cheesier?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Why do we search for the meaning of life on Google when we know it's just going to lead to more questions?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Can I use my existential crisis as a valid excuse for not doing laundry, or is that just a laundry list of excuses?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If I'm lost in thought, should I leave breadcrumbs or follow the trail of deep pondering?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If life is a puzzle, am I missing a few pieces or did I accidentally assemble it upside down?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Is the pursuit of happiness a marathon or a never-ending game of hide-and-seek?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If time is an illusion, does that mean I can show up late without consequences?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Can I blame my procrastination on the philosophical debate of whether time is linear or just a messy ball of wibbly-wobbly, timey-wimey stuff?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If I find inner peace but still can't find my car keys, did I really find inner peace?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Is the meaning of life at the bottom of a coffee cup, or am I just addicted to caffeine and existential crises?"
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I don't know but I've been told..."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "If my life had a theme song, it would be a mix of circus music and the Benny Hill theme."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I'm not lazy; I'm in energy-saving mode."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Note to self: next time, read the fine print of adulthood before signing up."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "My to-do list is longer than a CVS receipt, and just as confusing."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "My superpower? Procrastination."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I can save the world, just not today."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I'm not lost; I'm on an unplanned adventure through the scenic route of life."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If my cat wrote a memoir, it would be titled \"My Human: A Comedy of Errors.\""
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Life's a puzzle, and I'm missing a few crucial pieces. No wonder it doesn't make sense."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "My life is like a romantic comedy, minus the romance and more awkward pauses."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "If I were a detective, my signature move would be losing the case file."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I've reached the level of multitasking where I can make mistakes in multiple ways simultaneously."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "My idea of a balanced diet is a cupcake in each hand."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If my plants could talk, they'd probably request a new gardener."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I'm not a morning person or a night owl; I'm more of a perpetually exhausted pigeon."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "My dance moves are so legendary that they're still waiting to be discovered by the rest of humanity."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "My autobiography would be titled \"Life: A Comedy of Terrors.\""
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I have a black belt in karate, but it's more of a fashion statement than a combat skill."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If common sense were a superpower, I'd be the superhero the world never knew it needed."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "My level of adulting is somewhere between knowing how to pay bills and calling my mom to ask how to pay bills."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I'm not indecisive; I'm just exploring all the options before making the wrong choice."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If overthinking were an Olympic sport, I'd have a gold medal, three silvers, and a bronze by now."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "My kitchen skills are so elite that I once burnt water while attempting to boil it."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I'm not a chef; I just play one in my microwave's fantasy world."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "My life is like a sitcom, and every day is a new episode of \"Oops, I did it again.\""
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If my phone could talk, it would probably request therapy for the trauma of witnessing my awkward text messages."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I'm not lazy; I'm in energy-saving mode. Wait, did I say that already? Well, it's still true."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "My sense of direction is so bad that even my GPS has trust issues."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I'm not aging; I'm gaining XP in the game of life. Too bad the rewards are just gray hairs and wrinkles."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I'm not lazy, just on a permanent coffee break."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "My plants think I'm a botanist for how well I ignore them."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I'm not forgetful; I'm just creating surprise memories."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I'm not clumsy; the floor just enjoys playing catch with my feet."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I'm not indecisive; I'm just exploring all the wrong options."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I'm not short; I'm vertically efficient."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I'm on a seafood diet. I see food and eat it. Mostly tacos."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I'm not disorganized; I have a unique filing system called 'organized chaos.'"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I'm not a control freak; I just have a better plan."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I have a black belt in karate, but it's mostly decorative."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I'm not a morning person; I'm more of a 'give me five more minutes' person."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I'm not aging; I'm just increasing my wisdom highlights."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I'm not a chef; I'm a culinary improviser."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I'm not a night owl; I'm a midnight snack enthusiast."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "I'm not a superhero; I just excel at napping."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I'm not antisocial; I'm just on a solo vacation from reality."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I'm not procrastinating; I'm giving my ideas time to marinate."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "I'm not a superhero; I just have a super appetite."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Can anyone become a critic or do you have to have a natural disliking of all things?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I need a way to preserve all my thoughts in stone."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Whatever you can squeeze out, I'll drink"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Nailed it."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Butt of coarse fine prince."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Looks like my life is sponsored by Murphy's Law – if something can go wrong, it will."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Forget adulting, I'm applying for a refund. This is not what I signed up for."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "I'm going to kiss you violently."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Opener",
+    "phrase": "Keep up the great work!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "The Mario in my head is saying, \"Let's a go!\"."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Believe in yourself. Otherwise you're capable of amazing mistakes."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Don't give up; you're closer than you think."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Closer",
+    "phrase": "Just keep trucking and F#c#ing"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "You're doing better than you realize."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Stay positive; you're on the right track."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Keep pushing forward; you're unstoppable!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "You're stronger than you know; keep shining!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "You've got what it takes; keep believing in yourself."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "You're making a difference; keep up the good work."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Trust in yourself; you've got this under control."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Keep going; you're doing fantastic!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "You're on your way to greatness; keep moving forward."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Your hard work is inspiring; keep it up!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "You're capable of achieving anything you set your mind to."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Keep chasing your dreams; you're closer than ever."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Your determination is admirable; keep going strong!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "You're on the path to success; keep believing in yourself."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, butter my biscuit and call me a muffin!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, tickle me pink and call me a flamingo!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, slap me with a feather and call me a chicken!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, paint me green and call me a pickle!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, slap me with a fish and call me sushi!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, tie me to an antelope and call me a backpack!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, dip me in honey and call me a bear!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, wrap me in bacon and call me an inside out pig!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, flatten my tires and call me a tow!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, tickle my toes and call me a Teletubby!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, whisk me away and call me an omelette!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, pour me a cup of tea and call me a doctor."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, stack me like pancakes and call me breakfast!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, bounce me like a ball and call me bouncy!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, swirl me like spaghetti and call me tangled!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, douse me in glitter and call me fabulous!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, toss me in the air and call me airborne!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, roll me like a dice and call me lucky!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, bury me in sand and call me a beach bum!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, dress me in polka dots and call me dotty!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Well, scratch me behind the ears and call me purr-fect!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Slap me with a pancake and call me flapjack!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Wrap me in seaweed and call me a sushi roll!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Dunk me in chocolate and call me a truffle!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Toss me in the air and call me a frisbee!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Stick me to a wall and call me wallpaper!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Tickle me with a feather and call me ticklish!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Drape me in curtains and call me a window!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Balance me on a ball and call me a circus act!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Put me on a shelf and call me a knickknack!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Hang me from a tree and call me a swing!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Drop me in a bucket and call me a drop in the ocean!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Roll me in flour and call me a dumpling!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Spin me like a top and call me dizzy!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Bury me in sand and call me a beachcomber!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Tangle me in yarn and call me a cat's cradle!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Freeze me in ice and call me a popsicle!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Stuff me in a suitcase and call me an adventurer!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Wrap me in a blanket and call me a burrito!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Stick me in a bubble and call me a bubble wrap!"
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Toss me in the air and call me a confetti!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If I find the meaning of life in a fortune cookie, is it destiny or just dessert?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "If time is a social construct, can I be fashionably late to my existential crisis?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Existentialism: where every 'why' leads to another 'why' in an infinite loop."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Is the universe expanding, or is it just giving itself more room for an existential meltdown?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "If I'm lost in thought, should I leave breadcrumbs or follow the trail of deep pondering?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Why does my coffee understand my need for existential contemplation better than most people?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If life is a sitcom, my laugh track is on an extended coffee break."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Can I blame my procrastination on the philosophical debate of whether time is linear or just a messy ball of wibbly-wobbly, timey-wimey stuff?"
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Do I look like I'm listening to you, because I'm trying very hard to male it look like it."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "No!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "No. No, no, no, no, no, no. NO!... Ok."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Garbage can of the universe. At least that's what I'm told."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you get lost on your way to common sense?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "If stupidity were an Olympic sport, you'd be a gold medalist."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I'd call you a tool, but at least tools serve a purpose."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Your intelligence called, it wants a divorce from you."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Are you always this dense, or are you making a special effort today?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "If you were any slower, you'd be going backward."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "It's a good thing you're not paid for thinking; you'd be bankrupt."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you swallow a dictionary or do you just enjoy sounding like a fool?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You're like a broken record – annoying and stuck on repeat."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Do you ever wonder what life is like for those who actually use their brains?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "If stupidity were a superpower, you'd be the world's mightiest hero."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I'd tell you to take a mental vacation, but I think you're already there."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You're not the sharpest tool in the shed, but at least you're consistent."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "If ignorance is bliss, you must be in a constant state of euphoria."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you fall from heaven? Because it looks like you landed on your head."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I'd insult you, but you seem to be doing a fine job of it yourself."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You must have a PhD in idiocy with all the expertise you display."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "You're like a human vending machine – full of snacks but lacking in substance."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you run out of brain cells, or were you born with a deficit?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "If brains were taxed, you'd get a refund for being exempt."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Do you have a license for that level of incompetence?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Are you the president of the Dullsville Chamber of Commerce?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "You're a few fries short of a Happy Meal, aren't you?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You're like a broken clock – right twice a day, but still useless."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Do you need a GPS to find your own thoughts?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Are you auditioning for the role of village idiot, or is it a natural talent?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Congratulations, you've reached the pinnacle of dumbness."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you take a wrong turn on the highway of intelligence and end up in Dumbville?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "You're not the brightest bulb in the box, are you?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Are you allergic to logic or just immune to common sense?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "If stupidity were a currency, you'd be filthy rich."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you forget to upgrade your brain's software?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You're like a black hole for intelligence – everything gets sucked in and never escapes."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you skip the IQ test and go straight to the stupidity contest?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "You're not the full picnic basket, are you?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "If brains were dynamite, you wouldn't have enough to blow your nose."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Did you fall off the dumb tree and hit every branch on the way down?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "You're not the brightest bulb in the chandelier, are you?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "You must be allergic to knowledge, because you seem to avoid it at all costs."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "If ignorance is bliss, you must be the happiest person alive."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Oh, congratulations, Captain Obvious!"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Well, aren't you just a ray of sunshine?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, forgive me for not realizing you were the expert on everything."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Wow, your wit is as sharp as a butter knife."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, sorry, I must have confused you with someone who actually cares."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "And here I thought we were having a conversation, but it seems I was mistaken."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Oh, please, enlighten us all with your vast wisdom."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Well, isn't that just the most fascinating thing I've ever heard?"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "(eye roll)"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, my mistake, I didn't realize sarcasm was your second language."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, the sarcasm is strong with this one."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, pardon me for interrupting your soliloquy of brilliance."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Well, aren't you just a fountain of originality?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Oh, look, it's the mayor of Sarcasm City!"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, forgive me for not bowing down to your unparalleled intellect."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Well, I must say, your grasp of the obvious is truly awe-inspiring."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, I didn't realize we were playing the game of 'Who Can Be the Most Sarcastic.'"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, how could I have missed your subtle and nuanced commentary?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Well, aren't you just a regular comedian?"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "(eye roll)"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "Oh, I see, you've been appointed the official spokesperson for Sarcasm Incorporated."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Well, color me impressed."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "And by 'impressed,' I mean 'not impressed at all.'"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Big deal, mine is the size of a trout."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You should quit now. While everyone else is ahead and no one will notice you're gone."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Let me introduce you to my little friend."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "You're killing it."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Well, that's my daily dose of chaos."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Another day survived; they should give out medals for this."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And that's a wrap on today's circus performance."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Stay tuned for more thrilling episodes of 'Adventures in Absurdity.'"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Life's a comedy, and I'm the punchline."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Until next time, keep laughing at life's absurdity."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And scene. Fade to black. Or maybe just a shade of grey."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "That's all for today's rollercoaster ride; hope you didn't lose your lunch."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "The end – or is it just the beginning of another sitcom episode?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And that, my friends, is how you expertly navigate the maze of daily madness."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Plot twist: I still have no idea what I'm doing."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "Time for a coffee break."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "That's it for today's comedy hour; I'll be here all week, unfortunately."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Another day conquered, or maybe just survived—details are fuzzy."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Cue the credits. If only life had a fast forward button."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Fin. Or as I like to call it, the grand finale of my daily sitcom."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "The saga continues... because apparently, life has no season finale."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And that, my friends, is how you turn a routine task into a three-act play."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "That's a wrap!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "If life were a movie, I'd be asking for a refund."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Exit stage right, pursued by a sense of impending doom."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "The credits are rolling, but the bloopers reel never stops."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "That's all for today's episode of 'How Not to Adult.'"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And scene, but the drama of my life is an ongoing series."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Curtain call – because even my daily routine deserves applause."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Another day, another opportunity for life to surprise me."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And that concludes today's masterclass in controlled chaos."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Fade out, but the chaos lingers like a cliffhanger."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "That's a wrap, but the sequel is just a snooze away."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "The end... until tomorrow hits the play button again."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And with that, I bid adieu to today's episode of 'Life Unscripted.'"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Ta-da!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Oops!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Tomorrow..."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Seriously?"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Finale!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Chaos!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Epic!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Tada!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Jazzed!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Next!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Poof!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Kaboom!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Hilarious!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Tangled!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Nailed it!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Vanished!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Shazam!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Puzzled!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Chaos!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Tomorrow!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Outro!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Encore!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Quirky!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Laughs!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Victory!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Unbelievable!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Whew!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Loop!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Wacky!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Mystery!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Bam!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Sizzle!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Kaboom!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Yikes!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Zing!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Pop!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Crunch!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Bang!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Swish!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Whoosh!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Gulp!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Bonk!"
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Uh... uh huh."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "The dude abides."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Slapadoodle!"
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I’d agree with you, but then we’d both be wrong."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "Oh, look. My care meter is at zero."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Is there an unsubscribe link to this conversation?"
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I’ll file that under Things I Don't Care About."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Fascinating."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Tell it to my spam folder."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "I’m practicing my listening face."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "This sounds like a you problem."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Cool story, bro."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Needs more dragons."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Opener",
+    "phrase": "I’m emotionally exhausted just looking at you."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Let me check my schedule... nope, no time for this."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "My inner child just rolled its eyes."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Bridger",
+    "phrase": "Wow. Changing my life right now."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I’d explain it to you, but I don't have crayons."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "Are you always this exhausting, or is today special?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "If I throw a stick, will you leave?"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "You’re the reason we have warning labels."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I’m returning your nose."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I found it in my business."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Opener",
+    "phrase": "I love what you’ve done with your ignorance."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Somewhere, a tree is working hard to produce the oxygen you’re wasting."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Bridger",
+    "phrase": "I’m not insulting you, I’m describing you."
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "I’ve been called worse things by better people."
+  },
+  {
+    "category": "Aggressive Apathy",
+    "placement": "Closer",
+    "phrase": "I don’t have the energy to pretend I like you today."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "And that’s why we can’t have nice things!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Release the hounds!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "To the escape pod!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I refuse to participate in this reality!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Cancel all my appointments!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I have a sudden urge to flee the country."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I demand a recount!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "My lawyer will be in touch."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "This wasn’t in the brochure!"
+  },
+  {
+    "category": "Petty Snark",
+    "placement": "Closer",
+    "phrase": "Acknowledge my brilliance!"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I blame the government."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Error 404: Motivation not found."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "Is this the bad place?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "I’m just a series of awkward moments strung together."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "My last brain cell is crying."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "I need a nap, or a new identity."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "I’m 90% caffeine and 10% existential dread."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Closer",
+    "phrase": "Please reboot my consciousness."
+  },
+  {
+    "category": "Mundane Pivot",
+    "placement": "Bridger",
+    "phrase": "Does this count as cardio?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Is it too late to be an astronaut instead?"
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Opener",
+    "phrase": "I am currently unsupervised."
+  },
+  {
+    "category": "Existential Surrender",
+    "placement": "Bridger",
+    "phrase": "Proceed with caution."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Yoink!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Blorp!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Sploosh!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Boop!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Zorp!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Pew pew pew!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Sad trombone noise."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Record scratch."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Squelch!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Ker-plunk!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Thwack!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Bridger",
+    "phrase": "Pffft."
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Opener",
+    "phrase": "Gadzooks!"
+  },
+  {
+    "category": "Onomatopoeia",
+    "placement": "Closer",
+    "phrase": "Zonk!"
+  }
 ];
 

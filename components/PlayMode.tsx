@@ -6,7 +6,7 @@ import { imageStore } from '../services/imageStore';
 import { downscaleImage } from '../utils/imageUtils';
 import { generateVeoVideo } from '../services/gemini';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { COMIC_FONTS, GENRES, CANNED_PHRASES } from '../constants';
+import { COMIC_FONTS, GENRES, CANNED_CATEGORIES, CANNED_PHRASES_DATA } from '../constants';
 import Pusher from 'pusher-js';
 
 const getFontFamily = (fontName: string) => {
@@ -185,6 +185,20 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [resolvedPreviewImage, setResolvedPreviewImage] = useState<string | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [localTextFields, setLocalTextFields] = useState<TextField[]>([]);
+  const [activeCannedMenu, setActiveCannedMenu] = useState<{ id: string, x: number, y: number } | null>(null);
+
+  const toggleCannedMenu = (e: React.MouseEvent, tfId: string) => {
+    if (activeCannedMenu?.id === tfId) {
+      setActiveCannedMenu(null);
+    } else {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setActiveCannedMenu({
+        id: tfId,
+        x: rect.left + rect.width / 2,
+        y: rect.top
+      });
+    }
+  };
   const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
   const [isSavingLocal, setIsSavingLocal] = useState(false);
   const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
@@ -212,7 +226,20 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     if (localTextFields.length > 0) {
       return [...localTextFields]
         .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .map(tf => ({ x: tf.x, y: tf.y, width: tf.width, height: tf.height, id: tf.id, overridePanZoom: tf.overridePanZoom }));
+        .map(tf => {
+          const panelScript = activeStrip.script?.find(p => p.dialogue.some(d => d.id === tf.dialogueId));
+          const panelLayout = activeStrip.panelLayout?.find(p => p.panelNumber === panelScript?.panelNumber);
+          return { 
+            x: tf.x, 
+            y: tf.y, 
+            width: tf.width, 
+            height: tf.height, 
+            id: tf.id, 
+            overridePanZoom: tf.overridePanZoom,
+            panelHeight: panelLayout?.height,
+            panelWidth: panelLayout?.width
+          };
+        });
     }
     // Fallback to panel layout if no text fields
     if (activeStrip.panelLayout && activeStrip.panelLayout.length > 0) {
@@ -290,7 +317,16 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           setTransform(newX, newY, scale, 500, "easeOut");
         }, 50);
       } else {
-        const scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
+        let scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
+        
+        // If we have panel information, adjust scale to fit the panel height better
+        if ((focusTarget as any).panelHeight) {
+          const panelHeight = (focusTarget as any).panelHeight;
+          // Aim for the panel to take up about 85% of the view height
+          const panelScale = 85 / panelHeight;
+          scale = Math.max(1, Math.min(panelScale, 5));
+        }
+
         setTimeout(() => {
           zoomToElement(`target-${focusTarget.id}`, scale, 500, "easeOut");
         }, 50);
@@ -1023,10 +1059,28 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     setLocalTextFields(prev => prev.map(tf => tf.id === id ? { ...tf, text } : tf));
   };
 
-  const handleCanned = (tfId: string) => {
+  const handleCanned = (tfId: string, category: string) => {
     if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
     
-    const randomPhrase = CANNED_PHRASES[Math.floor(Math.random() * CANNED_PHRASES.length)];
+    // Determine placement based on the round (winningComics length)
+    const winningCount = room?.winningComics?.length || 0;
+    const targetPoints = room?.pointsToWin || 3;
+    
+    let placement = 'Bridger';
+    if (winningCount === 0) {
+      placement = 'Opener';
+    } else if (winningCount === targetPoints - 1) {
+      placement = 'Closer';
+    }
+
+    const matchingPhrases = CANNED_PHRASES_DATA.filter(p => p.category === category && p.placement === placement);
+    const fallbackPhrases = CANNED_PHRASES_DATA.filter(p => p.category === category);
+    
+    const phrasesToUse = matchingPhrases.length > 0 ? matchingPhrases : fallbackPhrases;
+    if (phrasesToUse.length === 0) return;
+
+    const randomPhrase = phrasesToUse[Math.floor(Math.random() * phrasesToUse.length)].phrase;
+    
     const tf = localTextFields.find(t => t.id === tfId);
     if (tf) {
       const match = tf.text.match(/^[^:]+:\s*/);
@@ -1041,7 +1095,20 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         });
       }
     }
+    setActiveCannedMenu(null);
   };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (activeCannedMenu && 
+          !(e.target as HTMLElement).closest('.canned-menu-trigger') && 
+          !(e.target as HTMLElement).closest('.canned-menu-container')) {
+        setActiveCannedMenu(null);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [activeCannedMenu]);
 
   const handleSaveAndSubmit = async () => {
     if (!activeStrip || isSavingLocal || !selectedComic) return;
@@ -1762,6 +1829,26 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     <div className={`h-[100dvh] w-full flex flex-col relative ${role === 'writer' && selectedComic && !hasSubmitted ? 'overflow-hidden' : 'overflow-y-auto'}`} style={{ backgroundColor: bgColor }}>
       <ProfileButton />
       <ConnectionBadge status={connectionStatus} />
+
+      {/* Fixed Canned Menu Portal-like */}
+      {activeCannedMenu && (
+        <div 
+          className="canned-menu-container fixed bg-white rounded-xl shadow-2xl border border-slate-200 p-2 flex gap-2 z-[9999] -translate-x-1/2 -translate-y-full mb-2"
+          style={{ left: activeCannedMenu.x, top: activeCannedMenu.y }}
+        >
+          {CANNED_CATEGORIES.map(cat => (
+            <button
+              key={cat.name}
+              onClick={() => handleCanned(activeCannedMenu.id, cat.name)}
+              className="w-8 h-8 flex items-center justify-center text-lg hover:bg-slate-100 rounded-lg transition-colors"
+              title={cat.name}
+            >
+              {cat.emoji}
+            </button>
+          ))}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-slate-200 transform rotate-45"></div>
+        </div>
+      )}
 
       <div className="fixed top-6 left-6 z-50 flex gap-4">
         <button 
@@ -2585,18 +2672,20 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                           <i className="fa-solid fa-lightbulb text-[7px]"></i>
                                           Hint
                                         </button>
-                                        <button 
-                                          onClick={() => handleCanned(tf.id)}
-                                          disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
-                                          className={`text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
-                                            (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
-                                            'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
-                                          }`}
-                                          title={(room?.branches?.[user?.id || ''] ?? 30) <= 0 ? "Out of branches" : "Fill with random canned phrase"}
-                                        >
-                                          <i className="fa-solid fa-comment-dots text-[7px]"></i>
-                                          Canned
-                                        </button>
+                                        <div className="relative">
+                                          <button 
+                                            onClick={(e) => toggleCannedMenu(e, tf.id)}
+                                            disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
+                                            className={`canned-menu-trigger text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
+                                              (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
+                                              'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
+                                            }`}
+                                            title={(room?.branches?.[user?.id || ''] ?? 30) <= 0 ? "Out of branches" : "Fill with random canned phrase"}
+                                          >
+                                            <i className="fa-solid fa-comment-dots text-[7px]"></i>
+                                            Canned
+                                          </button>
+                                        </div>
                                       </div>
                                     </div>
                                     <textarea

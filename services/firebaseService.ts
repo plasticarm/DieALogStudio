@@ -1,7 +1,7 @@
 import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage, auth, default as app } from "./firebase";
-import { AppSession, ProjectState, ComicProfile, ComicBook, SavedComicStrip } from "../types";
+import { AppSession, ProjectState, ComicProfile, ComicBook, SavedComicStrip, RatedComic } from "../types";
 
 enum OperationType {
   CREATE = 'create',
@@ -100,14 +100,21 @@ export const firebaseService = {
   /**
    * Publishes the current comics and books as global defaults for all new users.
    */
-  async publishGlobalDefaults(comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[]): Promise<void> {
+  async publishGlobalDefaults(comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[], ratings: RatedComic[]): Promise<void> {
     const path = "public_assets/global_defaults";
     try {
       const docRef = doc(db, "public_assets", "global_defaults");
       const cleanComics = sanitizeData(comics.map(c => ({...c, isGlobalDefault: true})));
       const cleanBooks = sanitizeData(books.map(b => ({...b, isGlobalDefault: true})));
       const cleanHistory = sanitizeData(history.map(h => ({...h, isGlobalDefault: true})));
-      await setDoc(docRef, { comics: cleanComics, books: cleanBooks, history: cleanHistory, lastUpdated: Date.now() });
+      const cleanRatings = sanitizeData(ratings.map(r => ({...r, isGlobalDefault: true})));
+      await setDoc(docRef, { 
+        comics: cleanComics, 
+        books: cleanBooks, 
+        history: cleanHistory, 
+        ratings: cleanRatings,
+        lastUpdated: Date.now() 
+      });
       console.log("Published global defaults successfully.");
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, path);
@@ -117,13 +124,13 @@ export const firebaseService = {
   /**
    * Fetches the global defaults.
    */
-  async getGlobalDefaults(): Promise<{comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[]} | null> {
+  async getGlobalDefaults(): Promise<{comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[], ratings: RatedComic[]} | null> {
     const path = "public_assets/global_defaults";
     try {
       const docRef = doc(db, "public_assets", "global_defaults");
       const snap = await getDoc(docRef);
       if (snap.exists()) {
-        return snap.data() as {comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[]};
+        return snap.data() as {comics: ComicProfile[], books: ComicBook[], history: SavedComicStrip[], ratings: RatedComic[]};
       }
       return null;
     } catch (e) {
