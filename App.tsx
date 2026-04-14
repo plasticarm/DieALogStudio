@@ -409,6 +409,33 @@ export default function App() {
           }
         }
 
+        // Auto-populate books with history items if books are empty
+        updatedBooks = updatedBooks.map(book => {
+          if (book.pages.length === 0) {
+            const historyForBook = updatedHistory.filter(h => h.comicProfileId === book.id);
+            if (historyForBook.length > 0) {
+              hasChanges = true;
+              return { ...book, pages: historyForBook.map(h => h.id) };
+            }
+          }
+          return book;
+        });
+
+        // Auto-populate ratings from history if ratings are empty
+        if (updatedRatings.length === 0 && updatedHistory.length > 0) {
+          const autoRatings = updatedHistory.map(h => ({
+            id: `auto_rating_${h.id}`,
+            comicProfileId: h.comicProfileId,
+            stripId: h.id,
+            imageUrl: h.exportImageUrl || h.finishedImageUrl,
+            rating: 0,
+            timestamp: h.timestamp,
+            name: h.name
+          }));
+          updatedRatings = [...autoRatings];
+          hasChanges = true;
+        }
+
         // Sync metadata for existing comics
         updatedComics = updatedComics.map(c => {
           const initial = defaultComics.find(ic => ic.id === c.id);
