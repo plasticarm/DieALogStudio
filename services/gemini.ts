@@ -289,11 +289,15 @@ Panel 3: Wide shot. The DMV worker is tapping her pen aggressively on her clipbo
 Create a ${panelCount}-panel comic strip script for the series "${profile.name}".
     
     SERIES CONTEXT:
+    Description: ${profile.description || 'Not specified'}
     Art Style: ${profile.artStyle}
     Style Description: ${profile.styleDescription || 'Not specified'}
     Archetypes: ${profile.archetypes || 'Not specified'}
     Environments: ${environmentContext}
     Characters: ${characterContext}
+    
+    INSTRUCTIONS:
+    Follow the Series Description provided above to ensure the script's concept and structure align with the intended vision for this series.
     
     EPISODE DIRECTIVE:
     Task: ${isRandom ? "Create a random funny or dramatic situation based on the characters and archetypes" : `Plot: ${userPrompt}`}
@@ -378,9 +382,10 @@ export const generateComicArt = async (
     
     let promptText = `A horizontal comic strip with ${safeScript.length} panels.
     Series: ${profile.name}
+    Description: ${profile.description || 'Not specified'}
     Aesthetic: ${profile.artStyle}
     Action: ${panelsDesc}
-    Note: Highly cinematic, clear panel borders, gutters, professional comic book layout. Explicitly include speech bubbles and dialogue as described in the action. Ensure the text is legible and correctly attributed to the characters.`;
+    Note: Highly cinematic, clear panel borders, gutters, professional comic book layout. Explicitly include speech bubbles and dialogue as described in the action. Ensure the text is legible and correctly attributed to the characters. Follow the Series Description to maintain consistency with the intended concept and structure.`;
 
     if (!isCover) {
       promptText += ` CRITICAL: DO NOT include the title of the comic, the series name, or the episode name anywhere in the image.`;
@@ -512,6 +517,7 @@ export const generateCharacterImage = async (
   try {
     const ai = getAiClient();
     const prompt = `A professional character portrait for the series "${profile.name}".
+    Series Description: ${profile.description || 'Not specified'}
     Character: ${characterName}
     Description: ${description}
     Art Style: ${profile.artStyle}
@@ -570,6 +576,7 @@ export const generateCharacterSheet = async (
     Task: Create a precise ORTHOGRAPHIC view for 3D modeling.
     Character: ${characterName}
     Series: ${profile.name}
+    Series Description: ${profile.description || 'Not specified'}
     Art Style: ${profile.artStyle}
     
     Key Instructions:
@@ -637,6 +644,7 @@ export const generateExpressionSheet = async (
   try {
     const ai = getAiClient();
     const prompt = `Create a Character Expression and Pose sheet for "${characterName}" from the series "${profile.name}".
+    Series Description: ${profile.description || 'Not specified'}
     Art Style: ${profile.artStyle}
     
     The sheet should focus on:

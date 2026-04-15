@@ -54,6 +54,7 @@ export interface Environment {
 export interface ComicProfile {
   id: string;
   name: string;
+  description?: string;
   artStyle: string;
   artModel?: ArtModelType;
   styleDescription?: string;

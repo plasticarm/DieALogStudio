@@ -331,12 +331,16 @@ export default function App() {
               const globalComicIds = new Set(globalDefaults.comics.map(c => c.id));
               const remainingDefaultComics = defaultComics.filter(c => !globalComicIds.has(c.id));
               defaultComics = [...remainingDefaultComics, ...globalDefaults.comics];
+              // Deduplicate
+              defaultComics = Array.from(new Map(defaultComics.map(c => [c.id, c])).values());
             }
             
             if (globalDefaults.books && globalDefaults.books.length > 0) {
               const globalBookIds = new Set(globalDefaults.books.map(b => b.id));
               const remainingDefaultBooks = defaultBooks.filter(b => !globalBookIds.has(b.id));
               defaultBooks = [...remainingDefaultBooks, ...globalDefaults.books];
+              // Deduplicate
+              defaultBooks = Array.from(new Map(defaultBooks.map(b => [b.id, b])).values());
             }
 
             if (globalDefaults.history) {
@@ -354,14 +358,19 @@ export default function App() {
 
       // 3. Merge Defaults into Active Session
       if (activeSess) {
-        const existingComicIds = new Set((activeSess.data.comics || []).map(c => c.id));
-        const missingComics = defaultComics.filter(c => !existingComicIds.has(c.id));
-        
-        let hasChanges = false;
         let updatedComics = [...(activeSess.data.comics || [])];
         let updatedBooks = [...(activeSess.data.books || [])];
         let updatedHistory = [...(activeSess.data.history || [])];
         let updatedRatings = [...(activeSess.data.ratings || [])];
+
+        // Deduplicate existing data first to fix any corrupted sessions
+        updatedComics = Array.from(new Map(updatedComics.map(c => [c.id, c])).values());
+        updatedBooks = Array.from(new Map(updatedBooks.map(b => [b.id, b])).values());
+
+        const existingComicIds = new Set(updatedComics.map(c => c.id));
+        const missingComics = defaultComics.filter(c => !existingComicIds.has(c.id));
+        
+        let hasChanges = false;
 
         if (missingComics.length > 0) {
           console.log(`Syncing ${missingComics.length} missing default comics into session ${activeId}`);
@@ -442,6 +451,7 @@ export default function App() {
           if (initial) {
             let changed = false;
             const updated = { ...c };
+            if (!updated.description && initial.description) { updated.description = initial.description; changed = true; }
             if (!updated.category && initial.category) { updated.category = initial.category; changed = true; }
             if (!updated.archetypes && initial.archetypes) { updated.archetypes = initial.archetypes; changed = true; }
             if (!updated.styleDescription && initial.styleDescription) { updated.styleDescription = initial.styleDescription; changed = true; }
@@ -577,7 +587,14 @@ export default function App() {
 
   const activeComic = useMemo(() => {
     if (!activeSession) return null;
-    return (activeSession.data.comics || []).find(c => c.id === activeSession.data.activeSeriesId) || null;
+    const comic = (activeSession.data.comics || []).find(c => c.id === activeSession.data.activeSeriesId) || null;
+    if (comic && !comic.description) {
+      const defaultComic = INITIAL_COMICS.find(ic => ic.id === comic.id);
+      if (defaultComic?.description) {
+        return { ...comic, description: defaultComic.description };
+      }
+    }
+    return comic;
   }, [activeSession]);
 
   const activeBook = useMemo(() => {
@@ -621,11 +638,21 @@ export default function App() {
     setSessions(prevSessions => {
       let updatedSessions = prevSessions.map(s => {
         if (s.id === activeSession.id) {
+          const mergedData = { ...s.data, ...newData };
+          
+          // Deduplicate comics and books if they are being updated
+          if (newData.comics) {
+            mergedData.comics = Array.from(new Map(mergedData.comics.map(c => [c.id, c])).values());
+          }
+          if (newData.books) {
+            mergedData.books = Array.from(new Map(mergedData.books.map(b => [b.id, b])).values());
+          }
+
           return {
             ...s,
             userId: currentUser.id, // Ensure session is attributed to current user
             lastModified: Date.now(),
-            data: { ...s.data, ...newData }
+            data: mergedData
           };
         }
         return s;
@@ -1133,7 +1160,10 @@ export default function App() {
     const missingComics = INITIAL_COMICS.filter(ic => !currentComics.find(c => c.id === ic.id));
     
     if (missingComics.length > 0) {
-      const updatedComics = [...currentComics, ...missingComics];
+      let updatedComics = [...currentComics, ...missingComics];
+      // Deduplicate just in case
+      updatedComics = Array.from(new Map(updatedComics.map(c => [c.id, c])).values());
+      
       const currentBooks = activeSession.data.books || [];
       const missingBooks = missingComics.map(c => ({
         id: c.id,
@@ -1147,7 +1177,9 @@ export default function App() {
         pageNumberPosition: 'bottom' as const,
         externalPageUrls: []
       }));
-      const updatedBooks = [...currentBooks, ...missingBooks];
+      let updatedBooks = [...currentBooks, ...missingBooks];
+      // Deduplicate just in case
+      updatedBooks = Array.from(new Map(updatedBooks.map(b => [b.id, b])).values());
       
       handleUpdateSessionData({ 
         comics: updatedComics,
@@ -1279,7 +1311,22 @@ export default function App() {
       setTimeout(() => setIsSynced(false), 3000);
     } catch (error: any) {
       console.error("Firebase Sync Failed:", error);
-      alert(`Cloud Sync Failed: ${error.message}`);
+      
+      let errorMessage = error.message;
+      try {
+        // Try to parse if it's a JSON error from firebaseService
+        const parsed = JSON.parse(error.message);
+        if (parsed.error) {
+          errorMessage = parsed.error;
+          if (errorMessage.includes("Missing or insufficient permissions")) {
+            errorMessage = "Permission Denied: You don't have access to save this session. Please ensure you are logged in correctly.";
+          }
+        }
+      } catch (e) {
+        // Not JSON, use raw message
+      }
+      
+      alert(`Cloud Sync Failed: ${errorMessage}`);
     } finally {
       setIsSyncingToCloud(false);
     }
@@ -1287,13 +1334,17 @@ export default function App() {
 
   // Auto-Sync Effect (Debounced)
   useEffect(() => {
-    if (!activeSession || !currentUser || !import.meta.env.VITE_FIREBASE_API_KEY) return;
+    if (!activeSession || !currentUser || !import.meta.env.VITE_FIREBASE_API_KEY || isSyncingToCloud) return;
     
-    // Don't auto-sync if we just did a manual sync
+    // Don't auto-sync if we just did a manual sync or auto-sync
     if (Date.now() - lastCloudSync < 15000) return;
 
     const timer = setTimeout(async () => {
+      // Re-check conditions after timeout
+      if (!activeSession || !currentUser || isSyncingToCloud) return;
+      
       try {
+        setIsSyncingToCloud(true);
         // Before auto-syncing, we should also perform the image migration to keep document size small
         const updatedSession = await syncSessionToCloud(activeSession);
         await firebaseService.saveSession(updatedSession);
@@ -1306,11 +1357,13 @@ export default function App() {
         setLastCloudSync(Date.now());
       } catch (e) {
         console.error("Auto-sync failed:", e);
+      } finally {
+        setIsSyncingToCloud(false);
       }
     }, 10000); // 10 second debounce for auto-sync
 
     return () => clearTimeout(timer);
-  }, [activeSession, currentUser, lastCloudSync, syncSessionToCloud]);
+  }, [activeSession, currentUser, lastCloudSync, syncSessionToCloud, isSyncingToCloud]);
 
   if (!isAuthReady) {
     return (

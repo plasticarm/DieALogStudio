@@ -927,6 +927,18 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
       <div className="grid grid-cols-12 gap-10">
         <div className="col-span-12 lg:col-span-4 space-y-10">
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Series Concept & Structure Description</h3>
+              <textarea 
+                value={localComic.description || ''} 
+                onChange={e => setLocalComic({ ...localComic, description: e.target.value })}
+                placeholder="Direct the AI on the general concept and structure of the comic (e.g., 'Pileup on 709 is a comic where every panel focuses on a different driver doing outrageous things...')"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-slate-300 transition-all resize-y"
+                rows={4}
+              />
+              <p className="mt-3 text-[10px] text-slate-400 font-medium italic">This description guides the AI when writing scripts and generating images for this series.</p>
+            </div>
+
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Master Aesthetic Anchor (Max 4)</h3>
               <textarea 
                 value={localComic.styleDescription || ''} 

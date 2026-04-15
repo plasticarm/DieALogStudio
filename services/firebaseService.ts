@@ -148,18 +148,50 @@ export const firebaseService = {
     const sessionRef = doc(db, "sessions", `${session.userId}_${session.id}`);
     
     // Sanitize data to remove undefined values which Firestore doesn't support
-    const cleanSession = sanitizeData(session);
+    let cleanSession = sanitizeData(session);
     const timestamp = session.lastModified || Date.now();
     
-    const finalDoc = {
+    let finalDoc = {
       ...cleanSession,
       lastModified: timestamp
     };
 
-    const size = estimateSize(finalDoc);
-    if (size > 1000000) { // Slightly less than 1MB to be safe
-      console.error(`Document size (${size} bytes) exceeds Firestore limit. Pruning required.`);
-      throw new Error(`Document too large (${(size / 1024 / 1024).toFixed(2)}MB). Please prune history or assets.`);
+    let size = estimateSize(finalDoc);
+    const MAX_SIZE = 1000000; // 1MB limit
+
+    if (size > MAX_SIZE) {
+      console.warn(`Document size (${size} bytes) exceeds Firestore limit. Attempting cloud pruning...`);
+      
+      // Pruning Level 1: Limit history to 10 items
+      if (finalDoc.data?.history?.length > 10) {
+        finalDoc.data.history = finalDoc.data.history.slice(0, 10);
+        size = estimateSize(finalDoc);
+      }
+
+      // Pruning Level 2: Limit ratings to 10 items
+      if (size > MAX_SIZE && finalDoc.data?.ratings?.length > 10) {
+        finalDoc.data.ratings = finalDoc.data.ratings.slice(0, 10);
+        size = estimateSize(finalDoc);
+      }
+
+      // Pruning Level 3: Aggressive pruning (3 items each)
+      if (size > MAX_SIZE) {
+        finalDoc.data.history = (finalDoc.data.history || []).slice(0, 3);
+        finalDoc.data.ratings = (finalDoc.data.ratings || []).slice(0, 3);
+        size = estimateSize(finalDoc);
+      }
+
+      // Pruning Level 4: Clear history and ratings
+      if (size > MAX_SIZE) {
+        finalDoc.data.history = [];
+        finalDoc.data.ratings = [];
+        size = estimateSize(finalDoc);
+      }
+
+      if (size > MAX_SIZE) {
+        console.error(`Document still too large (${size} bytes) after pruning.`);
+        throw new Error(`Document too large (${(size / 1024 / 1024).toFixed(2)}MB) even after pruning. Please reduce the number of comics or characters.`);
+      }
     }
     
     try {
