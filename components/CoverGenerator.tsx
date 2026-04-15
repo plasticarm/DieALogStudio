@@ -26,7 +26,7 @@ export const CoverGenerator: React.FC<CoverGeneratorProps> = ({ book, activeComi
         visualDescription: `Main cover illustration: ${prompt}. Cinematic, epic composition, high detail, high resolution production quality. Including the branding and tone of the series: ${activeComic.name}.`,
         dialogue: []
       }];
-      const rawImg = await generateComicArt(activeComic, mockScript, model);
+      const rawImg = await generateComicArt(activeComic, mockScript, model, true);
       const img = await downscaleImage(rawImg, 1024, 0.8);
       const vaultedImg = await imageStore.vaultify(img);
       setPreviewCover(vaultedImg);

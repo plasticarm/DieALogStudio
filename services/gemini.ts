@@ -365,7 +365,8 @@ Create a ${panelCount}-panel comic strip script for the series "${profile.name}"
 export const generateComicArt = async (
   profile: ComicProfile,
   script: GeneratedPanelScript[],
-  model: ArtModelType
+  model: ArtModelType,
+  isCover: boolean = false
 ): Promise<string> => {
   try {
     const ai = getAiClient();
@@ -380,6 +381,12 @@ export const generateComicArt = async (
     Aesthetic: ${profile.artStyle}
     Action: ${panelsDesc}
     Note: Highly cinematic, clear panel borders, gutters, professional comic book layout. Explicitly include speech bubbles and dialogue as described in the action. Ensure the text is legible and correctly attributed to the characters.`;
+
+    if (!isCover) {
+      promptText += ` CRITICAL: DO NOT include the title of the comic, the series name, or the episode name anywhere in the image.`;
+    } else {
+      promptText += ` Feel free to include the title of the comic or series name as stylized text if appropriate for a cover.`;
+    }
 
     const parts: any[] = [];
     
@@ -509,7 +516,7 @@ export const generateCharacterImage = async (
     Description: ${description}
     Art Style: ${profile.artStyle}
     Style Description: ${profile.styleDescription || 'Not specified'}
-    Framing: Full body or medium shot, centered, high quality.`;;
+    Framing: Full body or medium shot, centered, high quality. CRITICAL: DO NOT include the character name, series name, or any text in the image.`;
 
     const parts: any[] = [];
     
@@ -573,7 +580,8 @@ export const generateCharacterSheet = async (
        - FRONT VIEW: character facing TOWARD camera. 
     3. Framing: Full body, centered, 1:1 aspect ratio. The entire character must fit within the frame.
     4. Cleanliness: NO BACKGROUND NOISE.
-    6. Fidelity: Maintain 100% consistency with the reference design.`;
+    6. Fidelity: Maintain 100% consistency with the reference design.
+    7. CRITICAL: DO NOT include the character name, series name, or any text in the image.`;
 
     const parts: any[] = [];
 
@@ -635,7 +643,7 @@ export const generateExpressionSheet = async (
     1. Multiple renderings of the head isolated making different facial expressions: Happy, Sad, Angry, Confused, Surprised, Speaking, Listening.
     2. The character in a variety of poses: Walking, Talking, Running, Furious, Exasperated and other expressive full body poses.
     
-    Framing: Multiple figures on a clean background, high detail, consistent character design.`;
+    Framing: Multiple figures on a clean background, high detail, consistent character design. CRITICAL: DO NOT include the character name, series name, or any text in the image.`;
 
     const parts: any[] = [];
 
