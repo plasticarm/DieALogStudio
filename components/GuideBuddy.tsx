@@ -32,12 +32,13 @@ interface GuideBuddyProps {
   onPrev: () => void;
   onClose: () => void;
   enabled: boolean;
+  steps?: GuideStep[];
 }
 
-export const GuideBuddy: React.FC<GuideBuddyProps> = ({ currentStepIndex, onNext, onPrev, onClose, enabled }) => {
+export const GuideBuddy: React.FC<GuideBuddyProps> = ({ currentStepIndex, onNext, onPrev, onClose, enabled, steps = GUIDE_STEPS }) => {
   const [position, setPosition] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
   const buddyRef = useRef<HTMLDivElement>(null);
-  const step = GUIDE_STEPS[currentStepIndex] || GUIDE_STEPS[0];
+  const step = steps[currentStepIndex] || steps[0];
 
   useEffect(() => {
     if (!enabled) return;
@@ -65,26 +66,32 @@ export const GuideBuddy: React.FC<GuideBuddyProps> = ({ currentStepIndex, onNext
     return () => observer.disconnect();
   }, [step, enabled]);
 
-  if (!enabled || !position) return null;
+  if (!enabled) return null;
 
   return (
     <div 
       className="fixed z-[9999] pointer-events-none transition-all duration-700 ease-in-out"
-      style={{
+      style={position ? {
         top: position.top + position.height / 2,
         left: position.left + position.width / 2,
+      } : {
+        top: '50%',
+        left: '50%',
       }}
     >
       {/* Target Highlight */}
-      <div 
-        className="absolute -translate-x-1/2 -translate-y-1/2 border-4 border-yellow-400 rounded-2xl animate-pulse shadow-[0_0_20px_rgba(234,179,8,0.5)]"
-        style={{ width: position.width + 10, height: position.height + 10 }}
-      ></div>
+      {position && (
+        <div 
+          className="absolute -translate-x-1/2 -translate-y-1/2 border-4 border-yellow-400 rounded-2xl animate-pulse shadow-[0_0_20px_rgba(234,179,8,0.5)]"
+          style={{ width: position.width + 10, height: position.height + 10 }}
+        ></div>
+      )}
 
       {/* Buddy Bubble */}
       <div 
         ref={buddyRef}
-        className="absolute left-12 -top-12 w-64 glass p-4 rounded-3xl shadow-2xl pointer-events-auto border-2 border-slate-800/10 animate-in slide-in-from-left-4"
+        className="absolute w-64 glass p-4 rounded-3xl shadow-2xl pointer-events-auto border-2 border-slate-800/10 animate-in slide-in-from-left-4"
+        style={position ? { left: 48, top: -48 } : { transform: 'translate(-50%, -50%)' }}
       >
         <div className="flex items-center gap-3 mb-3">
           <img 
@@ -102,9 +109,15 @@ export const GuideBuddy: React.FC<GuideBuddyProps> = ({ currentStepIndex, onNext
             <button onClick={onPrev} disabled={currentStepIndex === 0} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] hover:bg-slate-200 transition-colors disabled:opacity-30">
               <i className="fa-solid fa-chevron-left"></i>
             </button>
-            <button onClick={onNext} disabled={currentStepIndex === GUIDE_STEPS.length - 1} className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center text-[10px] hover:bg-slate-900 transition-colors disabled:opacity-30">
-              <i className="fa-solid fa-chevron-right"></i>
-            </button>
+            {currentStepIndex === steps.length - 1 ? (
+              <button onClick={onClose} className="px-3 h-8 rounded-lg bg-emerald-500 text-white font-black uppercase text-[9px] tracking-widest hover:bg-emerald-600 transition-colors">
+                Ready to Play?
+              </button>
+            ) : (
+              <button onClick={onNext} className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center text-[10px] hover:bg-slate-900 transition-colors">
+                <i className="fa-solid fa-chevron-right"></i>
+              </button>
+            )}
           </div>
           <button onClick={onClose} className="text-[9px] font-black uppercase text-slate-400 hover:text-rose-500 transition-colors">Dismiss</button>
         </div>

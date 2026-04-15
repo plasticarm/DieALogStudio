@@ -7,6 +7,7 @@ import { downscaleImage } from '../utils/imageUtils';
 import { generateVeoVideo } from '../services/gemini';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { COMIC_FONTS, GENRES, CANNED_CATEGORIES, CANNED_PHRASES_DATA } from '../constants';
+import { GuideBuddy } from './GuideBuddy';
 import Pusher from 'pusher-js';
 
 const getFontFamily = (fontName: string) => {
@@ -166,9 +167,10 @@ interface PlayModeProps {
   onEdit?: () => void;
   onUserUpdate?: (user: User) => void;
   onOpenProfile?: () => void;
+  isTutorial?: boolean;
 }
 
-export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comics, books, binderPages, onExit, onAddSubmission, onEdit, onUserUpdate, onOpenProfile }) => {
+export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comics, books, binderPages, onExit, onAddSubmission, onEdit, onUserUpdate, onOpenProfile, isTutorial }) => {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [room, setRoom] = useState<any>(null);
   const [isJoining, setIsJoining] = useState(false);
@@ -186,6 +188,21 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [localTextFields, setLocalTextFields] = useState<TextField[]>([]);
   const [activeCannedMenu, setActiveCannedMenu] = useState<{ id: string, x: number, y: number } | null>(null);
+  const [tutorialStep, setTutorialStep] = useState(0);
+
+  const GAME_GUIDE_STEPS = [
+    { id: 'writer-comic', target: 'game-guide-comic', text: "This is the comic you will be editing. To read the comic easier you can pan and zoom the comic view" },
+    { id: 'writer-dialog', target: 'game-guide-dialog-0', text: "Enter in the dialog for each speech bubble here." },
+    { id: 'writer-hint', target: 'game-guide-hint', text: "Use the hint button to use the original text from the comic. Using the hint button will cost you points(5 branches)!" },
+    { id: 'writer-canned', target: 'game-guide-canned', text: "Use the canned button to use bits of canned dialog. There are different types of canned dialog for different phrases. Each time you use the canned button you will lose a branch." },
+    { id: 'writer-score', target: 'game-guide-score', text: "Your score is displayed here. The number of branches you have is displayed in green. If you run out of branches you won’t be able to use hints or canned dialog until you earn more branches." },
+    { id: 'writer-timer', target: 'game-guide-timer', text: "You only have so much time to complete your comic. Write fast!" },
+    { id: 'writer-submit', target: 'game-guide-submit', text: "When you are finished writing click on the Submit to Judge button." },
+    { id: 'judge-intro', target: 'game-guide-judge-comic', text: "If you win a round you become the next judge" },
+    { id: 'judge-select', target: 'game-guide-judge-select', text: "Click on a comic to enlarge and read the comic." },
+    { id: 'judge-trophy', target: 'game-guide-judge-trophy', text: "Click on the trophy to select the winner or drag the winning comic into the winners box." },
+    { id: 'ready-play', target: 'game-guide-ready', text: "Ready to Play?" }
+  ];
 
   const toggleCannedMenu = (e: React.MouseEvent, tfId: string) => {
     if (activeCannedMenu?.id === tfId) {
@@ -204,7 +221,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
   const [isEnlarged, setIsEnlarged] = useState(false);
   const [preGameState, setPreGameState] = useState<'none' | 'cover' | 'go'>('none');
-  const [showInstructions, setShowInstructions] = useState(false);
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(GENRES.map(g => g.id));
   const [writerDeck, setWriterDeck] = useState<string[]>([]);
   const [judgeDeck, setJudgeDeck] = useState<string[]>([]);
@@ -449,6 +465,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       setRoomCode(code);
       setRoom(roomData);
 
+      const me = roomData.players?.find((p: any) => p.id === user.id);
+      if (me && me.role) {
+        setRole(me.role);
+      }
+
       // Sync existing state from Redis immediately
       if (roomData.submissions) setSubmittedComics(roomData.submissions);
       if (roomData.winner) setWinner(roomData.winner);
@@ -462,14 +483,29 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   };
 
+  const [isTutorialMode, setIsTutorialMode] = useState(isTutorial || false);
+  const [originalRoomCode, setOriginalRoomCode] = useState<string | null>(null);
+  const [originalRoom, setOriginalRoom] = useState<any | null>(null);
+
   // Auto-join from URL
   useEffect(() => {
+    if (isTutorialMode) return;
     const params = new URLSearchParams(window.location.search);
     const urlRoomCode = params.get('game');
     if (urlRoomCode && !roomCode) {
       joinGameViaAPI(urlRoomCode.toUpperCase());
     }
-  }, []);
+  }, [isTutorialMode]);
+
+  useEffect(() => {
+    if (room?.gameState === 'playing' && role === 'select' && !isTutorialMode) {
+      alert("This game is already in progress.");
+      setRoomCode(null);
+      setRoom(null);
+      const newUrl = `${window.location.origin}${window.location.pathname}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+  }, [room?.gameState, role, isTutorialMode]);
 
   const avatarPool = React.useMemo(() => {
     const avatars: string[] = [];
@@ -511,9 +547,62 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     window.history.pushState({ path: newUrl }, '', newUrl);
   };
 
+  // --- TUTORIAL INITIALIZATION ---
+  useEffect(() => {
+    if (isTutorialMode) {
+      const fallbackStrip: SavedComicStrip = {
+        id: 'tutorial-strip',
+        arTargetId: 'tutorial-target',
+        name: 'Tutorial Comic',
+        comicProfileId: comics[0]?.id || 'comic-1',
+        prompt: 'Tutorial prompt',
+        script: [],
+        finishedImageUrl: 'https://raw.githubusercontent.com/plasticarm/DieALogStudio/main/images/DieALog_LogLogo1.png',
+        timestamp: Date.now(),
+        panelCount: 1,
+        textFields: [
+          {
+            id: 'tf-1',
+            text: 'Original text',
+            x: 10,
+            y: 10,
+            width: 30,
+            height: 20,
+            type: 'speech',
+            alignment: 'center',
+            font: 'Inter'
+          }
+        ]
+      };
+      const mockStrip = history.length > 0 ? history[0] : fallbackStrip;
+      setRoomCode('TUTORIAL');
+      setConnectionStatus('connected');
+      setRoom({
+        gameState: 'playing',
+        host: user.id,
+        players: [{ id: user.id, name: user.name, role: 'writer', score: 10 }],
+        activeStrip: mockStrip,
+        activeStripId: mockStrip?.id,
+        timeLimit: 3,
+        submissions: [],
+        scores: { [user.id]: 0 },
+        branches: { [user.id]: 30 },
+        pointsToWin: 3
+      });
+      setRole('writer');
+      setActiveStrip(mockStrip);
+      
+      const profile = comics.find(c => c.id === mockStrip.comicProfileId);
+      const primaryFont = profile?.selectedFonts?.[0] || 'Inter';
+      setLocalTextFields((mockStrip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
+      
+      setTimeLeft(60);
+    }
+  }, [isTutorialMode, user, history, comics]);
+
   // --- PUSHER SUBSCRIPTION ---
   useEffect(() => {
-    if (!roomCode || !user) return;
+    if (!roomCode || !user || isTutorialMode) return;
 
     const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
       cluster: import.meta.env.VITE_PUSHER_CLUSTER,
@@ -834,11 +923,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         setPreGameState('go');
         t2 = setTimeout(() => {
           setPreGameState('none');
-          if (role === 'writer' && !localStorage.getItem('hasSeenInstructions')) {
-            setShowInstructions(true);
-            localStorage.setItem('hasSeenInstructions', 'true');
-            setTimeout(() => setShowInstructions(false), 5000);
-          }
         }, 1000);
       }, 3000);
     }
@@ -1456,6 +1540,22 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       <div className="h-[100dvh] w-full flex flex-col items-center bg-slate-50 relative overflow-y-auto py-12">
         <ProfileButton />
         <ConnectionBadge status={connectionStatus} />
+        
+        {/* Instructions Button */}
+        {(user?.isGuest || !user?.playedGames?.length) && (
+          <button 
+            onClick={() => {
+              setOriginalRoomCode(roomCode);
+              setOriginalRoom(room);
+              setIsTutorialMode(true);
+            }}
+            className="fixed top-6 right-6 z-50 bg-amber-500 text-white px-4 py-2 rounded-full font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-amber-600 transition-all hover:scale-105 flex items-center gap-2"
+          >
+            <i className="fa-solid fa-circle-question"></i>
+            Instructions
+          </button>
+        )}
+
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-slate-100"></div>
         
         <div className="relative z-10 w-full max-w-4xl px-8 flex flex-col lg:flex-row gap-12 items-center">
@@ -1586,17 +1686,19 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
               </div>
             </div>
             
-            <button 
-              onClick={() => {
-                setRoomCode(null);
-                setRoom(null);
-                const newUrl = `${window.location.origin}${window.location.pathname}`;
-                window.history.pushState({ path: newUrl }, '', newUrl);
-              }}
-              className="text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] transition-all"
-            >
-              Leave Lobby
-            </button>
+            <div className="flex gap-4 w-full">
+              <button 
+                onClick={() => {
+                  setRoomCode(null);
+                  setRoom(null);
+                  const newUrl = `${window.location.origin}${window.location.pathname}`;
+                  window.history.pushState({ path: newUrl }, '', newUrl);
+                }}
+                className="flex-1 bg-rose-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-rose-700 transition-all hover:-translate-y-1 active:translate-y-0"
+              >
+                Leave Lobby
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1766,60 +1868,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   }
 
   if (room?.gameState === 'playing' && role === 'select') {
-    return (
-      <div className="h-[100dvh] w-full flex flex-col items-center bg-slate-900 text-white p-8 relative overflow-y-auto py-12">
-        <ProfileButton />
-        <ConnectionBadge status={connectionStatus} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-900 to-black opacity-50"></div>
-        <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center">
-          <div className="w-24 h-24 bg-amber-600 rounded-[2rem] flex items-center justify-center text-white text-4xl shadow-2xl mb-8">
-            <i className="fa-solid fa-user-tag"></i>
-          </div>
-          <h2 className="text-4xl font-header uppercase tracking-widest mb-4">Select Your Role</h2>
-          <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mb-12">The game is already in progress. Pick a role to join.</p>
-          
-          <div className="grid grid-cols-1 gap-4 w-full">
-            <button 
-              onClick={() => {
-                setRole('writer');
-                if (roomCode) {
-                  const updatedPlayers = room.players.map((p: any) => p.id === user?.id ? { ...p, role: 'writer' } : p);
-                  fetch('/api/game/update-state', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ roomCode, newState: { ...room, players: updatedPlayers } })
-                  });
-                }
-              }}
-              className="bg-white/10 hover:bg-white/20 border border-white/10 p-8 rounded-3xl flex flex-col items-center gap-4 transition-all hover:scale-105"
-            >
-              <i className="fa-solid fa-pen-nib text-4xl text-amber-500"></i>
-              <span className="text-xl font-black uppercase tracking-widest">Writer</span>
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Create comics from the script</p>
-            </button>
-            
-            <button 
-              onClick={() => {
-                setRole('judge');
-                if (roomCode) {
-                  const updatedPlayers = room.players.map((p: any) => p.id === user?.id ? { ...p, role: 'judge' } : p);
-                  fetch('/api/game/update-state', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ roomCode, newState: { ...room, players: updatedPlayers } })
-                  });
-                }
-              }}
-              className="bg-white/10 hover:bg-white/20 border border-white/10 p-8 rounded-3xl flex flex-col items-center gap-4 transition-all hover:scale-105"
-            >
-              <i className="fa-solid fa-gavel text-4xl text-amber-500"></i>
-              <span className="text-xl font-black uppercase tracking-widest">Judge</span>
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Select the best comic each round</p>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const activeComicProfile = comics.find(c => c.id === activeStrip?.comicProfileId);
@@ -1861,7 +1910,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
       {room?.scores && (
         <div className="fixed top-6 right-6 z-50 flex flex-col items-end gap-2">
-          <div className="bg-white/80 backdrop-blur px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+          <div data-guide="game-guide-score" className="bg-white/80 backdrop-blur px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
             <div className="flex -space-x-2">
               {room.players.map((p: any) => (
                 <div key={p.id} className={`w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-slate-100 ${room.scores[p.id] > 0 ? 'ring-2 ring-amber-500 ring-offset-1' : ''}`}>
@@ -1962,7 +2011,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {room?.gameState === 'playing' && timeLeft !== null && timeLeft > 0 && !hasSubmitted && !allSubmitted && (
-        <div className={`fixed z-[60] px-4 py-2 rounded-2xl shadow-xl border-2 flex items-center gap-3 transition-all duration-500 ${
+        <div data-guide="game-guide-timer" className={`fixed z-[60] px-4 py-2 rounded-2xl shadow-xl border-2 flex items-center gap-3 transition-all duration-500 ${
           preGameState === 'cover' 
             ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-150 bg-white border-slate-200 text-slate-800' 
             : 'top-[60px] left-1/2 -translate-x-1/2 bg-white border-slate-100 text-slate-800'
@@ -1982,6 +2031,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             </h2>
             
             <div 
+              data-guide="game-guide-judge-comic"
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               className={`w-64 h-64 mx-auto rounded-[2rem] border-4 border-dashed flex items-center justify-center transition-all ${winner ? 'border-amber-500 bg-amber-50 cursor-zoom-in' : 'border-slate-300 bg-slate-100'} ${role !== 'judge' ? 'pointer-events-none' : ''}`}
@@ -2336,6 +2386,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                       <button 
+                        data-guide={idx === 0 ? "game-guide-judge-select" : undefined}
                         onClick={() => handlePreviewImage(comic.imageUrl)}
                         className="w-12 h-12 bg-white text-slate-800 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
                         title="Preview"
@@ -2344,6 +2395,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                       </button>
                       {role === 'judge' && !winner && (
                         <button 
+                          data-guide={idx === 0 ? "game-guide-judge-trophy" : undefined}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSelectWinner(comic);
@@ -2408,16 +2460,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
           {preGameState === 'none' && !hasSubmitted ? (
             <div className="w-full h-full flex flex-col items-center animate-in fade-in duration-500 min-h-0">
-              {/* Instruction Popup */}
-              {showInstructions && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none">
-                  <div className="bg-white rounded-[3rem] shadow-2xl p-6 md:p-12 flex flex-col items-center animate-in zoom-in fade-in duration-500 pointer-events-auto">
-                    <h2 className="text-3xl font-header uppercase tracking-widest text-slate-800 mb-4 text-center">Your Assignment</h2>
-                    <p className="text-slate-500 text-center">Edit this comic and submit it to the judge. Click the comic to enlarge.</p>
-                  </div>
-                </div>
-              )}
-              
               {/* Editor Area - Full Width */}
               {activeStrip ? (
                 <div className="w-full h-full bg-white shadow-2xl p-4 md:p-8 flex flex-col gap-4 min-h-0">
@@ -2438,6 +2480,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                       )}
                       
                       <div 
+                        data-guide="game-guide-comic"
                         className={`relative w-full aspect-video overflow-hidden mx-auto ${isEnlarged ? 'max-h-full max-w-full' : 'max-h-[45vh] max-w-[calc(45vh*16/9)]'}`}
                       >
                         <TransformWrapper
@@ -2521,7 +2564,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                   }}
                                 >
                                   <AutoResizingText 
-                                    text={tf.text.replace(/^[^:]+:\s*/, '').trim() || 'Empty'} 
+                                    text={tf.text.replace(/^[^:]+:\s*/, '').trim() || ''} 
                                     alignment={tf.alignment || 'center'} 
                                     font={tf.font || 'Inter'} 
                                     rounding={tf.rounding} 
@@ -2564,6 +2607,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           </div>
                           <div className="flex-1 flex justify-center">
                             <button 
+                              data-guide="game-guide-submit"
                               onClick={handleSaveAndSubmit}
                               disabled={isSavingLocal}
                               className="px-4 py-1.5 bg-amber-600 text-white rounded-lg font-black uppercase tracking-widest shadow-sm hover:bg-amber-700 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 text-[10px]"
@@ -2639,6 +2683,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                       </div>
                                       <div className="flex items-center gap-1">
                                         <button 
+                                          data-guide={idx === 0 ? "game-guide-hint" : undefined}
                                           onClick={() => {
                                             if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
                                             if (tf.dialogueId && activeStrip.script) {
@@ -2674,6 +2719,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                         </button>
                                         <div className="relative">
                                           <button 
+                                            data-guide={idx === 0 ? "game-guide-canned" : undefined}
                                             onClick={(e) => toggleCannedMenu(e, tf.id)}
                                             disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
                                             className={`canned-menu-trigger text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
@@ -2689,6 +2735,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                       </div>
                                     </div>
                                     <textarea
+                                      data-guide={idx === 0 ? "game-guide-dialog-0" : undefined}
                                       value={tf.text.replace(/^[^:]+:\s*/, '')}
                                       onChange={(e) => {
                                         const match = tf.text.match(/^[^:]+:\s*/);
@@ -2772,6 +2819,56 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             </button>
           </div>
         </div>
+      )}
+
+      {isTutorialMode && (
+        <GuideBuddy
+          currentStepIndex={tutorialStep}
+          onNext={() => {
+            if (tutorialStep === 6) {
+              // Transition to judge page
+              setRole('judge');
+              setHasSubmitted(true);
+              setSubmittedComics([
+                { 
+                  id: 'mock-submission',
+                  comicId: activeStrip?.comicId || '',
+                  stripId: activeStrip?.id || '',
+                  userId: user.id,
+                  userName: user.name,
+                  userPicture: user.picture,
+                  imageUrl: activeStrip?.finishedImageUrl || '',
+                  textFields: localTextFields,
+                  score: 0,
+                  timestamp: Date.now()
+                }
+              ]);
+            }
+            setTutorialStep(s => s + 1);
+          }}
+          onPrev={() => {
+            if (tutorialStep === 7) {
+              // Transition back to writer page
+              setRole('writer');
+              setHasSubmitted(false);
+              setSubmittedComics([]);
+            }
+            setTutorialStep(s => s - 1);
+          }}
+          onClose={() => {
+            setIsTutorialMode(false);
+            setRoomCode(originalRoomCode);
+            setRoom(originalRoom);
+            setOriginalRoomCode(null);
+            setOriginalRoom(null);
+            setRole('select');
+            setHasSubmitted(false);
+            setSubmittedComics([]);
+            setTutorialStep(0);
+          }}
+          enabled={true}
+          steps={GAME_GUIDE_STEPS}
+        />
       )}
     </div>
   );

@@ -1,0 +1,77 @@
+15:  return font ? font.family : 'Inter, sans-serif';
+24:  return shuffled;
+32:    if (!container) return;
+35:      if (container.clientWidth === 0 || container.clientHeight === 0) return;
+53:    return () => resizeObserver.disconnect();
+56:  return (
+101:    if (!container) return;
+104:      if (container.clientWidth === 0 || container.clientHeight === 0) return;
+123:    return () => {
+129:  return (
+240:    if (!activeStrip) return [];
+243:      return [...localTextFields]
+248:          return { 
+262:      return activeStrip.panelLayout.map(p => ({ x: p.x, y: p.y, width: p.width, height: p.height, id: `panel-${p.panelNumber}`, overridePanZoom: p.overridePanZoom }));
+264:    return [];
+268:    if (viewMode !== 'panel' || navigationTargets.length === 0) return null;
+269:    return navigationTargets[currentTargetIndex] || null;
+276:    if (navigationTargets.length === 0) return;
+288:    if (navigationTargets.length === 0) return;
+302:      if (role !== 'writer' || hasSubmitted) return;
+304:        return;
+313:    return () => window.removeEventListener('keydown', handleKeyDown);
+363:          return pNum === panelNum;
+386:          return;
+412:      if (user.playedGames?.includes(gameId)) return; 
+444:    return (
+492:    if (isTutorialMode) return;
+508:    return Array.from(new Set(avatars));
+532:    if (!joinCodeInput) return;
+595:    if (!roomCode || !user || isTutorialMode) return;
+675:          if (prev.find(c => c.id === data.submission.id)) return prev;
+676:          return [...prev, data.submission];
+681:    return () => {
+688:    if (!roomCode || room?.host !== user?.id) return;
+730:    if (!winner) return;
+750:        return;
+778:    return binderPages.filter(id => history.some(h => h.id === id));
+782:    return validBinderPages.filter(id => {
+785:      return profile && selectedGenreIds.includes(profile.category);
+790:    return ratings.filter(r => {
+793:      return profile && selectedGenreIds.includes(profile.category);
+835:    if (!winner) return;
+842:          return;
+883:    return () => clearInterval(timer);
+920:    return () => {
+927:    if (filteredBinderPages.length === 0) return;
+983:      if (filteredRatings.length === 0) return;
+998:      if (!randomComic) return;
+1072:      return;
+1137:    if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
+1154:    if (phrasesToUse.length === 0) return;
+1184:    return () => window.removeEventListener('mousedown', handleClickOutside);
+1188:    if (!activeStrip || isSavingLocal || !selectedComic) return;
+1198:      return !cleanText.trim();
+1273:            return;
+1285:            if (words.length === 0) return [];
+1299:            return lines;
+1355:    if (!activeStrip || !roomCode) return;
+1405:    if (room?.gameState === 'playing' || room?.gameState === 'game-over') return null;
+1406:    return (
+1426:    return (
+1486:    return (
+1512:    return (
+1529:    return (
+1702:    return (
+1814:                  return (
+1847:                return null;
+1871:    return null;
+1877:  return (
+2438:                return (
+2527:                          return (
+2638:                              if (!activeStrip?.script) return 0;
+2640:                              return getPanel(a) - getPanel(b);
+2661:                              return (
+2688:                                            if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
+2781:                return (
+2814:              return null;
