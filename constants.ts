@@ -49,6 +49,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 'nw1_1', name: 'Detective Paws', description: 'Tabby cat in a trench coat' }, { id: 'nw1_2', name: 'The Catnip King', description: 'Fat Persian with a gold chain' }] 
   },
   { 
@@ -61,6 +62,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 'cq2_1', name: 'Greg from IT', description: 'Weary man with an "ERROR" mug' }, { id: 'cq2_2', name: 'The Manager', description: 'Floating suit with a red tie' }] 
   },
   { 
@@ -73,6 +75,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 'gb3_1', name: 'Pilot Pete', description: 'A regular sort of guy. Pilot Pete likes burritos, nachos, cheese, and anything salty. He wears a lucky alien eyeball on a gold chain around his neck which many aliens find offensive. He\'s a push the button and worry about what it does later kind of guy.' }, { id: 'gb3_2', name: 'Zorg', description: 'Zorg has 6 eyes most of the time. Green skin, orange safety vest.  He\'s far more qualified to be captain but Pete inherited the ship.' }] 
   },
   { 
@@ -85,6 +88,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 'td4_1', name: 'General Timmy', description: 'Toddler wearing a colander helmet' }, { id: 'td4_2', name: 'Sgt. Sparky', description: 'Damaged, one-eyed stuffed dog' }] 
   },
   { 
@@ -97,6 +101,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 'ur5_1', name: 'Father John', description: 'Stressed, sweaty priest in a cassock' }, { id: 'ur5_2', name: 'Vlad', description: 'Cool vampire hovering in a leather jacket' }] 
   },
   { 
@@ -109,6 +114,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 's6_1', name: 'Sir Squeaksalot', description: 'Brave mouse in bottlecap armor' }, { id: 's6_2', name: 'The Rat King', description: 'Massive scarred rat with a toothpick sword' }] 
   },
   { 
@@ -121,6 +127,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 'hh7_1', name: 'Barong', description: 'A obese demon with 3 eyes and horns. ' }, { id: 'hh7_2', name: 'Melvin', description: 'A very nerdy demon.' }] 
   },
   { 
@@ -133,6 +140,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 'tb8_1', name: 'Don Chuckles', description: 'Scary clown mobster with a painted smile' }, { id: 'tb8_2', name: 'Squeaky', description: 'Menacing mime holding a balloon Tommy gun' }] 
   },
   { 
@@ -145,6 +153,7 @@ export const INITIAL_COMICS: ComicProfile[] = [
     environment: 'TBD Environment', 
     environments: [], 
     panelCount: 3, 
+    selectedFonts: ['Comic Neue', 'Permanent Marker', 'Bangers'],
     characters: [{ id: 'iz9_1', name: 'Jax', description: 'Cyborg skater with glowing neon wheels' }, { id: 'iz9_2', name: 'Robo-Ref', description: 'Hovering camera drone with a whistle' }] 
   },
   { 
@@ -1482,11 +1491,12 @@ export const INITIAL_COMICS: ComicProfile[] = [
 ];
 
 export const COMIC_FONTS = [
-  { name: 'Amatic SC', family: '"Amatic SC", cursive' },
-  { name: 'Annie Use Your Telescope', family: '"Annie Use Your Telescope", cursive' },
-  { name: 'Bangers', family: '"Bangers", cursive' },
-  { name: 'Boogaloo', family: '"Boogaloo", cursive' },
   { name: 'Comic Neue', family: '"Comic Neue", cursive' },
+  { name: 'Permanent Marker', family: '"Permanent Marker", cursive' },
+  { name: 'Bangers', family: '"Bangers", cursive' },
+  { name: 'Amatic SC', family: '"Amatic SC", cursive' },
+  { name: 'Annie Use Your Telesope', family: '"Annie Use Your Telescope", cursive' },
+  { name: 'Boogaloo', family: '"Boogaloo", cursive' },
   { name: 'Creepster', family: '"Creepster", system-ui' },
   { name: 'Fredoka One', family: '"Fredoka One", cursive' },
   { name: 'Gloria Hallelujah', family: '"Gloria Hallelujah", cursive' },
@@ -1501,7 +1511,6 @@ export const COMIC_FONTS = [
   { name: 'Nanum Pen Script', family: '"Nanum Pen Script", cursive' },
   { name: 'Neucha', family: '"Neucha", cursive' },
   { name: 'Patrick Hand', family: '"Patrick Hand", cursive' },
-  { name: 'Permanent Marker', family: '"Permanent Marker", cursive' },
   { name: 'Rock Salt', family: '"Rock Salt", cursive' },
   { name: 'Schoolbell', family: '"Schoolbell", cursive' },
   { name: 'Shadows Into Light', family: '"Shadows Into Light", cursive' },

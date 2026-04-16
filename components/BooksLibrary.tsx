@@ -228,12 +228,6 @@ export const BooksLibrary: React.FC<BooksLibraryProps> = ({
                     </div>
 
                     {/* Genre Graphic Indicator */}
-                    {genre && (
-                      <div className="absolute bottom-4 right-4 z-40 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-slate-200 shadow-lg flex items-center gap-2 transform group-hover:scale-110 transition-all duration-300">
-                        <span className="text-sm">{genre.icon}</span>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">{genre.name}</span>
-                      </div>
-                    )}
                   </div>
                   
                   <div 

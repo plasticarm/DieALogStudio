@@ -223,8 +223,8 @@ export const TestingLab: React.FC<TestingLabProps> = ({
 
   useEffect(() => {
     if (selectedStrip) {
-      // Use the first selected font from the active comic's profile, or fallback to 'Amatic SC'
-      const primaryFont = activeComic.selectedFonts?.[0] || 'Amatic SC';
+      // Use the first selected font from the active comic's profile, or fallback to 'Comic Neue'
+      const primaryFont = activeComic.selectedFonts?.[0] || 'Comic Neue';
       
       setLocalTextFields((selectedStrip.textFields || []).map(tf => ({ 
         ...tf, 

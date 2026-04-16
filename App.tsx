@@ -1590,7 +1590,11 @@ export default function App() {
           comics={comics} 
           books={activeSession.data.books || []}
           binderPages={binderPages}
-          onExit={() => setAppMode('select')} 
+          onExit={() => {
+            setAppMode('select');
+            const newUrl = `${window.location.origin}${window.location.pathname}`;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+          }} 
           onAddSubmission={(submission) => {
             const currentRatings = activeSession.data.ratings || [];
             handleUpdateSessionData({ ratings: [submission, ...currentRatings] });

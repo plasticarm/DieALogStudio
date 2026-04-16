@@ -364,7 +364,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
           y: b.y,
           width: b.width,
           height: b.height,
-          font: activeComic.selectedFonts?.[0] || 'Amatic SC',
+          font: activeComic.selectedFonts?.[0] || 'Comic Neue',
           fontSize: 32,
           alignment: 'center',
           characterName: 'Unknown',
@@ -781,7 +781,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         const newId = `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
         const newField: TextField = {
           id: newId, text: 'New Dialogue', x, y, width, height,
-          font: activeComic.selectedFonts?.[0] || 'Amatic SC', fontSize: 32, alignment: 'center', characterName: 'Unknown',
+          font: activeComic.selectedFonts?.[0] || 'Comic Neue', fontSize: 32, alignment: 'center', characterName: 'Unknown',
           order: textFields.length + 1
         };
         setTextFields(prev => [...prev, newField]);
@@ -1303,7 +1303,7 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                           y: b.y,
                           width: b.width,
                           height: b.height,
-                          font: activeComic.selectedFonts?.[0] || 'Amatic SC',
+                          font: activeComic.selectedFonts?.[0] || 'Comic Neue',
                           fontSize: 32,
                           alignment: 'center' as const,
                           characterName: 'Unknown',
@@ -1397,7 +1397,7 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                       className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer"
                       style={{ fontFamily: getFontFamily(selectedField.font) }}
                     >
-                      {(activeComic.selectedFonts || ['Amatic SC', 'Annie Use Your Telescope', 'Inter']).map(fontName => {
+                      {(activeComic.selectedFonts || ['Comic Neue', 'Permanent Marker', 'Bangers']).map(fontName => {
                         return (
                           <option key={fontName} value={fontName} className="text-slate-800" style={{ fontFamily: getFontFamily(fontName) }}>
                             {fontName}
