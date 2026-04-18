@@ -29,20 +29,10 @@ const EditableBubble: React.FC<{
   text: string, 
   alignment: string, 
   font: string, 
-  fontSize: number,
   rounding?: number,
-  onChange: (text: string) => void,
   onFocus?: () => void
-}> = ({ text, alignment, font, fontSize, rounding, onChange, onFocus }) => {
+}> = ({ text, alignment, font, rounding, onFocus }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (containerRef.current && containerRef.current.innerText !== text) {
-      if (document.activeElement !== containerRef.current) {
-        containerRef.current.innerText = text;
-      }
-    }
-  }, [text]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -66,22 +56,16 @@ const EditableBubble: React.FC<{
     const resizeObserver = new ResizeObserver(() => adjustFontSize());
     resizeObserver.observe(container);
     adjustFontSize();
-    container.addEventListener('input', adjustFontSize);
     
     return () => {
       resizeObserver.disconnect();
-      container.removeEventListener('input', adjustFontSize);
     };
-  }, [font, alignment]);
+  }, [text, font, alignment]);
 
   return (
     <div 
       ref={containerRef}
-      contentEditable
-      suppressContentEditableWarning
-      onBlur={(e) => onChange(e.currentTarget.innerText)}
-      onFocus={onFocus}
-      className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden outline-none transition-all cursor-text"
+      className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden outline-none transition-colors cursor-pointer"
       style={{ 
         textAlign: alignment as any, 
         padding: '4%', 
@@ -90,6 +74,7 @@ const EditableBubble: React.FC<{
         borderRadius: rounding ? `${rounding}px` : '0px',
         color: '#000'
       }}
+      onClick={onFocus}
     >
       <div className="w-full relative pointer-events-none">
         <div 
@@ -100,7 +85,12 @@ const EditableBubble: React.FC<{
           className="float-right h-full w-[15%] pointer-events-none" 
           style={{ shapeOutside: 'polygon(0 0, 100% 50%, 0 100%)' }}
         />
-        {text}
+        <span 
+          className="pointer-events-none outline-none min-w-[20px] min-h-[1em] inline-block"
+          style={{ display: 'inline' }}
+        >
+          {text}
+        </span>
       </div>
     </div>
   );
@@ -1389,6 +1379,17 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                   </div>
                 </div>
                 <div className="w-[1px] h-6 bg-white/10"></div>
+                <div className="flex flex-col px-2 w-40">
+                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Text</label>
+                    <input 
+                      type="text"
+                      className="bg-white/10 text-[10px] font-medium text-white px-2 py-1 rounded outline-none w-full"
+                      value={selectedField.text}
+                      onChange={(e) => updateField(selectedField.id, { text: e.target.value })}
+                      placeholder="Enter dialog..."
+                    />
+                </div>
+                <div className="w-[1px] h-6 bg-white/10"></div>
                 <div className="flex flex-col px-2">
                     <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Font</label>
                     <select 
@@ -1654,9 +1655,7 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                               text={field.text}
                               alignment={field.alignment}
                               font={field.font}
-                              fontSize={field.fontSize}
                               rounding={field.rounding}
-                              onChange={(newText) => updateField(field.id, { text: newText })}
                               onFocus={() => setSelectedFieldId(field.id)}
                             />
                           </div>

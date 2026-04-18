@@ -44,6 +44,8 @@ export const TestingLab: React.FC<TestingLabProps> = ({
   );
 
   const [localTextFields, setLocalTextFields] = useState<TextField[]>([]);
+  const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
+  const isMobileEditing = focusedFieldId !== null;
   const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes in seconds
   const [branches, setBranches] = useState(30);
@@ -647,13 +649,24 @@ export const TestingLab: React.FC<TestingLabProps> = ({
     return (
       <div
         key={tf.id}
-        className="absolute flex items-center justify-center pointer-events-none"
+        className="absolute flex items-center justify-center pointer-events-auto cursor-pointer"
         style={{
           left: `${tf.x}%`,
           top: `${tf.y}%`,
           width: `${tf.width}%`,
           height: `${tf.height}%`,
           textAlign: tf.alignment || 'center',
+        }}
+        onClick={() => {
+          const textarea = document.querySelector(`#tf-${tf.id} textarea`) as HTMLTextAreaElement | null;
+          if (textarea) {
+            if (viewMode === 'full') {
+              setViewMode('panel');
+              setTimeout(() => textarea.focus(), 50);
+            } else {
+              textarea.focus();
+            }
+          }
         }}
       >
         <div 
@@ -779,12 +792,12 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         </div>
       )}
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex-1 flex flex-col overflow-hidden ${isMobileEditing ? 'max-md:fixed max-md:inset-0 max-md:z-[200] max-md:bg-slate-900 max-md:p-2' : ''}`}>
         {selectedStrip ? (
-          <div className="flex-1 flex gap-4 overflow-hidden bg-white/10 rounded-[2.5rem] border border-white/10">
+          <div className={`flex-1 flex gap-4 overflow-hidden bg-white/10 rounded-[2.5rem] border border-white/10 ${isMobileEditing ? 'max-md:flex-col-reverse max-md:rounded-xl max-md:bg-transparent max-md:border-none' : ''}`}>
             {/* Text Editor */}
-            <div className="w-80 bg-white rounded-3xl border border-slate-200 shadow-xl p-5 flex flex-col gap-4 overflow-hidden">
-              <div className="flex justify-between items-center shrink-0">
+            <div className={`w-80 bg-white rounded-3xl border border-slate-200 shadow-xl p-5 flex flex-col gap-4 overflow-hidden ${isMobileEditing ? 'max-md:w-full max-md:flex-none max-md:overflow-visible max-md:rounded-xl max-md:p-2' : ''}`}>
+              <div className={`flex justify-between items-center shrink-0 ${isMobileEditing ? 'max-md:hidden' : ''}`}>
                 <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">DiE-A-Log Editor</h3>
                 <div className="flex bg-slate-100 p-1 rounded-lg">
                   <button 
@@ -801,17 +814,15 @@ export const TestingLab: React.FC<TestingLabProps> = ({
                   </button>
                 </div>
               </div>
-              <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-                {localTextFields
+              <div ref={listRef} className={`flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar ${isMobileEditing ? 'max-md:min-h-min max-md:overflow-visible max-md:space-y-0 max-md:pr-0' : ''}`}>
+                {[...localTextFields]
                   .sort((a, b) => (a.order || 0) - (b.order || 0))
-                  .map((tf, idx, arr) => {
+                  .map((tf, idx) => {
                     const character = activeComic.characters.find(c => c.name === tf.characterName);
                     const isHintUsed = usedHints.has(tf.id);
                     
                     const getPanel = (tf: TextField) => selectedStrip?.script?.find(p => p.dialogue.some(d => d.id === tf.dialogueId))?.panelNumber;
                     const currentPanel = getPanel(tf);
-                    const prevPanel = idx > 0 ? getPanel(arr[idx-1]) : undefined;
-                    const showDivider = currentPanel !== undefined && currentPanel !== prevPanel;
 
                     // Check if this text field is currently focused (or its panel is focused)
                     let isFocused = false;
@@ -826,19 +837,12 @@ export const TestingLab: React.FC<TestingLabProps> = ({
                   
                   return (
                     <React.Fragment key={tf.id}>
-                      {showDivider && (
-                        <div className="w-full py-2 flex items-center gap-4 opacity-50">
-                          <div className="h-px bg-slate-300 flex-1"></div>
-                          <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Panel {currentPanel}</span>
-                          <div className="h-px bg-slate-300 flex-1"></div>
-                        </div>
-                      )}
                       <div 
                         id={`tf-${tf.id}`} 
-                        className={`space-y-2 p-2 rounded-xl transition-all cursor-pointer ${isFocused ? 'bg-indigo-50 ring-2 ring-indigo-200' : 'hover:bg-slate-50'}`}
+                        className={`space-y-2 p-2 rounded-xl transition-all cursor-pointer ${isFocused ? 'bg-indigo-50 ring-2 ring-indigo-200' : 'hover:bg-slate-50'} ${isMobileEditing && focusedFieldId !== tf.id ? 'max-md:hidden' : ''}`}
                         onClick={() => handleFieldClick(tf)}
                       >
-                        <div className="flex justify-between items-center">
+                        <div className={`flex justify-between items-center ${isMobileEditing ? 'max-md:hidden' : ''}`}>
                           <div className="flex items-center gap-2">
                             {character?.avatarUrl || character?.imageUrl ? (
                               <CachedImage src={character.avatarUrl || character.imageUrl} className="w-6 h-6 rounded-full object-cover border border-slate-200" alt={tf.characterName} />
@@ -907,8 +911,20 @@ export const TestingLab: React.FC<TestingLabProps> = ({
                         </div>
                         <textarea
                           value={tf.text}
+                          onFocus={() => {
+                            setFocusedFieldId(tf.id);
+                            if (viewMode === 'full') {
+                              setViewMode('panel');
+                              setTimeout(() => handleFieldClick(tf), 50);
+                            } else {
+                              handleFieldClick(tf);
+                            }
+                          }}
+                          onBlur={() => {
+                            setTimeout(() => setFocusedFieldId(null), 200);
+                          }}
                           onChange={(e) => handleUpdateText(tf.id, e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium focus:ring-2 focus:ring-slate-200 outline-none transition-all resize-none"
+                          className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-medium focus:ring-2 focus:ring-slate-200 outline-none transition-all resize-none ${isMobileEditing ? 'max-md:p-2' : ''}`}
                           rows={2}
                           placeholder="Enter dialogue..."
                         />
@@ -923,7 +939,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
             </div>
 
             {/* Preview - Aligned to top */}
-            <div className="flex-1 flex items-start justify-center relative overflow-hidden bg-slate-900 rounded-3xl">
+            <div className={`flex-1 flex items-start justify-center relative overflow-hidden bg-slate-900 rounded-3xl ${isMobileEditing ? 'max-md:rounded-xl max-md:-mx-2 max-md:-mt-2 max-md:mb-2 max-md:flex-1 max-md:min-h-0' : ''}`}>
               {navigationTargets.length > 0 && (
                 <>
                   {viewMode === 'panel' && (

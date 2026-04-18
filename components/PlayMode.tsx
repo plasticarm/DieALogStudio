@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RatedComic, SavedComicStrip, ComicProfile, TextField, ComicBook, User } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
 import { CachedImage } from './CachedImage';
@@ -61,86 +61,11 @@ const AutoResizingText: React.FC<{ text: string, alignment: string, font: string
         textAlign: alignment as any, 
         padding: '4%', 
         lineHeight: 0.9,
-        borderRadius: rounding ? `${rounding}px` : '1rem'
+        borderRadius: rounding ? `${rounding}px` : '1rem',
+        color: '#000'
       }}
     >
       <div className="w-full relative">
-        <div 
-          className="float-left h-full w-[15%] pointer-events-none" 
-          style={{ shapeOutside: 'polygon(100% 0, 0 50%, 100% 100%)' }}
-        />
-        <div 
-          className="float-right h-full w-[15%] pointer-events-none" 
-          style={{ shapeOutside: 'polygon(0 0, 100% 50%, 0 100%)' }}
-        />
-        {text}
-      </div>
-    </div>
-  );
-};
-
-const EditableBubble: React.FC<{ 
-  text: string, 
-  alignment: string, 
-  font: string, 
-  rounding?: number,
-  onChange: (text: string) => void 
-}> = ({ text, alignment, font, rounding, onChange }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (containerRef.current && containerRef.current.innerText !== text) {
-      if (document.activeElement !== containerRef.current) {
-        containerRef.current.innerText = text;
-      }
-    }
-  }, [text]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const adjustFontSize = () => {
-      if (container.clientWidth === 0 || container.clientHeight === 0) return;
-      let currentSize = 500;
-      container.style.fontSize = `${currentSize}px`;
-      container.style.fontFamily = getFontFamily(font);
-
-      while (
-        (container.scrollHeight > container.clientHeight || container.scrollWidth > container.clientWidth) &&
-        currentSize > 8
-      ) {
-        currentSize -= 2;
-        container.style.fontSize = `${currentSize}px`;
-      }
-    };
-
-    const resizeObserver = new ResizeObserver(() => adjustFontSize());
-    resizeObserver.observe(container);
-    adjustFontSize();
-    container.addEventListener('input', adjustFontSize);
-    
-    return () => {
-      resizeObserver.disconnect();
-      container.removeEventListener('input', adjustFontSize);
-    };
-  }, [font, alignment]);
-
-  return (
-    <div 
-      ref={containerRef}
-      contentEditable
-      suppressContentEditableWarning
-      onBlur={(e) => onChange(e.currentTarget.innerText)}
-      className="w-full h-full flex items-center justify-center break-words whitespace-pre-wrap overflow-hidden outline-none focus:ring-4 focus:ring-amber-600/50 bg-white/20 hover:bg-white/40 focus:bg-white/80 transition-all cursor-text shadow-inner"
-      style={{ 
-        textAlign: alignment as any, 
-        padding: '4%', 
-        lineHeight: 0.9,
-        borderRadius: rounding ? `${rounding}px` : '1rem'
-      }}
-    >
-      <div className="w-full relative pointer-events-none">
         <div 
           className="float-left h-full w-[15%] pointer-events-none" 
           style={{ shapeOutside: 'polygon(100% 0, 0 50%, 100% 100%)' }}
@@ -230,8 +155,91 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [resolvedPreviewImage, setResolvedPreviewImage] = useState<string | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [localTextFields, setLocalTextFields] = useState<TextField[]>([]);
-  const [activeCannedMenu, setActiveCannedMenu] = useState<{ id: string, x: number, y: number } | null>(null);
+  const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
+  const [isSavingLocal, setIsSavingLocal] = useState(false);
+  const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
+  const [activeCannedMenu, setActiveCannedMenu] = useState<{ id: string, x: number, y: number, pointerOffX?: number } | null>(null);
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
+  const [isMobileModeActive, setIsMobileModeActive] = useState(false);
+  const isMobileEditing = isMobileModeActive;
+  const dialogueEditorRef = useRef<HTMLDivElement>(null);
+  const [currentTextFieldIndex, setCurrentTextFieldIndex] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState('100dvh');
+
+  const sortedTextFields = useMemo(() => {
+    return [...localTextFields].sort((a, b) => {
+      return (a.order || 0) - (b.order || 0);
+    });
+  }, [localTextFields]);
+
+  // Handle clicking outside the dialogue editor to close mobile mode
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // If the target is no longer in the document, it was likely unmounted by a state change
+      // (like clicking Prev/Next). We should skip the outside check to avoid accidental closure.
+      if (!document.body.contains(target)) return;
+
+      // Only handle if in mobile mode and it's a touch/click on mobile screen
+      if (isMobileModeActive && dialogueEditorRef.current && 
+          !dialogueEditorRef.current.contains(target) && 
+          !target.closest('.canned-menu-container') && 
+          !target.closest('.canned-menu-trigger')) {
+        setIsMobileModeActive(false);
+        setFocusedFieldId(null);
+      }
+    };
+
+    if (isMobileModeActive) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isMobileModeActive]);
+
+  // Auto-focus textarea in mobile mode when switching fields
+  useEffect(() => {
+    if (isMobileModeActive) {
+      const activeTf = sortedTextFields[currentTextFieldIndex];
+      if (activeTf) {
+        // Use a slight delay to ensure the DOM has updated
+        setTimeout(() => {
+          const textarea = document.querySelector(`[data-guide="game-guide-dialog-0"]`) as HTMLTextAreaElement;
+          if (textarea && document.activeElement !== textarea) {
+            textarea.focus();
+          }
+        }, 10);
+      }
+    }
+  }, [currentTextFieldIndex, isMobileModeActive, sortedTextFields]);
+
+  useEffect(() => {
+    const updateViewportHeight = () => {
+      if (window.visualViewport) {
+        setViewportHeight(`${window.visualViewport.height}px`);
+        if (focusedFieldId !== null) {
+          window.scrollTo(0, 0);
+        }
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewportHeight);
+      updateViewportHeight();
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewportHeight);
+      }
+    };
+  }, [focusedFieldId]);
 
   const GAME_GUIDE_STEPS = [
     { id: 'writer-comic', target: 'game-guide-comic', text: "This is the comic you will be editing. To read the comic easier you can pan and zoom the comic view" },
@@ -252,16 +260,33 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       setActiveCannedMenu(null);
     } else {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const triggerCenterX = rect.left + rect.width / 2;
+      const menuWidth = 208; // 5 emojis * 32px + 4 gaps * 8px + 16px padding
+      const padding = 16;
+      
+      let safeX = triggerCenterX;
+      let pointerOffX = 0;
+      
+      if (safeX - menuWidth / 2 < padding) {
+        // Adjust right so it doesn't clip on the left
+        const newSafeX = menuWidth / 2 + padding;
+        pointerOffX = triggerCenterX - newSafeX;
+        safeX = newSafeX;
+      } else if (safeX + menuWidth / 2 > window.innerWidth - padding) {
+        // Adjust left so it doesn't clip on the right
+        const newSafeX = window.innerWidth - menuWidth / 2 - padding;
+        pointerOffX = triggerCenterX - newSafeX;
+        safeX = newSafeX;
+      }
+
       setActiveCannedMenu({
         id: tfId,
-        x: rect.left + rect.width / 2,
-        y: rect.top
+        x: safeX,
+        y: rect.top,
+        pointerOffX
       });
     }
   };
-  const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
-  const [isSavingLocal, setIsSavingLocal] = useState(false);
-  const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
   const [isEnlarged, setIsEnlarged] = useState(false);
   const [preGameState, setPreGameState] = useState<'none' | 'cover' | 'go'>('none');
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(GENRES.map(g => g.id));
@@ -279,6 +304,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
   const [viewMode, setViewMode] = useState<'panel' | 'full'>(typeof window !== 'undefined' && window.innerWidth < 768 ? 'panel' : 'full');
   const [currentTargetIndex, setCurrentTargetIndex] = useState(0);
+  const lastTargetIdRef = useRef<string | null>(null);
 
   const navigationTargets = React.useMemo(() => {
     if (!activeStrip) return [];
@@ -358,7 +384,15 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   }, [viewMode, navigationTargets.length, role, hasSubmitted, currentTargetIndex]);
 
   useEffect(() => {
-    if (viewMode === 'panel' && focusTarget && transformComponentRef.current) {
+    if (!transformComponentRef.current) return;
+
+    if (viewMode === 'panel' && focusTarget) {
+      // ONLY translate the camera if the target ID has actually changed.
+      // This prevents the camera from "snapping" back to the panel position on every keypress
+      // when typing with the mobile keyboard (or desktop keyboard).
+      if (focusTarget.id === lastTargetIdRef.current) return;
+      lastTargetIdRef.current = focusTarget.id;
+
       const { zoomToElement, setTransform } = transformComponentRef.current;
       if (focusTarget.overridePanZoom) {
         const { positionX, positionY, scale, wrapperWidth, wrapperHeight } = focusTarget.overridePanZoom;
@@ -391,7 +425,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           zoomToElement(`target-${focusTarget.id}`, scale, 500, "easeOut");
         }, 50);
       }
-    } else if (viewMode === 'full' && transformComponentRef.current) {
+    } else if (viewMode === 'full') {
+      // Reset tracked target when in full view so it can zoom back in when switching to panel mode
+      lastTargetIdRef.current = null;
       const { resetTransform } = transformComponentRef.current;
       resetTransform(500, "easeOut");
     }
@@ -1124,6 +1160,23 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     }
   };
 
+  const handleRateComic = (comicId: string, rating: number) => {
+    if (role !== 'judge' || !roomCode || winner) return;
+
+    const newSubmissions = submittedComics.map(c => 
+      c.id === comicId ? { ...c, rating } : c
+    );
+
+    fetch('/api/game/update-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomCode,
+        newState: { ...room, submissions: newSubmissions }
+      })
+    });
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
@@ -1804,8 +1857,12 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-900/40 mb-6">Winning Comics</h3>
                 <div className="flex flex-wrap gap-6 justify-center">
                   {(room.winningComics || []).filter((c: any) => c.winnerId === overallWinner.id).map((comic: any, idx: number) => (
-                    <div key={idx} className="w-48 aspect-square rounded-2xl overflow-hidden border-4 border-white shadow-2xl hover:scale-105 transition-transform cursor-pointer" onClick={() => handlePreviewImage(comic.imageUrl)}>
-                      <CachedImage src={comic.imageUrl} className="w-full h-full object-cover" />
+                    <div key={idx} className="w-48 aspect-video rounded-2xl overflow-hidden border-4 border-white shadow-2xl hover:scale-105 transition-transform cursor-pointer bg-black relative" onClick={() => handlePreviewImage(comic.imageUrl)}>
+                      <CachedImage src={comic.imageUrl} className="w-full h-full object-contain" />
+                      <div className="absolute top-2 right-2 flex items-center gap-1 bg-amber-600 text-white px-1.5 py-0.5 rounded-lg text-[10px] font-black shadow-lg">
+                        <i className="fa-solid fa-star"></i>
+                        <span>{comic.rating || 0}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1900,13 +1957,16 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                             style={{
                               fontFamily: getFontFamily(tf.font || 'Inter'),
                               color: 'black',
-                              lineHeight: 0.8,
+                              lineHeight: 0.9,
+                              borderRadius: tf.rounding ? `${tf.rounding}px` : '1rem',
                             }}
                           >
                             <AutoResizingText 
+                              key={tf.id}
                               text={tf.text.replace(/^[^:]+:\s*/, '')} 
                               alignment={tf.alignment || 'center'} 
                               font={tf.font || 'Inter'} 
+                              rounding={tf.rounding}
                             />
                           </div>
                         </div>
@@ -1934,10 +1994,118 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const activeComicProfile = comics.find(c => c.id === activeStrip?.comicProfileId);
   const bgColor = activeComicProfile?.backgroundColor || '#f8fafc';
 
+  // Specific UI components as requested by user
+  const ComicViewImgPanZoomArea = activeStrip ? (
+    <div 
+      data-guide="game-guide-comic"
+      className={`relative w-full mx-auto bg-black flex items-center justify-center ${isEnlarged ? 'flex-1 max-h-full max-w-full overflow-hidden' : `aspect-video max-h-[45vh] max-w-[calc(45vh*16/9)] overflow-hidden ${isMobileEditing ? 'max-md:aspect-none max-md:h-[130%] max-md:w-full max-md:flex-1 max-md:max-h-none max-md:max-w-full max-md:bg-black max-md:overflow-visible' : ''}`}`}
+    >
+      <TransformWrapper
+        initialScale={1}
+        minScale={0.5}
+        maxScale={10}
+        centerOnInit
+        wheel={{ step: 0.1 }}
+        ref={transformComponentRef}
+        disabled={isEnlarged || viewMode === 'full'}
+      >
+        {() => (
+          <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center overflow-visible">
+              <div
+                className={`relative shrink-0 flex items-center justify-center ${!isEnlarged ? 'cursor-zoom-in' : ''} ${isMobileEditing ? 'w-full h-full' : 'max-w-full max-h-full aspect-[16/9]'}`}
+                onClick={() => !isEnlarged && setIsEnlarged(true)}
+              >
+               <CachedImage src={activeStrip.exportImageUrl || activeStrip.finishedImageUrl} className={`pointer-events-none object-contain ${isMobileEditing ? 'w-full h-full object-contain' : 'w-full h-full'}`} />
+              
+              {!isEnlarged && (
+                <div className={`absolute inset-0 m-auto pointer-events-none ${isMobileEditing ? 'w-[calc(100vh*16/9)] max-w-full max-h-full h-[calc(100vw*9/16)] aspect-[16/9]' : 'max-w-full max-h-full aspect-[16/9]'}`}>
+                  {navigationTargets.map(target => (
+                    <div
+                      key={target.id}
+                      id={`target-${target.id}`}
+                      className="absolute pointer-events-none"
+                      style={{
+                        left: `${target.x}%`,
+                        top: `${target.y}%`,
+                        width: `${target.width}%`,
+                        height: `${target.height}%`
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="absolute inset-0 pointer-events-none w-full h-full object-contain">
+                <div className="relative w-full h-full">
+                {localTextFields.map(tf => {
+                  const character = comics.flatMap(c => c.characters || []).find(c => c.name === tf.characterName);
+                  const isHintUsed = usedHints.has(tf.id);
+                  const isActive = focusedFieldId === tf.id;
+                  
+                  return (
+                    <div
+                      key={tf.id}
+                      className="absolute flex items-center justify-center pointer-events-auto"
+                      style={{
+                        left: `${tf.x}%`,
+                        top: `${tf.y}%`,
+                        width: `${tf.width}%`,
+                        height: `${tf.height}%`,
+                        textAlign: tf.alignment || 'center',
+                      }}
+                    >
+                    <div 
+                      className="relative w-full h-full group flex items-center justify-center overflow-hidden" 
+                      onClick={() => {
+                        const tfIdx = sortedTextFields.findIndex(t => t.id === tf.id);
+                        if (tfIdx !== -1) {
+                          setCurrentTextFieldIndex(tfIdx);
+                          if (viewMode === 'full') {
+                            setViewMode('panel');
+                          }
+                          // Focus will be handled by the useEffect watching currentTextFieldIndex
+                        }
+                      }} 
+                      style={{ 
+                        cursor: 'pointer',
+                        fontFamily: getFontFamily(tf.font || 'Inter'),
+                        color: 'black',
+                        lineHeight: 0.9,
+                        borderRadius: tf.rounding ? `${tf.rounding}px` : '1rem',
+                        backgroundColor: isActive ? 'rgba(99, 102, 241, 0.1)' : 'transparent', // Indigo-500 tint if active
+                      }}
+                    >
+                      <AutoResizingText 
+                        key={tf.id}
+                        text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                        alignment={tf.alignment || 'center'} 
+                        font={tf.font || 'Inter'} 
+                        rounding={tf.rounding}
+                      />
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                        {tf.characterName}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+                </div>
+              </div>
+
+            </div>
+          </TransformComponent>
+        )}
+      </TransformWrapper>
+    </div>
+  ) : null;
+
   return (
-    <div className={`h-[100dvh] w-full flex flex-col relative ${role === 'writer' && selectedComic && !hasSubmitted ? 'overflow-hidden' : 'overflow-y-auto'}`} style={{ backgroundColor: bgColor }}>
-      <ProfileButton user={user} room={room} onOpenProfile={onOpenProfile} />
-      <ConnectionBadge status={connectionStatus} />
+    <div 
+      className={`w-full flex flex-col relative ${role === 'writer' && selectedComic && !hasSubmitted ? 'overflow-hidden' : 'overflow-y-auto'} ${isMobileEditing ? 'max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 max-md:z-[99999] max-md:pb-0 max-md:pt-0 max-md:bg-black' : 'h-[100dvh] pb-12 pt-4'}`} 
+      style={isMobileEditing ? { backgroundColor: '#000000', height: viewportHeight, touchAction: 'none' } : { backgroundColor: bgColor, height: '100dvh' }}
+    >
+      {!isMobileEditing && <ProfileButton user={user} room={room} onOpenProfile={onOpenProfile} />}
+      {!isMobileEditing && <ConnectionBadge status={connectionStatus} />}
 
       {/* Fixed Canned Menu Portal-like */}
       {activeCannedMenu && (
@@ -1948,6 +2116,8 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           {CANNED_CATEGORIES.map(cat => (
             <button
               key={cat.name}
+              onMouseDown={(e) => e.preventDefault()}
+              onPointerDown={(e) => e.preventDefault()}
               onClick={() => handleCanned(activeCannedMenu.id, cat.name)}
               className="w-8 h-8 flex items-center justify-center text-lg hover:bg-slate-100 rounded-lg transition-colors"
               title={cat.name}
@@ -1955,61 +2125,68 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
               {cat.emoji}
             </button>
           ))}
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-slate-200 transform rotate-45"></div>
+          <div 
+            className="absolute -bottom-2 w-4 h-4 bg-white border-b border-r border-slate-200 transform rotate-45"
+            style={{ 
+              left: `calc(50% - 8px + ${activeCannedMenu.pointerOffX || 0}px)` 
+            }}
+          ></div>
         </div>
       )}
 
-      <div className="fixed top-2 left-2 right-2 z-50 flex justify-between items-start pointer-events-none">
-        <div className="flex gap-2 pointer-events-auto">
-          <button 
-            onClick={() => {
-              if (room?.host === user?.id && roomCode && room?.gameState !== 'game-over') {
-                setShowExitConfirmation(true);
-              } else {
-                onExit();
-              }
-            }}
-            className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 bg-white/80 backdrop-blur rounded-full shadow-sm hover:scale-105 transition-all"
-          >
-            <i className="fa-solid fa-house text-xs"></i>
-          </button>
-        </div>
-
-        {room?.scores && (
-          <div data-guide="game-guide-score" className="bg-white/80 backdrop-blur px-3 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3 pointer-events-auto">
-            <div className="flex -space-x-1.5">
-              {room.players.map((p: any) => (
-                <div key={p.id} className={`w-6 h-6 rounded-full border-2 border-white overflow-hidden bg-slate-100 ${room.scores[p.id] > 0 ? 'ring-2 ring-amber-500 ring-offset-1' : ''}`}>
-                  {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-[8px] text-slate-300"></i>}
-                </div>
-              ))}
-            </div>
-            <div className="h-3 w-px bg-slate-200"></div>
-            <div className="flex gap-3">
-              {room.players.map((p: any) => (
-                <div key={p.id} className="flex flex-col items-center">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{p.name.split(' ')[0]}</span>
-                    <div className="flex items-center gap-0.5 text-[7px] font-black text-emerald-600">
-                      <i className="fa-solid fa-leaf scale-75"></i>
-                      {room.branches?.[p.id] ?? 30}
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-black text-slate-800">{room.scores[p.id] || 0}</span>
-                </div>
-              ))}
-            </div>
-            <div className="h-3 w-px bg-slate-200"></div>
-            <div className="flex flex-col items-center">
-              <span className="text-[7px] font-black text-amber-600 uppercase tracking-widest">Goal</span>
-              <span className="text-[10px] font-black text-amber-700">{room.pointsToWin}</span>
-            </div>
+      {!isMobileEditing && (
+        <div className="fixed top-2 left-2 right-2 z-50 flex justify-between items-start pointer-events-none">
+          <div className="flex gap-2 pointer-events-auto">
+            <button 
+              onClick={() => {
+                if (room?.host === user?.id && roomCode && room?.gameState !== 'game-over') {
+                  setShowExitConfirmation(true);
+                } else {
+                  onExit();
+                }
+              }}
+              className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 bg-white/80 backdrop-blur rounded-full shadow-sm hover:scale-105 transition-all"
+            >
+              <i className="fa-solid fa-house text-xs"></i>
+            </button>
           </div>
-        )}
-      </div>
+
+          {room?.scores && (
+            <div data-guide="game-guide-score" className="bg-white/80 backdrop-blur px-3 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3 pointer-events-auto">
+              <div className="flex -space-x-1.5">
+                {room.players.map((p: any) => (
+                  <div key={p.id} className={`w-6 h-6 rounded-full border-2 border-white overflow-hidden bg-slate-100 ${room.scores[p.id] > 0 ? 'ring-2 ring-amber-500 ring-offset-1' : ''}`}>
+                    {p.picture ? <img src={p.picture} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-[8px] text-slate-300"></i>}
+                  </div>
+                ))}
+              </div>
+              <div className="h-3 w-px bg-slate-200"></div>
+              <div className="flex gap-3">
+                {room.players.map((p: any) => (
+                  <div key={p.id} className="flex flex-col items-center">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{p.name.split(' ')[0]}</span>
+                      <div className="flex items-center gap-0.5 text-[7px] font-black text-emerald-600">
+                        <i className="fa-solid fa-leaf scale-75"></i>
+                        {room.branches?.[p.id] ?? 30}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black text-slate-800">{room.scores[p.id] || 0}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="h-3 w-px bg-slate-200"></div>
+              <div className="flex flex-col items-center">
+                <span className="text-[7px] font-black text-amber-600 uppercase tracking-widest">Goal</span>
+                <span className="text-[10px] font-black text-amber-700">{room.pointsToWin}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {role !== 'select' && !selectedComic && (
-        <div className="flex-1 flex flex-col items-center pt-32 px-8 pb-12">
+        <div className="flex-1 flex flex-col items-center pt-2 px-8 pb-12">
           {role === 'writer' && !activeStrip ? (
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
                <div className="w-24 h-24 bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-400 text-4xl mb-8 animate-pulse">
@@ -2090,7 +2267,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {selectedComic && (role === 'judge' || hasSubmitted) && (
-        <div className="flex-1 flex flex-col pt-32 px-8 pb-12">
+        <div className="flex-1 flex flex-col pt-2 px-8 pb-12">
           <div className="w-full max-w-4xl mx-auto mb-12">
             <h2 className="text-center text-2xl font-header uppercase tracking-widest text-slate-800 mb-6">
               {winner ? 'Winning Comic' : 'Winner Selection'}
@@ -2100,50 +2277,60 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
               data-guide="game-guide-judge-comic"
               onDragOver={handleDragOver}
               onDrop={handleDrop}
-              className={`w-64 h-64 mx-auto rounded-[2rem] border-4 border-dashed flex items-center justify-center transition-all ${winner ? 'border-amber-500 bg-amber-50 cursor-zoom-in' : 'border-slate-300 bg-slate-100'} ${role !== 'judge' ? 'pointer-events-none' : ''}`}
+              className={`w-full max-w-sm aspect-video mx-auto rounded-[2rem] flex items-center justify-center transition-all relative ${winner ? 'bg-amber-50 cursor-zoom-in' : 'border-4 border-dashed border-slate-300 bg-slate-100'} ${role !== 'judge' ? 'pointer-events-none' : ''}`}
               onClick={() => winner && handlePreviewImage(winner.imageUrl)}
             >
               {winner ? (
-                <div className="relative w-full h-full p-2">
-                  <CachedImage src={winner.imageUrl} className="w-full h-full object-cover rounded-2xl shadow-lg" />
-                  
-                  {winner.textFields && winner.textFields.length > 0 && !winner.isFlattened && (
-                    <div className="absolute inset-2 pointer-events-none rounded-2xl overflow-hidden">
-                      {winner.textFields.map(tf => (
-                        <div 
-                          key={tf.id}
-                          className="absolute flex items-center justify-center pointer-events-none"
-                          style={{
-                            left: `${tf.x}%`,
-                            top: `${tf.y}%`,
-                            width: `${tf.width}%`,
-                            height: `${tf.height}%`,
-                            textAlign: tf.alignment || 'center',
-                          }}
-                        >
+                <>
+                  <div className="relative w-full h-full p-2 bg-black rounded-2xl overflow-hidden">
+                    <CachedImage src={winner.imageUrl} className="w-full h-full object-contain shadow-lg" />
+                    
+                    {winner.textFields && winner.textFields.length > 0 && !winner.isFlattened && (
+                      <div className="absolute inset-2 pointer-events-none rounded-2xl overflow-hidden">
+                        {winner.textFields.map(tf => (
                           <div 
-                            className="w-full h-full flex items-center justify-center overflow-hidden"
+                            key={tf.id}
+                            className="absolute flex items-center justify-center pointer-events-none"
                             style={{
-                              fontFamily: getFontFamily(tf.font || 'Inter'),
-                              color: 'black',
-                              lineHeight: 0.8,
+                              left: `${tf.x}%`,
+                              top: `${tf.y}%`,
+                              width: `${tf.width}%`,
+                              height: `${tf.height}%`,
+                              textAlign: tf.alignment || 'center',
                             }}
                           >
-                            <AutoResizingText 
-                              text={tf.text.replace(/^[^:]+:\s*/, '')} 
-                              alignment={tf.alignment || 'center'} 
-                              font={tf.font || 'Inter'} 
-                            />
+                            <div 
+                              className="w-full h-full flex items-center justify-center overflow-hidden"
+                              style={{
+                                fontFamily: getFontFamily(tf.font || 'Inter'),
+                                color: 'black',
+                                lineHeight: 0.9,
+                                borderRadius: tf.rounding ? `${tf.rounding}px` : '1rem',
+                              }}
+                            >
+                              <AutoResizingText 
+                                key={tf.id}
+                                text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                                alignment={tf.alignment || 'center'} 
+                                font={tf.font || 'Inter'} 
+                                rounding={tf.rounding}
+                             />
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="absolute -top-4 -right-4 w-12 h-12 bg-amber-600 text-white rounded-full flex items-center justify-center text-2xl shadow-xl">
-                    <i className="fa-solid fa-star"></i>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
+
+                  {/* Dotted Line Frame Frame - Drawn on top of clipped comic */}
+                  <div className="absolute inset-0 border-4 border-dashed border-amber-500 rounded-[2rem] pointer-events-none z-10" />
+
+                  {/* Winner Star - Moved outside overflow-hidden but inside relative parent */}
+                  <div className="absolute -top-4 -right-4 bg-amber-600 text-white rounded-full flex items-center justify-center shadow-xl z-20 px-3 h-12 min-w-[3.5rem] gap-1.5">
+                    <i className="fa-solid fa-star text-xl"></i>
+                    <span className="text-2xl font-black">{winner.rating || 0}</span>
+                  </div>
+                </>
               ) : (
                 <div className="text-center opacity-30">
                   <i className="fa-solid fa-star text-6xl mb-4"></i>
@@ -2421,8 +2608,8 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                   onDragStart={(e) => handleDragStart(e, comic)}
                   className={`relative group ${role === 'judge' && !winner ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 >
-                  <div className="w-48 aspect-square rounded-2xl overflow-hidden shadow-lg border-4 border-white transition-transform group-hover:scale-105 relative">
-                    <CachedImage src={comic.imageUrl} className="w-full h-full object-cover" />
+                  <div className="w-48 aspect-video rounded-2xl overflow-hidden shadow-lg border-4 border-white transition-transform group-hover:scale-105 relative bg-black">
+                    <CachedImage src={comic.imageUrl} className="w-full h-full object-contain" />
                     
                     {/* Fallback Text Overlay for Judge */}
                     {comic.textFields && comic.textFields.length > 0 && !comic.isFlattened && (
@@ -2441,9 +2628,20 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           >
                             <div 
                               className="w-full h-full flex items-center justify-center overflow-hidden"
-                              style={{ fontFamily: getFontFamily(tf.font || 'Inter'), color: 'black', lineHeight: 0.8 }}
+                              style={{ 
+                                fontFamily: getFontFamily(tf.font || 'Inter'), 
+                                color: 'black', 
+                                lineHeight: 0.9,
+                                borderRadius: tf.rounding ? `${tf.rounding}px` : '1rem',
+                              }}
                             >
-                              <AutoResizingText text={tf.text.replace(/^[^:]+:\s*/, '')} alignment={tf.alignment || 'center'} font={tf.font || 'Inter'} />
+                              <AutoResizingText 
+                                key={tf.id}
+                                text={tf.text.replace(/^[^:]+:\s*/, '')} 
+                                alignment={tf.alignment || 'center'} 
+                                font={tf.font || 'Inter'} 
+                                rounding={tf.rounding}
+                              />
                             </div>
                           </div>
                         ))}
@@ -2477,6 +2675,25 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                   <div className="absolute -top-3 -left-3 w-8 h-8 bg-slate-800 text-white rounded-full flex items-center justify-center text-xs font-black shadow-lg">
                     #{idx + 1}
                   </div>
+
+                  {/* Star Rating below the comic */}
+                  {(role === 'judge' || winner) && (
+                    <div className="flex justify-center gap-1 mt-4">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          disabled={!!winner || role !== 'judge'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRateComic(comic.id, star);
+                          }}
+                          className={`text-xl transition-all ${!winner && role === 'judge' ? 'hover:scale-125 active:scale-95' : 'cursor-default'}`}
+                        >
+                          <i className={`${(comic.rating || 0) >= star ? 'fa-solid text-amber-500' : 'fa-regular text-slate-300'} fa-star`}></i>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               {submittedComics.length === 0 && (
@@ -2488,7 +2705,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {role === 'writer' && selectedComic && !hasSubmitted && (
-        <div className="flex-1 flex flex-col pt-16 pb-4 items-center relative w-full min-h-0">
+        <div className={`flex-1 flex flex-col items-center relative w-full min-h-0 ${isMobileEditing ? 'max-md:pt-0 max-md:pb-0' : 'pt-16 pb-4'}`}>
           {preGameState === 'cover' && activeStrip && (
             <div className="flex flex-col items-center animate-in fade-in zoom-in duration-500 px-8">
               <h2 className="text-4xl font-header uppercase tracking-widest text-slate-800 mb-8">Get Ready!</h2>
@@ -2525,14 +2742,14 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           )}
 
           {preGameState === 'none' && !hasSubmitted ? (
-            <div className="w-full h-full flex flex-col items-center animate-in fade-in duration-500 min-h-0">
+            <div className={`w-full flex-1 flex flex-col items-center animate-in fade-in duration-500 min-h-0 ${isMobileEditing ? 'max-md:h-full max-md:max-h-full max-md:bg-black' : 'h-full '}`}>
               {/* Editor Area - Full Width */}
               {activeStrip ? (
-                <div className="w-full h-full bg-white shadow-2xl p-4 md:p-8 flex flex-col gap-4 min-h-0">
-                  <div className={`w-full h-full transition-all duration-500 ${isEnlarged ? 'fixed inset-0 z-[100] bg-slate-900 p-4 md:p-8 flex flex-col' : 'flex flex-col gap-4 relative min-h-0'}`}>
+                <div className={`w-full flex-1 flex flex-col min-h-0 ${isMobileEditing ? 'max-md:h-full max-md:p-0 max-md:gap-0 bg-black' : 'h-full p-4 md:p-8 gap-4 bg-white shadow-2xl'}`}>
+                  <div className={`w-full flex-1 transition-all duration-500 ${isEnlarged ? 'fixed inset-0 z-[100] bg-slate-900 p-4 md:p-8 flex flex-col' : `relative min-h-0 ${isMobileEditing ? 'h-full w-full' : 'flex flex-col h-full gap-4'}`}`}>
                     
                     {/* Comic View (Top) */}
-                    <div className={`flex flex-col items-center justify-center relative shrink-0 ${isEnlarged ? 'flex-1 min-h-0' : 'w-full'}`}>
+                     <div className={`flex flex-col items-center justify-center relative flex-shrink-0 ${isEnlarged ? 'flex-1 min-h-0' : `w-full ${isMobileEditing ? 'absolute top-0 left-0 right-0 z-0 h-full' : ''}`}`}>
                       {isEnlarged && (
                         <div className="flex justify-between items-center mb-6 w-full">
                           <h3 className="text-2xl font-header uppercase tracking-widest text-white">DiE-A-Log Editor</h3>
@@ -2545,108 +2762,9 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                         </div>
                       )}
                       
-                      <div 
-                        data-guide="game-guide-comic"
-                        className={`relative w-full aspect-video overflow-hidden mx-auto ${isEnlarged ? 'max-h-full max-w-full' : 'max-h-[45vh] max-w-[calc(45vh*16/9)]'}`}
-                      >
-                        <TransformWrapper
-                          initialScale={1}
-                          minScale={0.5}
-                          maxScale={10}
-                          centerOnInit
-                          wheel={{ step: 0.1 }}
-                          ref={transformComponentRef}
-                          disabled={isEnlarged || viewMode === 'full'}
-                        >
-                          {() => (
-                            <TransformComponent wrapperClass="w-full h-full flex items-center justify-center" contentClass="w-full h-full flex items-center justify-center">
-                              <div
-                                className={`relative overflow-hidden shrink-0 ${!isEnlarged ? 'cursor-zoom-in' : ''}`}
-                                style={{ 
-                                  aspectRatio: '16/9', 
-                                  width: '100%', 
-                                  maxWidth: '100%',
-                                }}
-                                onClick={() => !isEnlarged && setIsEnlarged(true)}
-                              >
-                                <CachedImage src={activeStrip.exportImageUrl || activeStrip.finishedImageUrl} className="w-full h-full object-contain bg-black" />
-                                
-                                {/* Invisible Target Divs for Zooming */}
-                                {!isEnlarged && navigationTargets.map(target => (
-                                  <div
-                                    key={target.id}
-                                    id={`target-${target.id}`}
-                                    className="absolute pointer-events-none"
-                                    style={{
-                                      left: `${target.x}%`,
-                                      top: `${target.y}%`,
-                                      width: `${target.width}%`,
-                                      height: `${target.height}%`
-                                    }}
-                                  />
-                                ))}
-
-                                {localTextFields.map(tf => {
-                          const character = comics.flatMap(c => c.characters || []).find(c => c.name === tf.characterName);
-                          const isHintUsed = usedHints.has(tf.id);
-                          
-                          return (
-                            <div
-                              key={tf.id}
-                              className={`absolute flex items-center justify-center overflow-visible ${isEnlarged ? 'pointer-events-auto' : 'pointer-events-none'}`}
-                              style={{
-                                left: `${tf.x}%`,
-                                top: `${tf.y}%`,
-                                width: `${tf.width}%`,
-                                height: `${tf.height}%`,
-                              }}
-                            >
-                              {isEnlarged ? (
-                                <div className="relative w-full h-full group">
-                                  <EditableBubble 
-                                    text={tf.text.replace(/^[^:]+:\s*/, '')} 
-                                    alignment={tf.alignment || 'center'} 
-                                    font={tf.font || 'Inter'} 
-                                    rounding={tf.rounding}
-                                    onChange={(newText) => {
-                                      const match = tf.text.match(/^[^:]+:\s*/);
-                                      const prefix = match ? match[0] : '';
-                                      handleUpdateText(tf.id, prefix + newText);
-                                    }}
-                                  />
-                                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                                    {tf.characterName}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div 
-                                  className="w-full h-full flex items-center justify-center overflow-hidden"
-                                  style={{
-                                    fontFamily: getFontFamily(tf.font),
-                                    color: 'black',
-                                    lineHeight: 0.9,
-                                    borderRadius: tf.rounding ? `${tf.rounding}px` : '1rem',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                  }}
-                                >
-                                  <AutoResizingText 
-                                    text={tf.text.replace(/^[^:]+:\s*/, '').trim() || ''} 
-                                    alignment={tf.alignment || 'center'} 
-                                    font={tf.font || 'Inter'} 
-                                    rounding={tf.rounding} 
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                              </div>
-                            </TransformComponent>
-                          )}
-                        </TransformWrapper>
-                      </div>
+                      {ComicViewImgPanZoomArea}
                       
-                      {navigationTargets.length > 0 && !isEnlarged && (
+                      {navigationTargets.length > 0 && !isEnlarged && !isMobileEditing && (
                         <div className="flex justify-center gap-4 mt-3">
                           <button 
                             onClick={(e) => { e.stopPropagation(); handlePrev(); }}
@@ -2666,8 +2784,8 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
                     {/* DiE-A-Log Editor (Bottom) */}
                     {!isEnlarged && (
-                      <div className="w-full flex-1 overflow-y-auto pr-2 flex flex-col gap-4">
-                        <div className="flex justify-between items-center shrink-0">
+                      <div ref={dialogueEditorRef} className={`w-full flex-1 pr-2 flex flex-col ${isMobileEditing ? 'absolute bottom-0 left-0 right-0 z-10 flex-none overflow-visible pr-0 gap-0 h-auto' : 'overflow-y-auto gap-4'}`}>
+                        <div className={`flex justify-between items-center shrink-0 ${isMobileEditing ? 'max-md:hidden' : ''}`}>
                           <div className="flex-1">
                             <h3 className="font-header uppercase tracking-widest text-xl text-slate-800 mb-0">DiE-A-Log</h3>
                           </div>
@@ -2698,60 +2816,63 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                             </div>
                           </div>
                         </div>
-                        <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                          {localTextFields
-                            .sort((a, b) => {
-                              if (!activeStrip?.script) return 0;
-                              const getPanel = (tf: TextField) => activeStrip.script.find(p => p.dialogue.some(d => d.id === tf.dialogueId))?.panelNumber || 999;
-                              return getPanel(a) - getPanel(b);
-                            })
-                            .map((tf, idx, arr) => {
-                              const character = comics.flatMap(c => c.characters || []).find(c => c.name === tf.characterName);
-                              const isHintUsed = usedHints.has(tf.id);
-                              const hasHint = !!(tf.dialogueId && activeStrip?.script?.flatMap(p => p.dialogue).some(d => d.id === tf.dialogueId));
-                              
-                              const getPanel = (tf: TextField) => activeStrip?.script?.find(p => p.dialogue.some(d => d.id === tf.dialogueId))?.panelNumber;
-                              const currentPanel = getPanel(tf);
-                              const prevPanel = idx > 0 ? getPanel(arr[idx-1]) : undefined;
-                              const showDivider = currentPanel !== undefined && currentPanel !== prevPanel;
+                        <div className={`flex-1 min-h-0 flex flex-col ${isMobileEditing ? 'max-md:min-h-min max-md:overflow-visible max-md:space-y-0 max-md:pr-0' : ''}`}>
+                          {sortedTextFields.length > 0 ? (() => {
+                            const tf = sortedTextFields[currentTextFieldIndex];
+                            if (!tf) return null;
+                            const idx = currentTextFieldIndex;
+                            const character = comics.flatMap(c => c.characters || []).find(c => c.name === tf.characterName);
+                            const isHintUsed = usedHints.has(tf.id);
+                            const hasHint = !!(tf.dialogueId && activeStrip?.script?.flatMap(p => p.dialogue).some(d => d.id === tf.dialogueId));
+                            const getPanel = (tf: TextField) => activeStrip?.script?.find(p => p.dialogue.some(d => d.id === tf.dialogueId))?.panelNumber;
+                            const currentPanel = getPanel(tf);
 
-                              let isFocused = false;
-                              if (viewMode === 'panel' && focusTarget) {
-                                if (focusTarget.id.startsWith('panel-')) {
-                                  const panelNum = parseInt(focusTarget.id.replace('panel-', ''));
-                                  isFocused = currentPanel === panelNum;
-                                } else {
-                                  isFocused = focusTarget.id === tf.id;
-                                }
-                              }
-
-                              return (
-                                <React.Fragment key={tf.id}>
-                                  {showDivider && (
-                                    <div className="w-full py-2 flex items-center gap-4 opacity-50">
-                                      <div className="h-px bg-slate-300 flex-1"></div>
-                                      <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Panel {currentPanel}</span>
-                                      <div className="h-px bg-slate-300 flex-1"></div>
+                            // Variable representing the dialog text entry area as requested by user
+                            const DTXEntry_keyboardOpen = (
+                              <div className="flex-1 flex flex-col gap-2 relative h-full">
+                                <div className={`flex items-stretch gap-2 flex-1 ${isMobileEditing ? 'max-md:items-end' : ''}`}>
+                                  {/* Prev/Next Controls */}
+                                  <div className={`flex flex-col justify-center gap-2 ${isMobileEditing ? 'max-md:hidden' : ''}`}>
+                                    <button 
+                                      onClick={() => {
+                                        const newIdx = (idx - 1 + sortedTextFields.length) % sortedTextFields.length;
+                                        setCurrentTextFieldIndex(newIdx);
+                                        const preTf = sortedTextFields[newIdx];
+                                        setFocusedFieldId(preTf.id);
+                                        handleFieldClick(preTf);
+                                      }}
+                                      className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
+                                    >
+                                      <i className="fa-solid fa-chevron-up text-xs"></i>
+                                    </button>
+                                    <div className="text-[10px] font-black text-slate-400 text-center tracking-widest uppercase">
+                                      {idx + 1} / {sortedTextFields.length}
                                     </div>
-                                  )}
+                                    <button 
+                                      onClick={() => {
+                                        const newIdx = (idx + 1) % sortedTextFields.length;
+                                        setCurrentTextFieldIndex(newIdx);
+                                        const nextTf = sortedTextFields[newIdx];
+                                        setFocusedFieldId(nextTf.id);
+                                        handleFieldClick(nextTf);
+                                      }}
+                                      className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
+                                    >
+                                      <i className="fa-solid fa-chevron-down text-xs"></i>
+                                    </button>
+                                  </div>
+
                                   <div 
                                     id={`tf-${tf.id}`}
-                                    className={`space-y-2 p-4 rounded-2xl border transition-all cursor-pointer ${isFocused ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100' : 'bg-slate-50/50 border-slate-100 hover:bg-slate-50'}`}
-                                    onClick={() => handleFieldClick(tf)}
+                                    className={`flex-1 flex flex-col space-y-2 p-4 rounded-2xl border transition-all bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 ${isMobileEditing ? 'max-md:p-1 max-md:bg-white max-md:border-t max-md:border-slate-200 max-md:rounded-none max-md:ring-0 max-md:space-y-1' : ''} ${isMobileEditing && focusedFieldId !== tf.id ? 'max-md:hidden' : ''}`}
                                   >
-                                    <div className="flex justify-between items-center">
-                                      <div className="flex items-center gap-2">
-                                        {character?.avatarUrl || character?.imageUrl ? (
-                                          <CachedImage src={character.avatarUrl || character.imageUrl} className="w-6 h-6 rounded-full object-cover border border-slate-200" alt={tf.characterName} />
-                                        ) : (
-                                          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-black text-slate-400 border border-slate-200">?</div>
-                                        )}
-                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight truncate max-w-[80px]">{tf.characterName}</span>
-                                      </div>
+                                    <div className={`flex justify-between items-center ${isMobileEditing ? 'max-md:px-2 max-md:py-1' : ''}`}>
                                       <div className="flex items-center gap-1">
                                         {hasHint && (
                                           <button 
-                                            data-guide={idx === 0 ? "game-guide-hint" : undefined}
+                                            data-guide="game-guide-hint"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onPointerDown={(e) => e.preventDefault()}
                                             onClick={() => {
                                               if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
                                               if (tf.dialogueId && activeStrip.script) {
@@ -2776,8 +2897,8 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                             disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
                                             className={`text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
                                               isHintUsed 
-                                                ? 'bg-slate-200 text-slate-500' 
-                                                : (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
+                                                ? 'bg-slate-200 text-slate-500 max-md:bg-slate-800 max-md:text-slate-400' 
+                                                : (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 max-md:bg-slate-800 max-md:text-slate-600 cursor-not-allowed' :
                                                 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
                                             }`}
                                             title={(room?.branches?.[user?.id || ''] ?? 30) <= 0 ? "Out of branches" : "Fill with original script text"}
@@ -2788,11 +2909,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                         )}
                                         <div className="relative">
                                           <button 
-                                            data-guide={idx === 0 ? "game-guide-canned" : undefined}
+                                            data-guide="game-guide-canned"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onPointerDown={(e) => e.preventDefault()}
                                             onClick={(e) => toggleCannedMenu(e, tf.id)}
                                             disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
                                             className={`canned-menu-trigger text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
-                                              (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' :
+                                              (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 max-md:bg-slate-800 max-md:text-slate-600 cursor-not-allowed' :
                                               'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
                                             }`}
                                             title={(room?.branches?.[user?.id || ''] ?? 30) <= 0 ? "Out of branches" : "Fill with random canned phrase"}
@@ -2802,24 +2925,86 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                           </button>
                                         </div>
                                       </div>
+                                      
+                                      {/* Mobile-only prev/next controls inside the bottom bar */}
+                                      {isMobileEditing && (
+                                        <div className="flex gap-2 items-center">
+                                          <button 
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onPointerDown={(e) => e.preventDefault()}
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              const newIdx = (idx - 1 + sortedTextFields.length) % sortedTextFields.length;
+                                              setCurrentTextFieldIndex(newIdx);
+                                              const preTf = sortedTextFields[newIdx];
+                                              setFocusedFieldId(preTf.id);
+                                              handleFieldClick(preTf);
+                                            }}
+                                            className="w-8 h-8 rounded bg-slate-800 text-white flex items-center justify-center border border-slate-700 active:bg-slate-700"
+                                          >
+                                            <i className="fa-solid fa-chevron-left text-xs"></i>
+                                          </button>
+                                          <span className="text-[10px] font-black text-slate-400">{idx + 1}/{sortedTextFields.length}</span>
+                                          <button 
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onPointerDown={(e) => e.preventDefault()}
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              const newIdx = (idx + 1) % sortedTextFields.length;
+                                              setCurrentTextFieldIndex(newIdx);
+                                              const nextTf = sortedTextFields[newIdx];
+                                              setFocusedFieldId(nextTf.id);
+                                              handleFieldClick(nextTf);
+                                            }}
+                                            className="w-8 h-8 rounded bg-slate-800 text-white flex items-center justify-center border border-slate-700 active:bg-slate-700"
+                                          >
+                                            <i className="fa-solid fa-chevron-right text-xs"></i>
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      <div className={`flex items-center gap-2 ${isMobileEditing ? 'max-md:hidden' : ''}`}>
+                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-tight truncate max-w-[80px]">{tf.characterName}</span>
+                                        {character?.avatarUrl || character?.imageUrl ? (
+                                          <CachedImage src={character.avatarUrl || character.imageUrl} className="w-6 h-6 rounded-full object-cover border border-slate-200" alt={tf.characterName} />
+                                        ) : (
+                                          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-black text-slate-400 border border-slate-200">?</div>
+                                        )}
+                                      </div>
                                     </div>
                                     <textarea
-                                      data-guide={idx === 0 ? "game-guide-dialog-0" : undefined}
+                                      data-guide="game-guide-dialog-0"
                                       value={tf.text.replace(/^[^:]+:\s*/, '')}
+                                      onFocus={() => {
+                                        setFocusedFieldId(tf.id);
+                                        if (window.innerWidth < 768) {
+                                          setIsMobileModeActive(true);
+                                        }
+                                        if (viewMode === 'full') {
+                                          setViewMode('panel');
+                                          setTimeout(() => handleFieldClick(tf), 50);
+                                        } else {
+                                          handleFieldClick(tf);
+                                        }
+                                      }}
+                                      onBlur={() => {
+                                        // No longer auto-closing on blur to satisfy user request
+                                      }}
                                       onChange={(e) => {
                                         const match = tf.text.match(/^[^:]+:\s*/);
                                         const prefix = match ? match[0] : '';
                                         handleUpdateText(tf.id, prefix + e.target.value);
                                       }}
-                                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-medium focus:ring-2 focus:ring-slate-200 outline-none transition-all resize-none shadow-inner"
-                                      rows={3}
+                                      className={`flex-1 w-full bg-white border border-slate-200 p-3 text-xs font-medium focus:ring-2 focus:ring-slate-200 outline-none transition-all shadow-inner ${isMobileEditing ? 'max-md:rounded max-md:h-12 max-md:bg-slate-800 max-md:border-slate-700 max-md:text-white max-md:focus:ring-emerald-500' : 'rounded-xl resize-none'}`}
                                       placeholder="Enter dialogue..."
                                     />
                                   </div>
-                                </React.Fragment>
-                              );
-                            })}
-                          {localTextFields.length === 0 && (
+                                </div>
+                              </div>
+                            );
+
+                            return DTXEntry_keyboardOpen;
+                          })() : (
                             <p className="text-center text-slate-300 text-[10px] italic py-10">No text fields defined for this page.</p>
                           )}
                         </div>
@@ -2866,13 +3051,16 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           style={{
                             fontFamily: getFontFamily(tf.font || 'Inter'),
                             color: 'black',
-                            lineHeight: 0.8,
+                            lineHeight: 0.9,
+                            borderRadius: tf.rounding ? `${tf.rounding}px` : '1rem',
                           }}
                         >
                           <AutoResizingText 
+                            key={tf.id}
                             text={tf.text.replace(/^[^:]+:\s*/, '')} 
                             alignment={tf.alignment || 'center'} 
                             font={tf.font || 'Inter'} 
+                            rounding={tf.rounding}
                           />
                         </div>
                       </div>
