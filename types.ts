@@ -95,6 +95,12 @@ export interface TextField {
   rounding?: number;
   characterName: string;
   order?: number;
+  characterFace?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   dialogueId?: string; // Link to script dialogue
   overridePanZoom?: {
     scale: number;

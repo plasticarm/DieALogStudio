@@ -121,10 +121,10 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   
-  const [interactionType, setInteractionType] = useState<'none' | 'drawing' | 'moving' | 'resizing' | 'painting'>('none');
+  const [interactionType, setInteractionType] = useState<'none' | 'drawing' | 'moving' | 'resizing' | 'painting' | 'movingFace' | 'resizingFace'>('none');
   const [interactionStart, setInteractionStart] = useState<{ x: number, y: number, fieldX: number, fieldY: number, fieldW: number, fieldH: number } | null>(null);
   const [drawCurrent, setDrawCurrent] = useState<{ x: number, y: number } | null>(null);
-  const [toolMode, setToolMode] = useState<'select' | 'text' | 'eraser' | 'pan'>('select');
+  const [toolMode, setToolMode] = useState<'select' | 'text' | 'eraser' | 'pan' | 'face'>('select');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -239,6 +239,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         if (e.key === 'h' || e.key === 'H') setToolMode('pan');
         if (e.key === 's' || e.key === 'S') setToolMode('select');
         if (e.key === 't' || e.key === 'T') setToolMode('text');
+        if (e.key === 'f' || e.key === 'F') setToolMode('face');
         if (e.key === 'e' || e.key === 'E') setToolMode('eraser');
       }
     };
@@ -665,7 +666,7 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
 
     if (activeTab !== 'export' || !containerRef.current || isProcessing) return;
 
-    if (toolMode === 'text') {
+    if (toolMode === 'text' || toolMode === 'face') {
       setInteractionType('drawing');
       setInteractionStart({ x: coords.x, y: coords.y, fieldX: 0, fieldY: 0, fieldW: 0, fieldH: 0 });
       setDrawCurrent({ x: coords.x, y: coords.y });
@@ -701,20 +702,24 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
     ctx.globalCompositeOperation = 'source-over';
   };
 
-  const handleFieldInteractionStart = (e: React.MouseEvent, field: TextField, type: 'moving' | 'resizing') => {
+  const handleFieldInteractionStart = (e: React.MouseEvent, field: TextField, type: 'moving' | 'resizing' | 'movingFace' | 'resizingFace') => {
     e.stopPropagation();
     if (activeTab !== 'export' || isProcessing) return;
     
     const coords = getRelativeCoords(e);
     setSelectedFieldId(field.id);
     setInteractionType(type);
+    
+    const base = type.includes('Face') ? field.characterFace : field;
+    if (!base) return;
+
     setInteractionStart({ 
       x: coords.x, 
       y: coords.y, 
-      fieldX: field.x, 
-      fieldY: field.y, 
-      fieldW: field.width, 
-      fieldH: field.height 
+      fieldX: base.x, 
+      fieldY: base.y, 
+      fieldW: base.width, 
+      fieldH: base.height 
     });
   };
 
@@ -756,6 +761,28 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
         width: Math.max(5, Math.min(100 - interactionStart.fieldX, interactionStart.fieldW + dx)),
         height: Math.max(5, Math.min(100 - interactionStart.fieldY, interactionStart.fieldH + dy))
       });
+    } else if (interactionType === 'movingFace' && selectedFieldId) {
+      const dx = coords.x - interactionStart.x;
+      const dy = coords.y - interactionStart.y;
+      updateField(selectedFieldId, {
+        characterFace: {
+          x: Math.max(0, Math.min(100 - interactionStart.fieldW, interactionStart.fieldX + dx)),
+          y: Math.max(0, Math.min(100 - interactionStart.fieldH, interactionStart.fieldY + dy)),
+          width: interactionStart.fieldW,
+          height: interactionStart.fieldH
+        }
+      });
+    } else if (interactionType === 'resizingFace' && selectedFieldId) {
+      const dx = coords.x - interactionStart.x;
+      const dy = coords.y - interactionStart.y;
+      updateField(selectedFieldId, {
+        characterFace: {
+          x: interactionStart.fieldX,
+          y: interactionStart.fieldY,
+          width: Math.max(5, Math.min(100 - interactionStart.fieldX, interactionStart.fieldW + dx)),
+          height: Math.max(5, Math.min(100 - interactionStart.fieldY, interactionStart.fieldH + dy))
+        }
+      });
     }
   };
 
@@ -767,15 +794,46 @@ export const ComicGenerator: React.FC<ComicGeneratorProps> = ({
       const width = Math.abs(interactionStart.x - drawCurrent.x);
       const height = Math.abs(interactionStart.y - drawCurrent.y);
 
-        if (width > 2 && height > 2) {
-        const newId = `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-        const newField: TextField = {
-          id: newId, text: 'New Dialogue', x, y, width, height,
-          font: activeComic.selectedFonts?.[0] || 'Comic Neue', fontSize: 32, alignment: 'center', characterName: 'Unknown',
-          order: textFields.length + 1
-        };
-        setTextFields(prev => [...prev, newField]);
-        setSelectedFieldId(newId);
+      if (width > 2 && height > 2) {
+        if (toolMode === 'face') {
+          // Sequential face placement: always find the first one without a face
+          const sortedFields = [...textFields].sort((a, b) => (a.order || 0) - (b.order || 0));
+          const targetField = sortedFields.find(f => !f.characterFace) || sortedFields[sortedFields.length - 1];
+          
+          if (targetField) {
+            updateField(targetField.id, {
+              characterFace: { x, y, width, height }
+            });
+            
+            // After setting, select the NEXT field that needs a face to help the user visualize progress
+            const nextTarget = sortedFields.find(f => f.id !== targetField.id && (f.order || 0) > (targetField.order || 0) && !f.characterFace);
+            if (nextTarget) {
+              setSelectedFieldId(nextTarget.id);
+            } else {
+              setSelectedFieldId(targetField.id);
+            }
+          } else {
+             // Create a new empty field if no fields exist to attach the face to
+             const newId = `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+             const newField: TextField = {
+               id: newId, text: '', x: 0, y: 0, width: 0, height: 0,
+               font: activeComic.selectedFonts?.[0] || 'Comic Neue', fontSize: 32, alignment: 'center', characterName: 'Unknown',
+               order: textFields.length + 1,
+               characterFace: { x, y, width, height }
+             };
+             setTextFields(prev => [...prev, newField]);
+             setSelectedFieldId(newId);
+          }
+        } else {
+          const newId = `TX_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+          const newField: TextField = {
+            id: newId, text: 'New Dialogue', x, y, width, height,
+            font: activeComic.selectedFonts?.[0] || 'Comic Neue', fontSize: 32, alignment: 'center', characterName: 'Unknown',
+            order: textFields.length + 1
+          };
+          setTextFields(prev => [...prev, newField]);
+          setSelectedFieldId(newId);
+        }
       }
     }
     setInteractionType('none');
@@ -1273,6 +1331,16 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                     <i className="fa-solid fa-font"></i>
                   </button>
                   <button 
+                    onClick={() => setToolMode('face')} 
+                    className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center px-1.5 ${toolMode === 'face' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                    title="Character Face Tool (F)"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-0.5">
+                      <div className="w-2.5 h-2.5 rounded-full border-2 border-current"></div>
+                      <div className="w-4 h-1.5 rounded-t-full border-2 border-current border-b-0"></div>
+                    </div>
+                  </button>
+                  <button 
                     onClick={() => setToolMode('eraser')} 
                     className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${toolMode === 'eraser' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
                     title="Eraser Tool (E)"
@@ -1355,8 +1423,8 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
 
             {/* Property Bar for Selected Field - Moved to Bottom */}
             {activeTab === 'export' && selectedField && (
-              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-4 items-center bg-slate-800 text-white p-2 rounded-2xl shadow-2xl border border-white/10 animate-in slide-in-from-bottom-4 z-50">
-                <div className="flex items-center gap-3 px-2">
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex max-w-[95%] overflow-x-auto gap-3 items-center bg-slate-800 text-white p-2 rounded-2xl shadow-2xl border border-white/10 animate-in slide-in-from-bottom-4 z-50 no-scrollbar">
+                <div className="flex items-center gap-3 px-2 flex-shrink-0">
                   {(() => {
                     const char = activeComic.characters?.find(c => c.name === selectedField.characterName);
                     const avatar = char?.avatarUrl || char?.imageUrl;
@@ -1378,107 +1446,108 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                       </select>
                   </div>
                 </div>
-                <div className="w-[1px] h-6 bg-white/10"></div>
-                <div className="flex flex-col px-2 w-40">
-                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Text</label>
-                    <input 
-                      type="text"
-                      className="bg-white/10 text-[10px] font-medium text-white px-2 py-1 rounded outline-none w-full"
-                      value={selectedField.text}
-                      onChange={(e) => updateField(selectedField.id, { text: e.target.value })}
-                      placeholder="Enter dialog..."
-                    />
-                </div>
-                <div className="w-[1px] h-6 bg-white/10"></div>
-                <div className="flex flex-col px-2">
-                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Font</label>
-                    <select 
-                      value={selectedField.font}
-                      onChange={(e) => updateField(selectedField.id, { font: e.target.value })}
-                      className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer"
-                      style={{ fontFamily: getFontFamily(selectedField.font) }}
-                    >
-                      {(activeComic.selectedFonts || ['Comic Neue', 'Permanent Marker', 'Bangers']).map(fontName => {
-                        return (
-                          <option key={fontName} value={fontName} className="text-slate-800" style={{ fontFamily: getFontFamily(fontName) }}>
-                            {fontName}
-                          </option>
-                        );
-                      })}
-                    </select>
-                </div>
-                <div className="w-[1px] h-6 bg-white/10"></div>
-                <div className="flex items-center gap-2 px-2">
-                    <button 
-                      onClick={() => updateField(selectedField.id, { fontSize: Math.max(8, selectedField.fontSize - 2) })}
-                      className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px]"
-                    >
-                      <i className="fa-solid fa-minus"></i>
-                    </button>
-                    <span className="text-[10px] font-black w-6 text-center">{selectedField.fontSize}</span>
-                    <button 
-                      onClick={() => updateField(selectedField.id, { fontSize: Math.min(120, selectedField.fontSize + 2) })}
-                      className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px]"
-                    >
-                      <i className="fa-solid fa-plus"></i>
-                    </button>
-                </div>
-                <div className="w-[1px] h-6 bg-white/10"></div>
-                <div className="flex gap-1 px-2">
-                    {(['left', 'center', 'right'] as const).map(align => (
-                      <button 
-                        key={align}
-                        onClick={() => updateField(selectedField.id, { alignment: align })}
-                        className={`w-7 h-7 rounded flex items-center justify-center text-[10px] transition-all ${selectedField.alignment === align ? 'bg-white text-slate-800' : 'hover:bg-white/10'}`}
-                      >
-                        <i className={`fa-solid fa-align-${align}`}></i>
-                      </button>
-                    ))}
-                </div>
-                <div className="w-[1px] h-6 bg-white/10"></div>
-                <div className="flex flex-col px-2">
-                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Rounding</label>
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="range" 
-                        min="0" 
-                        max="100" 
-                        value={selectedField.rounding || 0} 
-                        onChange={(e) => updateField(selectedField.id, { rounding: parseInt(e.target.value) })}
-                        className="w-16 accent-emerald-500"
-                      />
-                      <span className="text-[10px] font-black w-6 text-center">{selectedField.rounding || 0}</span>
+
+                {toolMode !== 'face' && (
+                  <>
+                    <div className="w-[1px] h-6 bg-white/10 flex-shrink-0"></div>
+                    <div className="flex flex-col px-2 flex-shrink-0">
+                        <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Font</label>
+                        <select 
+                          value={selectedField.font}
+                          onChange={(e) => updateField(selectedField.id, { font: e.target.value })}
+                          className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer"
+                          style={{ fontFamily: getFontFamily(selectedField.font) }}
+                        >
+                          {(activeComic.selectedFonts || ['Comic Neue', 'Permanent Marker', 'Bangers']).map(fontName => {
+                            return (
+                              <option key={fontName} value={fontName} className="text-slate-800" style={{ fontFamily: getFontFamily(fontName) }}>
+                                {fontName}
+                              </option>
+                            );
+                          })}
+                        </select>
                     </div>
-                </div>
-                <div className="w-[1px] h-6 bg-white/10"></div>
-                <div className="flex flex-col px-2">
+                    <div className="w-[1px] h-6 bg-white/10 flex-shrink-0"></div>
+                    <div className="flex items-center gap-2 px-2 flex-shrink-0">
+                        <button 
+                          onClick={() => updateField(selectedField.id, { fontSize: Math.max(8, selectedField.fontSize - 2) })}
+                          className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px]"
+                        >
+                          <i className="fa-solid fa-minus"></i>
+                        </button>
+                        <span className="text-[10px] font-black w-6 text-center">{selectedField.fontSize}</span>
+                        <button 
+                          onClick={() => updateField(selectedField.id, { fontSize: Math.min(120, selectedField.fontSize + 2) })}
+                          className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-[10px]"
+                        >
+                          <i className="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                    <div className="w-[1px] h-6 bg-white/10 flex-shrink-0"></div>
+                    <div className="flex gap-1 px-2 flex-shrink-0">
+                        {(['left', 'center', 'right'] as const).map(align => (
+                          <button 
+                            key={align}
+                            onClick={() => updateField(selectedField.id, { alignment: align })}
+                            className={`w-7 h-7 rounded flex items-center justify-center text-[10px] transition-all ${selectedField.alignment === align ? 'bg-white text-slate-800' : 'hover:bg-white/10'}`}
+                          >
+                            <i className={`fa-solid fa-align-${align}`}></i>
+                          </button>
+                        ))}
+                    </div>
+                    <div className="w-[1px] h-6 bg-white/10 flex-shrink-0"></div>
+                    <div className="flex flex-col px-2 flex-shrink-0">
+                        <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Rounding</label>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            value={selectedField.rounding || 0} 
+                            onChange={(e) => updateField(selectedField.id, { rounding: parseInt(e.target.value) })}
+                            className="w-16 accent-emerald-500"
+                          />
+                          <span className="text-[10px] font-black w-6 text-center">{selectedField.rounding || 0}</span>
+                        </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="w-[1px] h-6 bg-white/10 flex-shrink-0"></div>
+                <div className="flex flex-col px-2 flex-shrink-0">
                     <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Order</label>
                     <input 
                       type="number" 
                       min="1" 
                       value={selectedField.order || 1} 
                       onChange={(e) => updateField(selectedField.id, { order: parseInt(e.target.value) || 1 })}
-                      className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer w-12 border-b border-white/20 focus:border-emerald-500"
+                      className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer w-12 border-b border-white/20 focus:border-emerald-500 text-center"
                     />
                 </div>
-                <div className="w-[1px] h-6 bg-white/10"></div>
-                <div className="flex flex-col px-2">
-                    <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Script Link</label>
-                    <select 
-                      value={selectedField.dialogueId || ''}
-                      onChange={(e) => updateField(selectedField.id, { dialogueId: e.target.value })}
-                      className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer max-w-[80px]"
-                    >
-                      <option key="diag-none" value="" className="text-slate-800">None</option>
-                      {script?.flatMap(p => p.dialogue).map(d => (
-                        <option key={d.id} value={d.id} className="text-slate-800">{d.id} ({d.character})</option>
-                      ))}
-                    </select>
-                </div>
-                <div className="w-[1px] h-6 bg-white/10"></div>
+                
+                {toolMode !== 'face' && (
+                  <>
+                    <div className="w-[1px] h-6 bg-white/10 flex-shrink-0"></div>
+                    <div className="flex flex-col px-2 flex-shrink-0">
+                        <label className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1">Script Association</label>
+                        <select 
+                          value={selectedField.dialogueId || ''}
+                          onChange={(e) => updateField(selectedField.id, { dialogueId: e.target.value })}
+                          className="bg-transparent text-[10px] font-black uppercase outline-none cursor-pointer max-w-[80px]"
+                        >
+                          <option key="diag-none" value="" className="text-slate-800">None</option>
+                          {script?.flatMap(p => p.dialogue).map(d => (
+                            <option key={d.id} value={d.id} className="text-slate-800">{d.id} ({d.character})</option>
+                          ))}
+                        </select>
+                    </div>
+                  </>
+                )}
+
+                <div className="w-[1px] h-6 bg-white/10 flex-shrink-0"></div>
                 <button 
                   onClick={deleteSelectedField}
-                  className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center ml-1"
+                  className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center flex-shrink-0"
                   title="Delete Field"
                 >
                   <i className="fa-solid fa-trash-can text-xs"></i>
@@ -1683,6 +1752,42 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                               {field.order}
                             </div>
                           )}
+                        </div>
+                      ))}
+
+                      {/* Character Faces */}
+                      {textFields?.filter(f => f.characterFace).map(field => (
+                        <div
+                          key={`face-${field.id}`}
+                          className={`absolute border-2 border-amber-500 transition-shadow ${selectedFieldId === field.id ? 'ring-4 ring-amber-500/10 bg-amber-500/5 shadow-2xl z-30' : 'bg-amber-500/10 z-20 hover:bg-amber-500/20'}`}
+                          style={{ 
+                            left: `${field.characterFace!.x}%`, 
+                            top: `${field.characterFace!.y}%`, 
+                            width: `${field.characterFace!.width}%`, 
+                            height: `${field.characterFace!.height}%`,
+                            borderRadius: '12%'
+                          }}
+                        >
+                          <div 
+                            className="absolute inset-0 cursor-move flex items-center justify-center overflow-hidden opacity-20"
+                            onMouseDown={(e) => handleFieldInteractionStart(e, field, 'movingFace')}
+                          >
+                            <div className="flex flex-col items-center gap-1 scale-150">
+                               <div className="w-5 h-5 rounded-full border-4 border-amber-600"></div>
+                               <div className="w-8 h-3 rounded-t-full border-4 border-amber-600 border-b-0"></div>
+                            </div>
+                          </div>
+
+                          <div 
+                             className="absolute bottom-1 right-1 w-4 h-4 bg-amber-500 cursor-nwse-resize rounded shadow-sm z-30 flex items-center justify-center text-white"
+                             onMouseDown={(e) => handleFieldInteractionStart(e, field, 'resizingFace')}
+                          >
+                             <i className="fa-solid fa-up-right-and-down-left-from-center text-[6px] rotate-90"></i>
+                          </div>
+
+                          <div className="absolute -top-2 -left-2 bg-amber-600 text-white text-[8px] font-black w-5 h-5 rounded-sm flex items-center justify-center shadow-sm z-20 pointer-events-none border border-white/20">
+                             {field.order}
+                          </div>
                         </div>
                       ))}
                     </div>

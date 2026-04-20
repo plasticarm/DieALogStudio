@@ -48,7 +48,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
   const isMobileEditing = focusedFieldId !== null;
   const [usedHints, setUsedHints] = useState<Set<string>>(new Set());
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes in seconds
-  const [branches, setBranches] = useState(30);
+  const [branches, setBranches] = useState(Math.round(3 * (10 / 3) * 2)); // Formula: Games to Win (3) * ( 10 / TimeLimit (3) ) * 2
   const [isSavingLocal, setIsSavingLocal] = useState(false);
 
   const [viewMode, setViewMode] = useState<'panel' | 'full'>('panel');
@@ -63,15 +63,34 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         .map(tf => {
           const panelScript = selectedStrip.script?.find(p => p.dialogue.some(d => d.id === tf.dialogueId));
           const panelLayout = selectedStrip.panelLayout?.find(p => p.panelNumber === panelScript?.panelNumber);
+          let targetX = tf.x;
+          let targetY = tf.y;
+          let targetW = tf.width;
+          let targetH = tf.height;
+
+          if (tf.characterFace) {
+            const pad = 5; // 5% padding
+            const minX = Math.max(0, Math.min(tf.x, tf.characterFace.x) - pad);
+            const minY = Math.max(0, Math.min(tf.y, tf.characterFace.y) - pad);
+            const maxX = Math.min(100, Math.max(tf.x + tf.width, tf.characterFace.x + tf.characterFace.width) + pad);
+            const maxY = Math.min(100, Math.max(tf.y + tf.height, tf.characterFace.y + tf.characterFace.height) + pad);
+            
+            targetX = minX;
+            targetY = minY;
+            targetW = maxX - minX;
+            targetH = maxY - minY;
+          }
+
           return { 
-            x: tf.x, 
-            y: tf.y, 
-            width: tf.width, 
-            height: tf.height, 
+            x: targetX, 
+            y: targetY, 
+            width: targetW, 
+            height: targetH, 
             id: tf.id, 
             overridePanZoom: tf.overridePanZoom,
             panelHeight: panelLayout?.height,
-            panelWidth: panelLayout?.width
+            panelWidth: panelLayout?.width,
+            hasFace: !!tf.characterFace
           };
         });
     }
@@ -152,12 +171,16 @@ export const TestingLab: React.FC<TestingLabProps> = ({
       } else {
         let scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
         
-        // If we have panel information, adjust scale to fit the panel height better
-        if ((focusTarget as any).panelHeight) {
+        // If we have panel information AND no character face, use panel height for framing
+        if ((focusTarget as any).panelHeight && !(focusTarget as any).hasFace) {
           const panelHeight = (focusTarget as any).panelHeight;
           // Aim for the panel to take up about 85% of the view height
           const panelScale = 85 / panelHeight;
           scale = Math.max(1, Math.min(panelScale, 5));
+        } else if ((focusTarget as any).hasFace) {
+          // If we have a face, we already calculated target width/height with padding in navigationTargets
+          // Just use the bounding box scale
+          scale = Math.max(1, Math.min(90 / focusTarget.width, 90 / focusTarget.height, 5));
         }
 
         setTimeout(() => {
@@ -706,7 +729,7 @@ export const TestingLab: React.FC<TestingLabProps> = ({
             <button 
               onClick={() => {
                 setTimeLeft(180);
-                setBranches(30);
+                setBranches(Math.round(3 * (10 / 3) * 2));
               }}
               className={`w-10 h-10 rounded-full flex items-center justify-center bg-white/10 border border-white/10 hover:bg-white/20 transition-all ${contrastColor}`}
               title="Restart Session"

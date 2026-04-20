@@ -167,6 +167,71 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [currentTextFieldIndex, setCurrentTextFieldIndex] = useState(0);
   const [viewportHeight, setViewportHeight] = useState('100dvh');
 
+  const historyRef = useRef(history);
+  const comicsRef = useRef(comics);
+  const activeStripIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    historyRef.current = history;
+    comicsRef.current = comics;
+  }, [history, comics]);
+
+  // Reconciliation: If we have an activeStripId but no activeStrip, try to resolve it from history
+  useEffect(() => {
+    if (room?.activeStripId && !activeStrip) {
+      const strip = history.find(h => h.id === room.activeStripId);
+      if (strip) setActiveStrip(strip);
+    }
+  }, [room?.activeStripId, history, activeStrip]);
+
+  // Centralized synchronization of local state when activeStrip changes
+  useEffect(() => {
+    if (activeStrip) {
+      const profile = comics.find(c => c.id === activeStrip.comicProfileId);
+      const primaryFont = profile?.selectedFonts?.[0] || 'Comic Neue';
+      
+      if (activeStripIdRef.current !== activeStrip.id) {
+        activeStripIdRef.current = activeStrip.id;
+        
+        // Initialize text fields if the strip has changed
+        setLocalTextFields((activeStrip.textFields || []).map(tf => ({ 
+          ...tf, 
+          text: '', 
+          font: primaryFont 
+        })));
+        
+        // Reset turn state
+        setUsedHints(new Set());
+        setHasSubmitted(false);
+        
+        // Setup initial preview for the current strip if not already looking at a real submission
+        setSelectedComic(prev => {
+          if (prev && prev.stripId === activeStrip.id && !prev.id.startsWith('temp_')) {
+            return prev;
+          }
+          return {
+            id: `temp_${activeStrip.id}`,
+            comicProfileId: activeStrip.comicProfileId,
+            stripId: activeStrip.id,
+            imageUrl: activeStrip.exportImageUrl || activeStrip.finishedImageUrl,
+            rating: 0,
+            timestamp: Date.now(),
+            name: activeStrip.name
+          };
+        });
+      }
+    } else {
+      // If active strip is cleared, clear related local state
+      if (activeStripIdRef.current !== null) {
+        activeStripIdRef.current = null;
+        setLocalTextFields([]);
+        setSelectedComic(null);
+        setUsedHints(new Set());
+        setHasSubmitted(false);
+      }
+    }
+  }, [activeStrip?.id, comics]);
+
   const sortedTextFields = useMemo(() => {
     return [...localTextFields].sort((a, b) => {
       return (a.order || 0) - (b.order || 0);
@@ -315,15 +380,34 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         .map(tf => {
           const panelScript = activeStrip.script?.find(p => p.dialogue.some(d => d.id === tf.dialogueId));
           const panelLayout = activeStrip.panelLayout?.find(p => p.panelNumber === panelScript?.panelNumber);
+          let targetX = tf.x;
+          let targetY = tf.y;
+          let targetW = tf.width;
+          let targetH = tf.height;
+
+          if (tf.characterFace) {
+            const pad = 5; // 5% padding
+            const minX = Math.max(0, Math.min(tf.x, tf.characterFace.x) - pad);
+            const minY = Math.max(0, Math.min(tf.y, tf.characterFace.y) - pad);
+            const maxX = Math.min(100, Math.max(tf.x + tf.width, tf.characterFace.x + tf.characterFace.width) + pad);
+            const maxY = Math.min(100, Math.max(tf.y + tf.height, tf.characterFace.y + tf.characterFace.height) + pad);
+            
+            targetX = minX;
+            targetY = minY;
+            targetW = maxX - minX;
+            targetH = maxY - minY;
+          }
+
           return { 
-            x: tf.x, 
-            y: tf.y, 
-            width: tf.width, 
-            height: tf.height, 
+            x: targetX, 
+            y: targetY, 
+            width: targetW, 
+            height: targetH, 
             id: tf.id, 
             overridePanZoom: tf.overridePanZoom,
             panelHeight: panelLayout?.height,
-            panelWidth: panelLayout?.width
+            panelWidth: panelLayout?.width,
+            hasFace: !!tf.characterFace
           };
         });
     }
@@ -413,12 +497,16 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       } else {
         let scale = Math.max(1, Math.min(80 / focusTarget.width, 80 / focusTarget.height, 5));
         
-        // If we have panel information, adjust scale to fit the panel height better
-        if ((focusTarget as any).panelHeight) {
+        // If we have panel information AND no character face, use panel height for framing
+        if ((focusTarget as any).panelHeight && !(focusTarget as any).hasFace) {
           const panelHeight = (focusTarget as any).panelHeight;
           // Aim for the panel to take up about 85% of the view height
           const panelScale = 85 / panelHeight;
           scale = Math.max(1, Math.min(panelScale, 5));
+        } else if ((focusTarget as any).hasFace) {
+          // If we have a face, we already calculated target width/height with padding in navigationTargets
+          // Just use the bounding box scale
+          scale = Math.max(1, Math.min(90 / focusTarget.width, 90 / focusTarget.height, 5));
         }
 
         setTimeout(() => {
@@ -477,7 +565,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const allSubmitted = submittedComics.length >= writersCount && writersCount > 0;
 
   const processedGameOverRef = useRef<boolean>(false);
-  const activeStripIdRef = useRef<string | null>(null);
   const lastWriterPool = useRef<string[]>([]);
   const lastJudgePool = useRef<string[]>([]);
   const lastPickedWriterId = useRef<string | null>(null);
@@ -655,7 +742,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
         timeLimit: 3,
         submissions: [],
         scores: { [user.id]: 0 },
-        branches: { [user.id]: 30 },
+        branches: { [user.id]: Math.round(3 * (10 / 3) * 2) },
         pointsToWin: 3
       });
       setRole('writer');
@@ -707,29 +794,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       if (updatedRoom.previewImage !== undefined) setPreviewImage(updatedRoom.previewImage);
 
       if (updatedRoom.gameState === 'playing' && (updatedRoom.activeStripId || updatedRoom.activeStrip)) {
-        const strip = updatedRoom.activeStrip || history.find(h => h.id === updatedRoom.activeStripId);
+        const strip = updatedRoom.activeStrip || historyRef.current.find(h => h.id === updatedRoom.activeStripId);
         if (strip) {
           setActiveStrip(strip);
-          if (activeStripIdRef.current !== strip.id) {
-            activeStripIdRef.current = strip.id;
-            const profile = comics.find(c => c.id === strip.comicProfileId);
-            const primaryFont = profile?.selectedFonts?.[0] || 'Comic Neue';
-            setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
-            setSelectedComic({
-              id: `temp_${strip.id}`,
-              comicProfileId: strip.comicProfileId,
-              stripId: strip.id,
-              imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
-              rating: 0,
-              timestamp: Date.now(),
-              name: strip.name
-            });
-          }
         }
       } else if (updatedRoom.gameState === 'playing' && !updatedRoom.activeStripId && !updatedRoom.activeStrip) {
         setSelectedComic(null);
         setActiveStrip(null);
-        activeStripIdRef.current = null;
         setLocalTextFields([]);
       }
     };
@@ -762,7 +833,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       pusher.unsubscribe(`room-${roomCode}`);
       pusher.disconnect();
     };
-  }, [user.id, roomCode, history, comics]);
+  }, [user.id, roomCode]);
 
   const handleStartGame = async () => {
     if (!roomCode || room?.host !== user?.id) return;
@@ -789,7 +860,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
             submissions: [],
             winner: null,
             scores: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 0 }), {}),
-            branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 30 }), {}),
+            branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: Math.round((pointsToWin || 3) * (10 / (timeLimit || 2)) * 2) }), {}),
             winningComics: []
           } 
         }),
@@ -1041,23 +1112,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     
     const strip = history.find(h => h.id === nextId);
     if (strip) {
-      const profile = comics.find(c => c.id === strip.comicProfileId);
-      const primaryFont = profile?.selectedFonts?.[0] || 'Comic Neue';
-
       setActiveStrip(strip);
-      setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
-      setUsedHints(new Set());
-      
-      setSelectedComic({
-        id: `temp_${strip.id}`,
-        comicProfileId: strip.comicProfileId,
-        stripId: strip.id,
-        imageUrl: strip.exportImageUrl || strip.finishedImageUrl,
-        rating: 0,
-        timestamp: Date.now(),
-        name: strip.name
-      });
-
       if (room?.host === user?.id && roomCode) {
         fetch('/api/game/update-state', {
           method: 'POST',
@@ -1102,12 +1157,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       
       const strip = history.find(h => h.id === randomComic.stripId);
       if (strip) {
-        const profile = comics.find(c => c.id === strip.comicProfileId);
-        const primaryFont = profile?.selectedFonts?.[0] || 'Comic Neue';
-
         setActiveStrip(strip);
-        setLocalTextFields((strip.textFields || []).map(tf => ({ ...tf, text: '', font: primaryFont })));
-        setUsedHints(new Set());
       }
       
       const isTwoPlayer = room?.players?.length === 2;
@@ -1252,7 +1302,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   };
 
   const handleCanned = (tfId: string, category: string) => {
-    if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
+    if ((room?.branches?.[user?.id || ''] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)) <= 0) return;
     
     // Determine placement based on the round (winningComics length)
     const winningCount = room?.winningComics?.length || 0;
@@ -1906,7 +1956,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                         submissions: [],
                         winner: null,
                         scores: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 0 }), {}),
-                        branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: 30 }), {}),
+                        branches: room.players.reduce((acc: any, p: any) => ({ ...acc, [p.id]: Math.round((room.pointsToWin || 3) * (10 / (room.timeLimit || 2)) * 2) }), {}),
                         winningComics: [],
                         nextJudgeId: null
                       } 
@@ -2168,7 +2218,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                       <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{p.name.split(' ')[0]}</span>
                       <div className="flex items-center gap-0.5 text-[7px] font-black text-emerald-600">
                         <i className="fa-solid fa-leaf scale-75"></i>
-                        {room.branches?.[p.id] ?? 30}
+                        {room.branches?.[p.id] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)}
                       </div>
                     </div>
                     <span className="text-[10px] font-black text-slate-800">{room.scores[p.id] || 0}</span>
@@ -2186,7 +2236,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {role !== 'select' && !selectedComic && (
-        <div className="flex-1 flex flex-col items-center pt-2 px-8 pb-12">
+        <div className="flex-1 flex flex-col items-center pt-10 px-8 pb-12">
           {role === 'writer' && !activeStrip ? (
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
                <div className="w-24 h-24 bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-400 text-4xl mb-8 animate-pulse">
@@ -2267,7 +2317,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
       )}
 
       {selectedComic && (role === 'judge' || hasSubmitted) && (
-        <div className="flex-1 flex flex-col pt-2 px-8 pb-12">
+        <div className="flex-1 flex flex-col pt-10 px-8 pb-12">
           <div className="w-full max-w-4xl mx-auto mb-12">
             <h2 className="text-center text-2xl font-header uppercase tracking-widest text-slate-800 mb-6">
               {winner ? 'Winning Comic' : 'Winner Selection'}
@@ -2874,7 +2924,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                             onMouseDown={(e) => e.preventDefault()}
                                             onPointerDown={(e) => e.preventDefault()}
                                             onClick={() => {
-                                              if ((room?.branches?.[user?.id || ''] ?? 30) <= 0) return;
+                                              if ((room?.branches?.[user?.id || ''] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)) <= 0) return;
                                               if (tf.dialogueId && activeStrip.script) {
                                                 const dialogue = activeStrip.script.flatMap(p => p.dialogue).find(d => d.id === tf.dialogueId);
                                                 if (dialogue) {
@@ -2894,14 +2944,14 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                                 alert("No Dialogue ID associated with this field.");
                                               }
                                             }}
-                                            disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
+                                            disabled={(room?.branches?.[user?.id || ''] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)) <= 0}
                                             className={`text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
                                               isHintUsed 
                                                 ? 'bg-slate-200 text-slate-500 max-md:bg-slate-800 max-md:text-slate-400' 
-                                                : (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 max-md:bg-slate-800 max-md:text-slate-600 cursor-not-allowed' :
+                                                : (room?.branches?.[user?.id || ''] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)) <= 0 ? 'bg-slate-100 text-slate-300 max-md:bg-slate-800 max-md:text-slate-600 cursor-not-allowed' :
                                                 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
                                             }`}
-                                            title={(room?.branches?.[user?.id || ''] ?? 30) <= 0 ? "Out of branches" : "Fill with original script text"}
+                                            title={(room?.branches?.[user?.id || ''] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)) <= 0 ? "Out of branches" : "Fill with original script text"}
                                           >
                                             <i className="fa-solid fa-lightbulb text-[7px]"></i>
                                             Hint
@@ -2913,12 +2963,12 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                                             onMouseDown={(e) => e.preventDefault()}
                                             onPointerDown={(e) => e.preventDefault()}
                                             onClick={(e) => toggleCannedMenu(e, tf.id)}
-                                            disabled={(room?.branches?.[user?.id || ''] ?? 30) <= 0}
+                                            disabled={(room?.branches?.[user?.id || ''] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)) <= 0}
                                             className={`canned-menu-trigger text-[8px] font-bold px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shrink-0 ${
-                                              (room?.branches?.[user?.id || ''] ?? 30) <= 0 ? 'bg-slate-100 text-slate-300 max-md:bg-slate-800 max-md:text-slate-600 cursor-not-allowed' :
+                                              (room?.branches?.[user?.id || ''] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)) <= 0 ? 'bg-slate-100 text-slate-300 max-md:bg-slate-800 max-md:text-slate-600 cursor-not-allowed' :
                                               'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
                                             }`}
-                                            title={(room?.branches?.[user?.id || ''] ?? 30) <= 0 ? "Out of branches" : "Fill with random canned phrase"}
+                                            title={(room?.branches?.[user?.id || ''] ?? Math.round((room?.pointsToWin || 3) * (10 / (room?.timeLimit || 2)) * 2)) <= 0 ? "Out of branches" : "Fill with random canned phrase"}
                                           >
                                             <i className="fa-solid fa-comment-dots text-[7px]"></i>
                                             Canned

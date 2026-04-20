@@ -218,7 +218,7 @@ app.get('/api/health', (req, res) => {
         submissions: [],
         winner: null,
         scores: { [hostUser.id]: 0 },
-        branches: { [hostUser.id]: 30 },
+        branches: { [hostUser.id]: Math.round(3 * (10 / 2) * 2) }, // pointsToWin * (10 / timeLimit) * 2
         winningComics: [],
         timeLimit: 2,
         pointsToWin: 3
@@ -295,7 +295,7 @@ app.post('/api/game/join', async (req, res) => {
       }
       if (!room.branches) room.branches = {};
       if (!room.branches[user.id]) {
-        room.branches[user.id] = 30;
+        room.branches[user.id] = Math.round((room.pointsToWin || 3) * (10 / (room.timeLimit || 2)) * 2);
       }
     } else {
       room.players[existingPlayerIdx] = { ...room.players[existingPlayerIdx], ...player };
@@ -378,7 +378,7 @@ app.post('/api/game/join', async (req, res) => {
     const { roomCode, playerId, cost } = req.body;
     const room = await getRoom(roomCode);
     if (room && room.branches) {
-      const currentBranches = room.branches[playerId] ?? 30;
+      const currentBranches = room.branches[playerId] ?? Math.round((room.pointsToWin || 3) * (10 / (room.timeLimit || 2)) * 2);
       const deduction = cost || 1;
       const newBranchCount = Math.max(0, currentBranches - deduction);
       room.branches[playerId] = newBranchCount;
