@@ -43,7 +43,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuth }) => {
       const randomAvatar = getRandomComicAvatar();
       const guestUser: User = {
         id: user.uid,
-        name: `Guest Architect ${Math.floor(Math.random() * 1000)}`,
+        name: `Guest ${Math.floor(Math.random() * 1000)}`,
         picture: randomAvatar || undefined,
         apiKeys: {},
         role: 'user'

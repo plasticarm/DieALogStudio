@@ -8,6 +8,7 @@ import { generateVeoVideo } from '../services/gemini';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { COMIC_FONTS, GENRES, CANNED_CATEGORIES, CANNED_PHRASES_DATA } from '../constants';
 import { GuideBuddy } from './GuideBuddy';
+import { HowToPlay } from './HowToPlay';
 import Pusher from 'pusher-js';
 
 const getFontFamily = (fontName: string) => {
@@ -160,6 +161,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [activeStrip, setActiveStrip] = useState<SavedComicStrip | null>(null);
   const [activeCannedMenu, setActiveCannedMenu] = useState<{ id: string, x: number, y: number, pointerOffX?: number } | null>(null);
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const [isMobileModeActive, setIsMobileModeActive] = useState(false);
   const isMobileEditing = isMobileModeActive;
@@ -1570,6 +1572,10 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   };
 
 
+  if (showHowToPlay) {
+    return <HowToPlay onBack={() => setShowHowToPlay(false)} />;
+  }
+
   if (!roomCode) {
     return (
       <div className="h-[100dvh] w-full flex flex-col items-center bg-slate-50 relative overflow-y-auto py-12">
@@ -1595,6 +1601,12 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-12">The Game</p>
           
           <div className="w-full space-y-4">
+            <button 
+              onClick={() => setShowHowToPlay(true)}
+              className="w-full bg-white text-slate-800 py-6 rounded-3xl font-black uppercase tracking-widest text-sm shadow-sm border border-slate-200 hover:bg-slate-50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
+            >
+              <i className="fa-solid fa-circle-question text-indigo-600"></i> How To Play
+            </button>
             <button 
               onClick={handleCreateGame}
               className="w-full bg-slate-900 text-white py-6 rounded-3xl font-black uppercase tracking-widest text-sm shadow-xl hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"

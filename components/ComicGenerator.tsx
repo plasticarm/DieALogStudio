@@ -1089,7 +1089,7 @@ Note: Highly cinematic, clear panel borders, gutters, professional comic book la
                     disabled={isProcessing}
                     className="h-10 px-4 bg-slate-800 text-white rounded-xl flex items-center justify-center text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-md disabled:opacity-30 flex-1"
                   >
-                    {isProcessing ? 'Rendering...' : 'Commit Render'}
+                    {isProcessing ? 'Generating...' : 'Generate'}
                   </button>
                 </div>
               </div>
