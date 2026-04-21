@@ -1526,8 +1526,8 @@ export default function App() {
   if (appMode === 'select') {
     return (
       <>
-        <div className="h-[100dvh] w-screen bg-slate-50 flex flex-col items-center justify-center relative">
-          <div className="absolute top-8 right-8 flex items-center gap-6">
+        <div className="min-h-[100dvh] w-screen bg-slate-50 flex flex-col items-center relative py-12 pt-[25vh] overflow-y-auto overflow-x-hidden">
+          <div className="fixed top-8 right-8 flex items-center gap-6 z-20">
             <button 
               onClick={() => setIsProfileOpen(true)} 
               className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors group"
@@ -1547,28 +1547,32 @@ export default function App() {
               Logout
             </button>
           </div>
-          <div className="h-40 w-40 mx-auto mb-6 float-animation">
+          <div className="h-60 w-60 mx-auto mb-2 float-animation">
             <CachedImage 
               src="https://raw.githubusercontent.com/plasticarm/DieALogStudio/main/images/DieALog_Logo1.png" 
               alt="DiE-A-Log" 
               className="w-full h-full object-contain drop-shadow-2xl" 
             />
           </div>
-          <h1 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-12">Select Mode</h1>
-          <div className="flex flex-row gap-4 sm:gap-8 w-full max-w-md sm:max-w-none px-6 sm:px-0 justify-center">
-            <button 
-              onClick={() => setAppMode('edit')}
-              className="flex-1 sm:w-64 h-48 sm:h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-4 sm:gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-500/50 transition-all group"
-            >
-              <i className="fa-solid fa-pen-ruler text-4xl sm:text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
-              <span className="text-xl sm:text-2xl font-black uppercase tracking-widest text-slate-700">Edit</span>
-            </button>
+          <div className="bg-amber-600 px-6 py-3 rounded-2xl mb-12 shadow-lg max-w-[90vw] sm:max-w-md mx-6">
+            <h1 className="text-[10px] sm:text-[12px] font-black uppercase tracking-[0.2em] text-white text-center leading-relaxed">
+              Ruin perfectly good comics with your terrible sense of humor.
+            </h1>
+          </div>
+          <div className="flex flex-row gap-4 sm:gap-8 w-full max-w-4xl px-6 justify-center">
             <button 
               onClick={() => setAppMode('play')}
-              className="flex-1 sm:w-64 h-48 sm:h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-4 sm:gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-200 transition-all group"
+              className="flex-1 max-w-[200px] sm:max-w-[280px] h-48 sm:h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-4 sm:gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-200 transition-all group"
             >
               <i className="fa-solid fa-gamepad text-4xl sm:text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
               <span className="text-xl sm:text-2xl font-black uppercase tracking-widest text-slate-700">Play</span>
+            </button>
+            <button 
+              onClick={() => setAppMode('edit')}
+              className="flex-1 max-w-[200px] sm:max-w-[280px] h-48 sm:h-64 bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col items-center justify-center gap-4 sm:gap-6 hover:scale-105 hover:shadow-2xl hover:border-amber-500/50 transition-all group"
+            >
+              <i className="fa-solid fa-pen-ruler text-4xl sm:text-6xl text-slate-300 group-hover:text-amber-600 transition-colors"></i>
+              <span className="text-xl sm:text-2xl font-black uppercase tracking-widest text-slate-700">Create</span>
             </button>
           </div>
         </div>

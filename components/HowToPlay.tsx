@@ -22,7 +22,7 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ onBack }) => {
             <i className="fa-solid fa-gamepad"></i>
           </div>
           <h1 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-2">How To Play</h1>
-          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">DiE-A-Log Studio</p>
+          <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">DiE-A-Log Studio • Best for 3+ Players</p>
         </div>
 
         <div className="grid gap-8">
