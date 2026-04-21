@@ -2246,23 +2246,42 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           )}
         </div>
       )}
-
       {role !== 'select' && !selectedComic && (
         <div className="flex-1 flex flex-col items-center pt-10 px-8 pb-12">
           {role === 'writer' && !activeStrip ? (
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
-               <div className="w-24 h-24 bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-400 text-4xl mb-8 animate-pulse">
-                 <i className="fa-solid fa-hourglass-half"></i>
-               </div>
-               <h2 className="text-4xl font-header uppercase tracking-widest text-slate-800 mb-4">Waiting for Judge</h2>
-               <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">The judge is selecting the next comic strip...</p>
+              <div className="w-24 h-24 bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-400 text-4xl mb-8 animate-pulse">
+                <i className="fa-solid fa-hourglass-half"></i>
+              </div>
+              <h2 className="text-4xl font-header uppercase tracking-widest text-slate-800 mb-4">Waiting for Judge</h2>
+              <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">The judge is selecting the next comic strip...</p>
             </div>
           ) : (
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center max-w-2xl w-full text-center">
-              <h2 className="text-5xl font-header uppercase tracking-widest text-slate-800 mb-6">
-                Ready to Judge
-              </h2>
-            
+              {filteredRatings.length > 0 ? (
+                <button
+                  onClick={handlePickComic}
+                  className="px-12 py-5 bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-xl shadow-xl hover:bg-amber-800 transition-all hover:scale-105 mb-10"
+                >
+                  Ready
+                </button>
+              ) : (
+                <div className="bg-rose-50 text-rose-600 p-6 rounded-2xl border border-rose-100 mb-10">
+                  <i className="fa-solid fa-triangle-exclamation text-3xl mb-3"></i>
+                  <p className="font-bold">No comics available!</p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-center gap-4 mb-10">
+                <div className="w-16 h-16 bg-stone-100 rounded-2xl flex items-center justify-center text-amber-700 text-2xl">
+                  <i className="fa-solid fa-layer-group"></i>
+                </div>
+                <div className="text-left">
+                  <span className="block text-3xl font-black text-slate-800">{filteredRatings.length}</span>
+                  <span className="block text-xs font-black uppercase tracking-widest text-slate-400">Comics Available</span>
+                </div>
+              </div>
+
               <div className="mb-8 w-full max-w-3xl">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Select Genres for Game</p>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -2282,40 +2301,19 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                 </div>
               </div>
 
-            <div className="flex items-center justify-center gap-4 mb-10">
-              <div className="w-16 h-16 bg-stone-100 rounded-2xl flex items-center justify-center text-amber-700 text-2xl">
-                <i className="fa-solid fa-layer-group"></i>
-              </div>
-              <div className="text-left">
-                <span className="block text-3xl font-black text-slate-800">{filteredRatings.length}</span>
-                <span className="block text-xs font-black uppercase tracking-widest text-slate-400">Comics Available</span>
-              </div>
-            </div>
-
-            {filteredRatings.length > 0 ? (
-              <button 
-                onClick={handlePickComic}
-                className="px-12 py-5 bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-xl shadow-xl hover:bg-amber-800 transition-all hover:scale-105"
-              >
-                Select Comic
-              </button>
-            ) : (
-              <div className="bg-rose-50 text-rose-600 p-6 rounded-2xl border border-rose-100">
-                <i className="fa-solid fa-triangle-exclamation text-3xl mb-3"></i>
-                <p className="font-bold">No comics available!</p>
-                <p className="text-sm mt-2 opacity-80">
-                  {selectedGenreIds.length < GENRES.length 
-                    ? "Try selecting more genres." 
+              {filteredRatings.length === 0 && (
+                <div className="text-rose-600 text-sm opacity-80 max-w-xs mx-auto">
+                  {selectedGenreIds.length < GENRES.length
+                    ? "Try selecting more genres."
                     : "Go back to Edit mode and use the Testing Lab to submit comics to Play Mode."}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {room?.gameState === 'playing' && timeLeft !== null && timeLeft >= 0 && !hasSubmitted && !allSubmitted && (
+      {room?.gameState === 'playing' && timeLeft !== null && timeLeft >= 0 && !hasSubmitted && !allSubmitted && selectedComic && (
         <div data-guide="game-guide-timer" className={`fixed z-[60] px-4 py-2 rounded-2xl shadow-xl border-2 flex items-center gap-3 transition-all duration-500 ${
           preGameState === 'cover' 
             ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-150 bg-white border-slate-200 text-slate-800' 
