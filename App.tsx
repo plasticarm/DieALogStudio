@@ -1526,7 +1526,7 @@ export default function App() {
   if (appMode === 'select') {
     return (
       <>
-        <div className="min-h-[100dvh] w-screen bg-slate-50 flex flex-col items-center relative py-12 pt-[25vh] overflow-y-auto overflow-x-hidden">
+        <div className="min-h-[100dvh] w-screen bg-slate-50 flex flex-col items-center relative py-12 pt-[15vh] overflow-y-auto overflow-x-hidden">
           <div className="fixed top-8 right-8 flex items-center gap-6 z-20">
             <button 
               onClick={() => setIsProfileOpen(true)} 
@@ -1554,7 +1554,7 @@ export default function App() {
               className="w-full h-full object-contain drop-shadow-2xl" 
             />
           </div>
-          <div className="bg-amber-600 px-6 py-3 rounded-2xl mb-12 shadow-lg max-w-[90vw] sm:max-w-md mx-6">
+          <div className="bg-stone-600 px-6 py-3 rounded-2xl mb-12 shadow-lg max-w-[90vw] sm:max-w-md mx-6">
             <h1 className="text-[10px] sm:text-[12px] font-black uppercase tracking-[0.2em] text-white text-center leading-relaxed">
               Ruin perfectly good comics with your terrible sense of humor.
             </h1>
