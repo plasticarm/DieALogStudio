@@ -374,7 +374,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
 
   const addCharacter = () => {
     const newChar: Character = {
-      id: `char_${Date.now()}`,
+      id: `char_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       name: 'New Subject',
       description: 'Physical traits and behavior...'
     };
@@ -388,7 +388,7 @@ export const TrainingCenter: React.FC<TrainingCenterProps> = ({
 
   const addEnvironment = () => {
     const newEnv: Environment = {
-      id: `env_${Date.now()}`,
+      id: `env_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       name: 'New Locale',
       description: 'Visual atmosphere...'
     };

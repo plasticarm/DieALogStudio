@@ -464,13 +464,6 @@ export default function App() {
             
             // Sync characters
             if (initial.characters && initial.characters.length > 0) {
-              const existingCharIds = new Set((updated.characters || []).map(ch => ch.id));
-              const missingChars = initial.characters.filter(ch => !existingCharIds.has(ch.id));
-              if (missingChars.length > 0) {
-                updated.characters = [...(updated.characters || []), ...missingChars];
-                changed = true;
-              }
-              
               // Sync images for existing characters
               updated.characters = (updated.characters || []).map(ch => {
                 const initialChar = initial.characters.find(ic => ic.id === ch.id);
@@ -492,13 +485,6 @@ export default function App() {
             
             // Sync environments
             if (initial.environments && initial.environments.length > 0) {
-              const existingEnvIds = new Set((updated.environments || []).map(env => env.id));
-              const missingEnvs = initial.environments.filter(env => !existingEnvIds.has(env.id));
-              if (missingEnvs.length > 0) {
-                updated.environments = [...(updated.environments || []), ...missingEnvs];
-                changed = true;
-              }
-              
               // Sync images for existing environments
               updated.environments = (updated.environments || []).map(env => {
                 const initialEnv = initial.environments.find(ie => ie.id === env.id);
@@ -1556,7 +1542,7 @@ export default function App() {
           </div>
           <div className="bg-stone-600 px-6 py-3 rounded-2xl mb-12 shadow-lg max-w-[90vw] sm:max-w-md mx-6">
             <h1 className="text-[10px] sm:text-[12px] font-black uppercase tracking-[0.2em] text-white text-center leading-relaxed">
-              Ruin perfectly good comics with your terrible sense of humor.
+              Ruin perfectly good comics strips with your terrible sense of humor
             </h1>
           </div>
           <div className="flex flex-row gap-4 sm:gap-8 w-full max-w-4xl px-6 justify-center">
