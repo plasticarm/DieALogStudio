@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SavedComicStrip, TextField, ComicProfile, RatedComic } from '../types';
 import { downloadImage } from '../services/utils';
 import { downscaleImage } from '../utils/imageUtils';
+import { wrapAndFitText } from '../utils/canvasText';
 import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -467,42 +468,11 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         const fontName = tf.font || 'Inter';
         const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
         
-        let fontSize = 40 * (canvas.height / 1000);
-        ctx.font = `${fontSize}px "${fontFamily}"`;
-        
-        const wrapText = (text: string, maxWidth: number) => {
-          const words = text.split(' ');
-          const lines = [];
-          if (words.length === 0) return [];
-          let currentLine = words[0];
-
-          for (let i = 1; i < words.length; i++) {
-            const word = words[i];
-            const width = ctx.measureText(currentLine + " " + word).width;
-            if (width < maxWidth) {
-              currentLine += " " + word;
-            } else {
-              lines.push(currentLine);
-              currentLine = word;
-            }
-          }
-          lines.push(currentLine);
-          return lines;
-        };
-
-        while (fontSize > 8) {
-          ctx.font = `${fontSize}px "${fontFamily}"`;
-          const lines = wrapText(cleanText, w * 0.9);
-          const totalHeight = lines.length * fontSize * 1.2;
-          if (totalHeight < h * 0.9) break;
-          fontSize -= 1;
-        }
-
         ctx.fillStyle = 'black';
         ctx.textAlign = tf.alignment || 'center';
         ctx.textBaseline = 'middle';
         
-        const lines = wrapText(cleanText, w * 0.9);
+        const { fontSize, lines } = wrapAndFitText(ctx, cleanText, fontFamily, w, h);
         const lineHeight = fontSize * 1.2;
         const startY = y + h / 2 - ((lines.length - 1) * lineHeight) / 2;
 
@@ -606,44 +576,11 @@ export const TestingLab: React.FC<TestingLabProps> = ({
         const fontName = tf.font || 'Inter';
         const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
         
-        let fontSize = h; // Start with the maximum possible height
-        ctx.font = `${fontSize}px "${fontFamily}"`;
-        
-        const wrapText = (text: string, maxWidth: number) => {
-          const words = text.split(' ');
-          const lines = [];
-          let currentLine = words[0];
-
-          for (let i = 1; i < words.length; i++) {
-            const word = words[i];
-            const width = ctx.measureText(currentLine + " " + word).width;
-            if (width < maxWidth) {
-              currentLine += " " + word;
-            } else {
-              lines.push(currentLine);
-              currentLine = word;
-            }
-          }
-          lines.push(currentLine);
-          return lines;
-        };
-
-        // Adjust font size to fit
-        while (fontSize > 8) {
-          ctx.font = `${fontSize}px "${fontFamily}"`;
-          const lines = wrapText(cleanText, w * 0.9);
-          const totalHeight = lines.length * fontSize * 1.2;
-          const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
-          
-          if (totalHeight <= h * 0.9 && maxLineWidth <= w * 0.9) break;
-          fontSize -= 1;
-        }
-
         ctx.fillStyle = 'black';
         ctx.textAlign = tf.alignment || 'center';
         ctx.textBaseline = 'middle';
         
-        const lines = wrapText(cleanText, w * 0.9);
+        const { fontSize, lines } = wrapAndFitText(ctx, cleanText, fontFamily, w, h);
         const lineHeight = fontSize * 1.2;
         const startY = y + h / 2 - ((lines.length - 1) * lineHeight) / 2;
 

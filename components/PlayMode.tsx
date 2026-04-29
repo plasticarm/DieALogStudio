@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { CachedImage } from './CachedImage';
 import { imageStore } from '../services/imageStore';
 import { downscaleImage } from '../utils/imageUtils';
+import { wrapAndFitText } from '../utils/canvasText';
 import { generateVeoVideo } from '../services/gemini';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { COMIC_FONTS, GENRES, CANNED_CATEGORIES, CANNED_PHRASES_DATA } from '../constants';
@@ -359,7 +360,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(GENRES.map(g => g.id));
   const [writerDeck, setWriterDeck] = useState<string[]>([]);
   const [judgeDeck, setJudgeDeck] = useState<string[]>([]);
-  const [timeLimit, setTimeLimit] = useState(2);
+  const [timeLimit, setTimeLimit] = useState(3);
   const [pointsToWin, setPointsToWin] = useState(3);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isRenderingVideo, setIsRenderingVideo] = useState(false);
@@ -433,10 +434,17 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     if (viewMode === 'full') {
       setViewMode('panel');
       setCurrentTargetIndex(0);
+      setCurrentTextFieldIndex(0);
+      setFocusedFieldId(navigationTargets[0]?.id || null);
     } else if (currentTargetIndex === navigationTargets.length - 1) {
       setViewMode('full');
     } else {
-      setCurrentTargetIndex(prev => prev + 1);
+      setCurrentTargetIndex(prev => {
+        const next = prev + 1;
+        setCurrentTextFieldIndex(next);
+        setFocusedFieldId(navigationTargets[next]?.id || null);
+        return next;
+      });
     }
   };
 
@@ -445,10 +453,17 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
     if (viewMode === 'full') {
       setViewMode('panel');
       setCurrentTargetIndex(navigationTargets.length - 1);
+      setCurrentTextFieldIndex(navigationTargets.length - 1);
+      setFocusedFieldId(navigationTargets[navigationTargets.length - 1]?.id || null);
     } else if (currentTargetIndex === 0) {
       setViewMode('full');
     } else {
-      setCurrentTargetIndex(prev => prev - 1);
+      setCurrentTargetIndex(prev => {
+        const next = prev - 1;
+        setCurrentTextFieldIndex(next);
+        setFocusedFieldId(navigationTargets[next]?.id || null);
+        return next;
+      });
     }
   };
 
@@ -565,6 +580,17 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
 
   const writersCount = room?.players.filter((p: any) => p.role === 'writer').length || 0;
   const allSubmitted = submittedComics.length >= writersCount && writersCount > 0;
+
+  const displayComics = useMemo(() => {
+    if (allSubmitted) {
+      return [...submittedComics].sort((a, b) => {
+        const hashA = a.id.split('_').pop() || a.id;
+        const hashB = b.id.split('_').pop() || b.id;
+        return hashA.localeCompare(hashB);
+      });
+    }
+    return submittedComics;
+  }, [submittedComics, allSubmitted]);
 
   const processedGameOverRef = useRef<boolean>(false);
   const lastWriterPool = useRef<string[]>([]);
@@ -1446,44 +1472,11 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           const fontName = tf.font || 'Inter';
           const fontFamily = getFontFamily(fontName).replace(/,.*$/, '').replace(/"/g, '');
           
-          let fontSize = h; 
-          ctx.font = `${fontSize}px "${fontFamily}", sans-serif`;
-          
-          const wrapText = (text: string, maxWidth: number) => {
-            const words = text.split(/\s+/);
-            const lines = [];
-            if (words.length === 0) return [];
-            let currentLine = words[0];
-
-            for (let i = 1; i < words.length; i++) {
-              const word = words[i];
-              const width = ctx.measureText(currentLine + " " + word).width;
-              if (width < maxWidth) {
-                currentLine += " " + word;
-              } else {
-                lines.push(currentLine);
-                currentLine = word;
-              }
-            }
-            lines.push(currentLine);
-            return lines;
-          };
-
-          while (fontSize > 12) {
-            ctx.font = `${fontSize}px "${fontFamily}", sans-serif`;
-            const lines = wrapText(cleanText, w * 0.9);
-            const totalHeight = lines.length * fontSize * 1.2;
-            const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
-            
-            if (totalHeight <= h * 0.9 && maxLineWidth <= w * 0.9) break;
-            fontSize -= 2;
-          }
-
           ctx.fillStyle = '#000000';
           ctx.textAlign = tf.alignment as CanvasTextAlign || 'center';
           ctx.textBaseline = 'middle';
-
-          const lines = wrapText(cleanText, w * 0.9);
+          
+          const { fontSize, lines } = wrapAndFitText(ctx, cleanText, fontFamily, w, h);
           const lineHeight = fontSize * 1.2;
           const startY = y + h / 2 - ((lines.length - 1) * lineHeight) / 2;
 
@@ -2125,7 +2118,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                           if (viewMode === 'full') {
                             setViewMode('panel');
                           }
-                          // Focus will be handled by the useEffect watching currentTextFieldIndex
                         }
                       }} 
                       style={{ 
@@ -2158,6 +2150,23 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           </TransformComponent>
         )}
       </TransformWrapper>
+      
+      {navigationTargets.length > 0 && !isEnlarged && !isMobileEditing && (
+        <div className="absolute inset-y-0 left-2 right-2 flex justify-between items-center z-[50] pointer-events-none">
+          <button 
+            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+            className="w-10 h-10 rounded-full bg-white/50 hover:bg-white/70 text-slate-800 flex items-center justify-center shadow pointer-events-auto backdrop-blur-sm transition-all"
+          >
+            <i className="fa-solid fa-chevron-left text-lg"></i>
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleNext(); }}
+            className="w-10 h-10 rounded-full bg-white/50 hover:bg-white/70 text-slate-800 flex items-center justify-center shadow pointer-events-auto backdrop-blur-sm transition-all"
+          >
+            <i className="fa-solid fa-chevron-right text-lg"></i>
+          </button>
+        </div>
+      )}
     </div>
   ) : null;
 
@@ -2661,18 +2670,24 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
           <div className="flex-1">
             <h3 className="text-center text-sm font-black uppercase tracking-widest text-slate-400 mb-8">Submitted Comics</h3>
             <div className="flex flex-wrap justify-center gap-8 pb-20">
-              {submittedComics.map((comic, idx) => (
+              {displayComics.map((comic, idx) => {
+                const bookCover = books.find(b => b.id === activeStrip?.comicProfileId)?.coverImageUrl;
+                const activeStripCover = activeStrip?.exportImageUrl || activeStrip?.finishedImageUrl;
+                const interimCoverUrl = bookCover || activeStripCover || comic.imageUrl;
+                const displayImageUrl = allSubmitted || winner ? comic.imageUrl : interimCoverUrl;
+
+                return (
                 <div 
                   key={comic.id}
-                  draggable={role === 'judge' && !winner}
+                  draggable={role === 'judge' && !winner && allSubmitted}
                   onDragStart={(e) => handleDragStart(e, comic)}
-                  className={`relative group ${role === 'judge' && !winner ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                  className={`relative group ${role === 'judge' && !winner && allSubmitted ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 >
                   <div className="w-48 aspect-video rounded-2xl overflow-hidden shadow-lg border-4 border-white transition-transform group-hover:scale-105 relative bg-black">
-                    <CachedImage src={comic.imageUrl} className="w-full h-full object-contain" />
+                    <CachedImage src={displayImageUrl} className="w-full h-full object-contain" />
                     
                     {/* Fallback Text Overlay for Judge */}
-                    {comic.textFields && comic.textFields.length > 0 && !comic.isFlattened && (
+                    {(allSubmitted || !!winner) && comic.textFields && comic.textFields.length > 0 && !comic.isFlattened && (
                       <div className="absolute inset-0 pointer-events-none">
                         {comic.textFields.map(tf => (
                           <div 
@@ -2711,13 +2726,13 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                       <button 
                         data-guide={idx === 0 ? "game-guide-judge-select" : undefined}
-                        onClick={() => handlePreviewImage(comic.imageUrl)}
+                        onClick={() => handlePreviewImage(displayImageUrl)}
                         className="w-12 h-12 bg-white text-slate-800 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
                         title="Preview"
                       >
                         <i className="fa-solid fa-magnifying-glass"></i>
                       </button>
-                      {role === 'judge' && !winner && (
+                      {role === 'judge' && !winner && allSubmitted && (
                         <button 
                           data-guide={idx === 0 ? "game-guide-judge-trophy" : undefined}
                           onClick={(e) => {
@@ -2742,12 +2757,12 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
-                          disabled={!!winner || role !== 'judge'}
+                          disabled={!!winner || role !== 'judge' || !allSubmitted}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRateComic(comic.id, star);
                           }}
-                          className={`text-xl transition-all ${!winner && role === 'judge' ? 'hover:scale-125 active:scale-95' : 'cursor-default'}`}
+                          className={`text-xl transition-all ${!winner && role === 'judge' && allSubmitted ? 'hover:scale-125 active:scale-95' : 'cursor-default'}`}
                         >
                           <i className={`${(comic.rating || 0) >= star ? 'fa-solid text-amber-500' : 'fa-regular text-slate-300'} fa-star`}></i>
                         </button>
@@ -2755,7 +2770,7 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                     </div>
                   )}
                 </div>
-              ))}
+              )})}
               {submittedComics.length === 0 && (
                 <div className="text-slate-400 font-black uppercase tracking-widest text-sm">Waiting for submissions...</div>
               )}
@@ -2823,23 +2838,6 @@ export const PlayMode: React.FC<PlayModeProps> = ({ user, ratings, history, comi
                       )}
                       
                       {ComicViewImgPanZoomArea}
-                      
-                      {navigationTargets.length > 0 && !isEnlarged && !isMobileEditing && (
-                        <div className="flex justify-center gap-4 mt-3">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-                            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center shadow transition-all"
-                          >
-                            <i className="fa-solid fa-chevron-left text-xs"></i>
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center shadow transition-all"
-                          >
-                            <i className="fa-solid fa-chevron-right text-xs"></i>
-                          </button>
-                        </div>
-                      )}
                     </div>
 
                     {/* DiE-A-Log Editor (Bottom) */}
